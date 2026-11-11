@@ -28,6 +28,13 @@ export const elevationAt = (map: MapEntry, index: number): number => map.elev[in
 
 export type Rgb = readonly [number, number, number];
 
+/**
+ * Colour in 0..255, as CSS wants it — and *not* what three's `Color.setRGB`
+ * wants. The distinction is not cosmetic: passing 0..255 to setRGB clamps every
+ * channel to 1 and the whole map renders solid white.
+ */
+export type Rgb255 = Rgb;
+
 function ramp(stops: readonly (readonly [number, Rgb])[], t: number): Rgb {
   if (t <= (stops[0]?.[0] ?? 0)) return stops[0]?.[1] ?? [0, 0, 0];
   for (let i = 1; i < stops.length; i++) {
@@ -71,11 +78,11 @@ const SEA_STOPS: readonly (readonly [number, Rgb])[] = [
   [0, [78, 152, 196]],
 ];
 
-export const landColor = (elevation: number): Rgb => ramp(LAND_STOPS, elevation);
-export const seaColor = (elevation: number): Rgb => ramp(SEA_STOPS, elevation);
+export const landColor = (elevation: number): Rgb255 => ramp(LAND_STOPS, elevation);
+export const seaColor = (elevation: number): Rgb255 => ramp(SEA_STOPS, elevation);
 
 /** Colour for any cell, land or sea, used by the 2D preview and the low tier. */
-export function cellColor(map: MapEntry, index: number): Rgb {
+export function cellColor(map: MapEntry, index: number): Rgb255 {
   const e = elevationAt(map, index);
   return isLand(map, index) ? landColor(e) : seaColor(e);
 }

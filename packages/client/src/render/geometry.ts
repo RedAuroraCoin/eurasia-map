@@ -5,6 +5,7 @@ import {
   type GameState,
   type MapEntry,
   type Rgb,
+  type Rgb255,
 } from '@eurasia/shared';
 import { CELL, cellToWorld, elevationToHeight, seaDepth } from './grid';
 
@@ -16,7 +17,14 @@ import { CELL, cellToWorld, elevationToHeight, seaDepth } from './grid';
  * coast is shaped — is testable without a GPU.
  */
 
-export const OWNER_TINT: Rgb = [0.93, 0.66, 0.3];
+export const OWNER_TINT: Rgb255 = [237, 168, 77];
+
+/** 0..255 -> 0..1. The only sanctioned way to hand a ramp colour to three. */
+export const unitColor = (rgb: Rgb255): [number, number, number] => [
+  rgb[0] / 255,
+  rgb[1] / 255,
+  rgb[2] / 255,
+];
 const OWNER_MIX = 0.34;
 
 export interface TerrainInstance {

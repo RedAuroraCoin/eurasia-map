@@ -1,6 +1,13 @@
 import { BALANCE, MS_PER_DAY, createInitialState, getMap, reduce } from '@eurasia/shared';
 import { describe, expect, it } from 'vitest';
-import { buildBuildings, buildTerrain, depthTextureData, popScale } from './geometry';
+import {
+  buildBuildings,
+  buildTerrain,
+  depthTextureData,
+  OWNER_TINT,
+  popScale,
+  unitColor,
+} from './geometry';
 
 const T0 = Date.UTC(2026, 0, 1);
 const ctx = (nowMs: number) => ({
@@ -60,6 +67,37 @@ describe('buildTerrain', () => {
   it('flattens when relief is off', () => {
     const heights = new Set(buildTerrain(map, false).map((cell) => cell.height.toFixed(4)));
     expect(heights.size).toBe(1);
+  });
+});
+
+describe('colour space', () => {
+  const map = getMap(500);
+
+  it('converts 0..255 ramp colours into the 0..1 three expects', () => {
+    expect(unitColor([255, 0, 127])).toEqual([1, 0, 127 / 255]);
+    expect(unitColor(OWNER_TINT).every((channel) => channel <= 1)).toBe(true);
+  });
+
+  it('keeps every terrain colour inside 0..255 and none of them white', () => {
+    const cells = buildTerrain(map, true);
+    for (const cell of cells.slice(0, 200)) {
+      for (const channel of cell.color) {
+        expect(channel).toBeGreaterThanOrEqual(0);
+        expect(channel).toBeLessThanOrEqual(255);
+      }
+      // the bug this guards: 0..255 handed to setRGB clamps to white
+      expect(unitColor(cell.color).every((channel) => channel < 0.99)).toBe(true);
+    }
+  });
+
+  it('mixes the owner tint into the same space, so claimed land warms up', () => {
+    const index = landCells(1)[0] as number;
+    const state = claimedState([index]);
+    const plain = buildTerrain(map, true).find((cell) => cell.index === index);
+    const owned = buildTerrain(map, true, state.cells).find((cell) => cell.index === index);
+    expect(plain).toBeDefined();
+    expect(owned).toBeDefined();
+    expect((owned?.color[0] ?? 0) / 255).toBeGreaterThan((plain?.color[0] ?? 0) / 255);
   });
 });
 

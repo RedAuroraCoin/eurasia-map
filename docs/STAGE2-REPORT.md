@@ -58,18 +58,22 @@ What those tests actually pin down:
 
 Reported: "heights are visible only in a narrow range, and the slightest zoom turns the map white".
 
+**The white map was a colour-space bug, and my first two guesses were wrong.** `landColor` returns
+0..255 because it also feeds CSS; `THREE.Color.setRGB` expects 0..1 and **clamps**, so every channel
+became 1 and every land cell rendered solid white — at every zoom level. The console line the user
+sent (`PCFSoftShadowMap has been removed`) was unrelated.
+
+- **Fixed:** a `unitColor()` helper is now the only way a ramp colour reaches three, the type is
+  named `Rgb255` so the two spaces cannot be confused, and the owner tint was moved into the same
+  0..255 space (it had been mixing 0.93 with 255). A test asserts no terrain colour is white after
+  conversion.
+- **Also fixed, and real though not the reported symptom:** the slabs were 0.985 cells wide, leaving
+  a seam that would show the water plane at close range; the water under land was marked "shore" and
+  painted foam through that seam; a close low camera could cut into a mountain and fill the screen
+  with sky. Those fixes stand.
 - **Heights.** `elevationToHeight` used `(e/5200)^0.78 × 1.1`, which put 95 % of Eurasia inside
   0.15–0.35 units — the board read as a plain. Now `(e/5200)^0.62 × 2.3`, and the colour ramp was
-  re-spaced over 0–2 400 m instead of 0–5 200 m, so a 400 m plain, a 1 200 m hill and a 3 000 m
-  plateau are three different things.
-- **White on zoom.** Two causes, both real. The terrain slabs were scaled to 0.985 cells, leaving a
-  0.015-unit seam between neighbours — sub-pixel at default distance, a bright lattice once a cell
-  is 40 px wide — and the sea plane *underneath* the land was told "depth 0 = shore", which the
-  shader paints as white foam. Fixed by using the full cell and marking land as deep in the depth
-  texture. Also added: a guard that keeps the camera above the terrain (the orbit target sits on
-  the ground, so a close low camera could cut into a mountain and show sky), a sea plane 3.5× the
-  board that fades into the fog instead of ending in a hard edge, and framing solved by projecting
-  the board's eight corners rather than a tangent estimate.
+  re-spaced over 0–2 400 m instead of 0–5 200 m.
 - **Framing.** The old estimate framed on the diagonal with a 1.25 margin, putting the camera ~40 %
   further out than needed. `fitDistance` now bisects for the exact distance at every aspect ratio;
   a test projects the land corners with three's own matrices and asserts they stay on screen.

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GameState, MapEntry } from '@eurasia/shared';
-import { buildBuildings, buildTerrain, depthTextureData, OWNER_TINT } from './geometry';
+import { buildBuildings, buildTerrain, depthTextureData, OWNER_TINT, unitColor } from './geometry';
 import { boardSize, elevationToHeight, fitDistance, VIEW_DIRECTION, worldToCell } from './grid';
 import type { Lighting } from './palette';
 import { WATER_FRAGMENT, WATER_VERTEX } from './water-shaders';
@@ -101,7 +101,8 @@ export class Scene3D implements View {
     // colours, and a filmic curve would desaturate the elevation ramp.
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.shadowMap.enabled = quality === 'high';
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCFSoftShadowMap was removed in r187; plain PCF is what is left.
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 400);
     this.camera.position.copy(cameraPositionFor(fitDistance(map, FOV, 1)));
@@ -237,7 +238,7 @@ export class Scene3D implements View {
       matrix.makeScale(1, cell.height, 1);
       matrix.setPosition(cell.x, 0, cell.z);
       mesh.setMatrixAt(i, matrix);
-      color.setRGB(cell.color[0], cell.color[1], cell.color[2], THREE.SRGBColorSpace);
+      color.setRGB(...unitColor(cell.color), THREE.SRGBColorSpace);
       mesh.setColorAt(i, color);
     });
     mesh.count = cells.length;
@@ -356,7 +357,7 @@ export class Scene3D implements View {
     const cells = buildTerrain(this.map, this.relief, this.state?.cells ?? {});
     const color = new THREE.Color();
     cells.forEach((cell, i) => {
-      color.setRGB(cell.color[0], cell.color[1], cell.color[2], THREE.SRGBColorSpace);
+      color.setRGB(...unitColor(cell.color), THREE.SRGBColorSpace);
       this.terrain?.setColorAt(i, color);
     });
     if (this.terrain.instanceColor) this.terrain.instanceColor.needsUpdate = true;
@@ -385,7 +386,8 @@ export class Scene3D implements View {
       this.buildings?.setMatrixAt(i, matrix);
 
       const shade = 0.72 + 0.28 * Math.min(1, cell.scale);
-      color.setRGB(OWNER_TINT[0] * shade, OWNER_TINT[1] * shade, OWNER_TINT[2] * shade);
+      const tint = unitColor(OWNER_TINT);
+      color.setRGB(tint[0] * shade, tint[1] * shade, tint[2] * shade);
       this.buildings?.setColorAt(i, color);
 
       if (i < glowCapacity) {
