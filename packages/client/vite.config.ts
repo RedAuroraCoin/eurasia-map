@@ -6,6 +6,8 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
+    // three.js is the bulk of the bundle and is cacheable on its own
+    chunkSizeWarningLimit: 900,
   },
   server: {
     port: 5173,

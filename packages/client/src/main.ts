@@ -1,340 +1,422 @@
 import {
-  MAP_SIZES,
-  cellColor,
-  cellCol,
-  cellRow,
-  cssRgb,
-  elevationAt,
+  BALANCE,
+  SAVE_VERSION,
+  createInitialState,
+  dayIndex,
   getMap,
-  isLand,
-  type MapEntry,
+  reduce,
+  type GameState,
   type MapSize,
 } from '@eurasia/shared';
 import { ru } from './i18n/ru';
+import { lightingAt, timeOfDayFromDate } from './render/palette';
+import { createView, type View } from './render/view';
+import { browserStorage, clearSave, loadSave, saveState } from './state/save';
+import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
+import { App, type AppHandlers } from './ui/app';
 
-type Theme = 'auto' | 'light' | 'dark';
+/**
+ * Single-player wiring: the engine decides, the view draws, this file is the
+ * only place that knows about both — plus storage, input and the clock.
+ */
 
-const state = {
-  size: 500 as MapSize,
-  selected: 0,
-  hover: -1,
-  theme: 'auto' as Theme,
+/** Demo mode runs the world at one day per second. */
+const DEMO_SPEED = 86_400;
+
+const storage = browserStorage();
+let settings = loadSettings(storage);
+let map = getMap(settings.size);
+let state: GameState;
+let demo = false;
+let demoState: GameState | null = null;
+
+/** The clock the world runs on: accelerated by the speed setting, never used for money. */
+let visualNow = Date.now();
+let lastLighting = -1;
+let selected = 0;
+let saveTimer = 0;
+
+// Handlers are declared before the app because the constructor wires them up;
+// everything they close over (`app`, `view`) exists by the time one is called.
+const handlers: AppHandlers = {
+  onSize: (size) => switchSize(size),
+  onTheme: (theme) => {
+    settings = { ...settings, theme };
+    saveSettings(storage, settings);
+    applyTheme();
+  },
+  onQuality: (quality) => {
+    settings = { ...settings, quality };
+    saveSettings(storage, settings);
+    view.setQuality(resolveQuality(settings));
+  },
+  onRelief: (relief) => {
+    settings = { ...settings, relief };
+    saveSettings(storage, settings);
+    view.setRelief(relief);
+    view.setState(active(), Date.now());
+    app.setSettings(settings, demo);
+  },
+  onDayNight: (dayNight) => {
+    settings = { ...settings, dayNight };
+    saveSettings(storage, settings);
+    lastLighting = -1;
+    applyLighting(true);
+  },
+  onHurricanes: (hurricanes) => {
+    settings = { ...settings, hurricanes };
+    saveSettings(storage, settings);
+    app.setSettings(settings, demo);
+  },
+  onSpeed: (speed) => {
+    settings = { ...settings, speed };
+    saveSettings(storage, settings);
+    app.setSettings(settings, demo);
+  },
+  onDemo: () => toggleDemo(),
+  onReset: () => void reset(),
 };
 
-interface ElementProps {
-  class?: string;
-  text?: string;
-  attrs?: Record<string, string>;
-  on?: Partial<Record<keyof HTMLElementEventMap, EventListener>>;
-}
+const app = new App(settings, handlers);
+const root = document.querySelector<HTMLDivElement>('#app') ?? document.body;
+app.mount(root);
 
-function h<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  props: ElementProps = {},
-  ...children: (Node | string)[]
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (props.class) node.className = props.class;
-  if (props.text !== undefined) node.textContent = props.text;
-  for (const [key, value] of Object.entries(props.attrs ?? {})) node.setAttribute(key, value);
-  for (const [event, handler] of Object.entries(props.on ?? {})) {
-    if (handler) node.addEventListener(event, handler);
-  }
-  for (const child of children) {
-    node.append(typeof child === 'string' ? document.createTextNode(child) : child);
-  }
-  return node;
-}
+const { view, mode } = createView(app.canvas, map, settings.relief, resolveQuality(settings));
+if (mode === '2d') app.setMessage(ru.messages.noWebgl, 'info');
+view.resize();
 
-const app = document.querySelector<HTMLDivElement>('#app');
-if (!app) throw new Error('#app is missing');
+// --------------------------------------------------------------------- state
 
-const canvas = h('canvas', {
-  attrs: {
-    tabindex: '0',
-    role: 'application',
-    'aria-label': `${ru.map.hint}. ${ru.map.focusHint}`,
-  },
+const active = (): GameState => (demo ? (demoState ?? state) : state);
+
+const ctx = () => ({
+  nowMs: Date.now(),
+  isLand: (index: number) => map.mask[index] === '#',
+  cellCount: map.rows * map.cols,
 });
 
-const statusText = h('span', { text: '' });
-const hintText = h('span', { text: ru.map.hint });
-const live = h('p', { class: 'visually-hidden', attrs: { 'aria-live': 'polite' } });
-
-const facts = h('dl', { class: 'facts' });
-
-const sizeButtons = MAP_SIZES.map((size) =>
-  h('button', {
-    text: ru.map.sizeOption(size),
-    attrs: { type: 'button', 'aria-pressed': String(size === state.size) },
-    on: { click: () => setSize(size) },
-  }),
-);
-
-const themeButtons = (['auto', 'light', 'dark'] as const).map((theme) =>
-  h('button', {
-    text: ru.theme[theme],
-    attrs: { type: 'button', 'aria-pressed': String(theme === state.theme) },
-    on: { click: () => setTheme(theme) },
-  }),
-);
-
-app.append(
-  h(
-    'header',
-    { class: 'header' },
-    h('div', {}, h('h1', { text: ru.app.title }), h('p', { text: ru.app.tagline })),
-    h('span', { class: 'chip', text: ru.stage.label }),
-  ),
-  h(
-    'div',
-    { class: 'layout' },
-    h(
-      'section',
-      { class: 'card map-card' },
-      h('div', { class: 'map-frame' }, canvas),
-      h('div', { class: 'status' }, statusText, hintText),
-      live,
-    ),
-    h(
-      'aside',
-      { class: 'card panel' },
-      h(
-        'div',
-        { class: 'group' },
-        h('span', { class: 'label', text: ru.map.size }),
-        h('div', { class: 'segmented' }, ...sizeButtons),
-      ),
-      h(
-        'div',
-        { class: 'group' },
-        h('span', { class: 'label', text: ru.theme.label }),
-        h('div', { class: 'segmented' }, ...themeButtons),
-      ),
-      h(
-        'div',
-        { class: 'group' },
-        h('span', { class: 'label', text: ru.map.elevation }),
-        h(
-          'div',
-          { class: 'legend' },
-          h('div', { class: 'ramp' }),
-          h(
-            'div',
-            { class: 'ramp-scale' },
-            h('span', { text: '0' }),
-            h('span', { text: '1 200' }),
-            h('span', { text: '3 200' }),
-            h('span', { text: '5 200 м' }),
-          ),
-        ),
-      ),
-      facts,
-    ),
-  ),
-  h('footer', { class: 'footer' }, h('span', { text: `${ru.source.label}: ${ru.source.text}` })),
-);
-
-const ctx = canvas.getContext('2d');
-const layout = { cell: 1, ox: 0, oy: 0, w: 0, h: 0 };
-
-function setSize(size: MapSize): void {
-  if (size === state.size) return;
-  state.size = size;
-  state.selected = 0;
-  state.hover = -1;
-  for (const [index, button] of sizeButtons.entries()) {
-    button.setAttribute('aria-pressed', String(MAP_SIZES[index] === size));
+function nextSeed(): number {
+  const buffer = new Uint32Array(1);
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    crypto.getRandomValues(buffer);
   }
-  scheduleDraw();
-  updateFacts();
+  return (buffer[0] ?? Date.now()) >>> 0;
 }
 
-function setTheme(theme: Theme): void {
-  state.theme = theme;
-  if (theme === 'auto') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = theme;
-  for (const [index, button] of themeButtons.entries()) {
-    button.setAttribute('aria-pressed', String(['auto', 'light', 'dark'][index] === theme));
-  }
-}
-
-let frame = 0;
-function scheduleDraw(): void {
-  if (frame) return;
-  frame = requestAnimationFrame(() => {
-    frame = 0;
-    draw();
-  });
-}
-
-function draw(): void {
-  if (!ctx) return;
-  const mapData = getMap(state.size);
-  const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const width = Math.max(1, Math.round(rect.width));
-  const height = Math.max(1, Math.round(rect.height));
-
-  if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-  }
-
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#080e17';
-  ctx.fillRect(0, 0, width, height);
-
-  const cell = Math.max(3, Math.floor(Math.min(width / mapData.cols, height / mapData.rows)));
-  const ox = Math.floor((width - cell * mapData.cols) / 2);
-  const oy = Math.floor((height - cell * mapData.rows) / 2);
-  layout.cell = cell;
-  layout.ox = ox;
-  layout.oy = oy;
-  layout.w = width;
-  layout.h = height;
-
-  for (let row = 0; row < mapData.rows; row++) {
-    for (let col = 0; col < mapData.cols; col++) {
-      const index = row * mapData.cols + col;
-      ctx.fillStyle = cssRgb(cellColor(mapData, index));
-      ctx.fillRect(ox + col * cell, oy + row * cell, cell, cell);
+function firstLand(): number {
+  let best = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  const centreCol = map.cols / 2;
+  const centreRow = map.rows / 2;
+  for (let index = 0; index < map.mask.length; index++) {
+    if (map.mask[index] !== '#') continue;
+    const col = index % map.cols;
+    const row = Math.floor(index / map.cols);
+    const distance = Math.hypot(col - centreCol, row - centreRow);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = index;
     }
   }
-
-  if (cell >= 7) {
-    ctx.strokeStyle = 'rgba(4, 8, 14, 0.28)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let col = 1; col < mapData.cols; col++) {
-      const x = Math.round(ox + col * cell) + 0.5;
-      ctx.moveTo(x, oy);
-      ctx.lineTo(x, oy + mapData.rows * cell);
-    }
-    for (let row = 1; row < mapData.rows; row++) {
-      const y = Math.round(oy + row * cell) + 0.5;
-      ctx.moveTo(ox, y);
-      ctx.lineTo(ox + mapData.cols * cell, y);
-    }
-    ctx.stroke();
-  }
-
-  if (state.hover >= 0 && state.hover !== state.selected) {
-    strokeCell(mapData, state.hover, 'rgba(255, 255, 255, 0.55)', 1);
-  }
-  strokeCell(mapData, state.selected, 'rgba(0, 0, 0, 0.65)', 3);
-  strokeCell(mapData, state.selected, 'rgba(255, 255, 255, 0.95)', 1.5);
-
-  updateStatus();
+  return best;
 }
 
-function strokeCell(mapData: MapEntry, index: number, color: string, width: number): void {
-  if (!ctx) return;
-  const row = cellRow(mapData, index);
-  const col = cellCol(mapData, index);
-  const pad = width / 2;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
-  ctx.strokeRect(
-    layout.ox + col * layout.cell + pad,
-    layout.oy + row * layout.cell + pad,
-    layout.cell - width,
-    layout.cell - width,
+function updateStats(): void {
+  const current = active();
+  app.updateStats(
+    current.coins[0],
+    current.claimed[0] * BALANCE.income.perCellPerDay,
+    current.claimed[0],
+    map.land,
   );
 }
 
-function updateStatus(): void {
-  const mapData = getMap(state.size);
-  const index = state.hover >= 0 ? state.hover : state.selected;
-  const row = cellRow(mapData, index);
-  const col = cellCol(mapData, index);
-  const elevation = elevationAt(mapData, index);
-  const land = isLand(mapData, index);
-  const where = `${ru.map.cell(row, col)} · ${land ? ru.map.land : ru.map.sea}`;
-  const height = land ? ru.map.metres(elevation) : ru.map.depth(elevation);
-  statusText.textContent = `${where} · ${height}`;
-  live.textContent = statusText.textContent;
+function describeError(code: string): string {
+  switch (code) {
+    case 'no_coins':
+      return ru.messages.noCoins(BALANCE.claim.cost, active().coins[0]);
+    case 'sea':
+      return ru.messages.sea;
+    case 'taken':
+    case 'already_owned':
+      return ru.messages.taken;
+    default:
+      return ru.messages.failed;
+  }
 }
 
-function updateFacts(): void {
-  const mapData = getMap(state.size);
-  facts.replaceChildren(
-    h('dt', { text: ru.map.cells }),
-    h('dd', { text: String(mapData.land) }),
-    h('dt', { text: 'Сетка' }),
-    h('dd', { text: `${mapData.cols} × ${mapData.rows}` }),
-    h('dt', { text: 'Максимум' }),
-    h('dd', { text: ru.map.metres(Math.max(...mapData.elev)) }),
-  );
+function toggleCell(index: number): void {
+  if (demo) {
+    app.setMessage(ru.messages.demo, 'info');
+    return;
+  }
+  if (index < 0 || index >= map.rows * map.cols) return;
+
+  const owned = state.cells[String(index)] !== undefined;
+  const command = owned
+    ? ({ k: 'unclaim', cell: index, slot: 0 } as const)
+    : ({ k: 'claim', cell: index, slot: 0 } as const);
+
+  const result = reduce(state, command, ctx());
+  if (!result.ok) {
+    app.setMessage(describeError(result.code), 'error');
+    return;
+  }
+
+  state = result.state;
+  selected = index;
+  view.setSelected(index);
+  view.setState(state, Date.now());
+  updateStats();
+  scheduleSave();
+
+  for (const event of result.events) {
+    if (event.t === 'claimed') app.setMessage(ru.messages.claimed(event.cost), 'good');
+    if (event.t === 'unclaimed') app.setMessage(ru.messages.unclaimed(event.refund), 'good');
+  }
 }
 
-function indexFromEvent(event: PointerEvent): number {
-  const mapData = getMap(state.size);
-  const rect = canvas.getBoundingClientRect();
-  const col = Math.floor((event.clientX - rect.left - layout.ox) / layout.cell);
-  const row = Math.floor((event.clientY - rect.top - layout.oy) / layout.cell);
-  if (row < 0 || row >= mapData.rows || col < 0 || col >= mapData.cols) return -1;
-  return row * mapData.cols + col;
+/** Credits income for the days that passed while the player was away. */
+function settle(): void {
+  if (demo) return;
+  const result = reduce(state, { k: 'tick' }, ctx());
+  if (result.state === state) return;
+
+  state = result.state;
+  view.setState(state, Date.now());
+  updateStats();
+  scheduleSave();
+
+  const income = result.events.find((event) => event.t === 'income');
+  if (income && income.t === 'income') {
+    app.setMessage(ru.messages.income(income.amount, income.days), 'good');
+  }
 }
 
-canvas.addEventListener('pointermove', (event) => {
-  const index = indexFromEvent(event);
-  if (index === state.hover) return;
-  state.hover = index;
-  scheduleDraw();
+function scheduleSave(): void {
+  if (demo) return;
+  clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(saveNow, 250);
+}
+
+function saveNow(): void {
+  if (demo) return;
+  clearTimeout(saveTimer);
+  saveState(storage, state, Date.now(), settings.size);
+}
+
+function switchSize(size: MapSize): void {
+  if (size === settings.size) return;
+  saveNow();
+
+  settings = { ...settings, size };
+  saveSettings(storage, settings);
+  map = getMap(size);
+
+  const loaded = loadSave(storage, size);
+  state = loaded.ok ? loaded.state : createInitialState(nextSeed(), Date.now());
+  selected = firstLand();
+
+  view.setMap(map);
+  view.setSelected(selected);
+  view.setState(state, Date.now());
+  updateStats();
+  app.setSettings(settings, demo);
+  app.setMessage(loaded.ok ? ru.messages.loaded(state.claimed[0]) : ru.hud.hint, 'info');
+}
+
+function buildDemoState(): GameState {
+  const now = Date.now();
+  const cells: Record<string, { o: 0 | 1; t: number }> = {};
+  let claimed = 0;
+  for (let index = 0; index < map.mask.length; index++) {
+    if (map.mask[index] !== '#') continue;
+    cells[String(index)] = { o: 0, t: now - 40 * BALANCE.time.msPerDay };
+    claimed++;
+  }
+  return {
+    v: SAVE_VERSION,
+    seed: 1,
+    cells,
+    coins: [0, 0],
+    claimed: [claimed, 0],
+    lastDay: dayIndex(now),
+  };
+}
+
+function toggleDemo(): void {
+  demo = !demo;
+  if (demo) {
+    demoState = buildDemoState();
+    visualNow = Date.now();
+    lastLighting = -1;
+  }
+  app.setSettings(settings, demo);
+  view.setState(active(), Date.now());
+  updateStats();
+  app.setMessage(demo ? ru.messages.demo : ru.messages.demoOff, 'info');
+}
+
+async function reset(): Promise<void> {
+  const confirmed = await app.askReset();
+  if (!confirmed) return;
+
+  clearSave(storage, settings.size);
+  state = createInitialState(nextSeed(), Date.now());
+  demo = false;
+  demoState = null;
+  selected = firstLand();
+
+  app.setSettings(settings, false);
+  view.setSelected(selected);
+  view.setState(state, Date.now());
+  updateStats();
+  app.setMessage(ru.messages.reset, 'good');
+}
+
+// ------------------------------------------------------------------ visuals
+
+function applyTheme(): void {
+  const element = document.documentElement;
+  if (settings.theme === 'auto') delete element.dataset.theme;
+  else element.dataset.theme = settings.theme;
+}
+
+function applyLighting(force = false): void {
+  const timeOfDay =
+    settings.dayNight === 'day'
+      ? 0.45
+      : settings.dayNight === 'night'
+        ? 0.02
+        : timeOfDayFromDate(new Date(visualNow));
+
+  if (!force && Math.abs(timeOfDay - lastLighting) < 0.0008) return;
+  lastLighting = timeOfDay;
+  view.setLighting(lightingAt(timeOfDay));
+}
+
+function resolveQuality(current: Settings): 'high' | 'low' {
+  if (current.quality !== 'auto') return current.quality;
+  const cores = navigator.hardwareConcurrency || 4;
+  const ratio = window.devicePixelRatio || 1;
+  return cores >= 4 && ratio <= 2.2 ? 'high' : 'low';
+}
+
+// -------------------------------------------------------------------- input
+
+let pointerDown: { x: number; y: number; at: number } | null = null;
+
+app.canvas.addEventListener('pointerdown', (event) => {
+  pointerDown = { x: event.clientX, y: event.clientY, at: performance.now() };
 });
 
-canvas.addEventListener('pointerleave', () => {
-  state.hover = -1;
-  scheduleDraw();
+app.canvas.addEventListener('pointerup', (event) => {
+  const start = pointerDown;
+  pointerDown = null;
+  if (!start) return;
+  const distance = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+  const elapsed = performance.now() - start.at;
+  // A drag is an orbit, not a claim.
+  if (distance > 8 || elapsed > 700) return;
+  app.canvas.focus({ preventScroll: true });
+  toggleCell(view.pick(event.clientX, event.clientY));
 });
 
-canvas.addEventListener('pointerdown', (event) => {
-  const index = indexFromEvent(event);
-  if (index < 0) return;
-  state.selected = index;
-  canvas.focus();
-  scheduleDraw();
+app.canvas.addEventListener('pointermove', (event) => {
+  if (event.pointerType !== 'mouse') return;
+  view.setHovered(view.pick(event.clientX, event.clientY));
 });
 
-canvas.addEventListener('keydown', (event) => {
-  const mapData = getMap(state.size);
-  const row = cellRow(mapData, state.selected);
-  const col = cellCol(mapData, state.selected);
-  let nextRow = row;
-  let nextCol = col;
+app.canvas.addEventListener('pointerleave', () => view.setHovered(-1));
+
+app.canvas.addEventListener('keydown', (event) => {
+  let row = Math.floor(selected / map.cols);
+  let col = selected % map.cols;
 
   switch (event.key) {
     case 'ArrowUp':
-      nextRow = Math.max(0, row - 1);
+      row = Math.max(0, row - 1);
       break;
     case 'ArrowDown':
-      nextRow = Math.min(mapData.rows - 1, row + 1);
+      row = Math.min(map.rows - 1, row + 1);
       break;
     case 'ArrowLeft':
-      nextCol = Math.max(0, col - 1);
+      col = Math.max(0, col - 1);
       break;
     case 'ArrowRight':
-      nextCol = Math.min(mapData.cols - 1, col + 1);
+      col = Math.min(map.cols - 1, col + 1);
       break;
-    case 'Home':
-      nextCol = 0;
-      break;
-    case 'End':
-      nextCol = mapData.cols - 1;
-      break;
+    case 'Enter':
+    case ' ':
+      event.preventDefault();
+      toggleCell(selected);
+      return;
     default:
       return;
   }
 
   event.preventDefault();
-  state.selected = nextRow * mapData.cols + nextCol;
-  scheduleDraw();
+  selected = row * map.cols + col;
+  view.setSelected(selected);
+  view.setHovered(-1);
 });
 
-const observer = new ResizeObserver(() => scheduleDraw());
-observer.observe(canvas);
+const observer = new ResizeObserver(() => view.resize());
+observer.observe(app.frame);
 
-setTheme('auto');
-updateFacts();
-scheduleDraw();
+const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+view.setReducedMotion(motionQuery.matches);
+motionQuery.addEventListener?.('change', (event) => view.setReducedMotion(event.matches));
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') settle();
+  else saveNow();
+});
+window.addEventListener('beforeunload', saveNow);
+window.setInterval(settle, 60_000);
+
+// --------------------------------------------------------------------- boot
+
+applyTheme();
+
+const loaded = loadSave(storage, settings.size);
+state = loaded.ok ? loaded.state : createInitialState(nextSeed(), Date.now());
+selected = firstLand();
+
+if (loaded.ok) {
+  app.setMessage(ru.messages.loaded(state.claimed[0]), 'info');
+} else if (loaded.reason === 'corrupt') {
+  app.setMessage(ru.errors.saveCorrupt, 'error');
+} else if (loaded.reason === 'newer') {
+  app.setMessage(ru.errors.saveNewer, 'error');
+} else {
+  app.setMessage(ru.hud.hint, 'info');
+}
+
+app.canvas.focus({ preventScroll: true });
+view.setSelected(selected);
+view.setState(state, Date.now());
+updateStats();
+applyLighting(true);
+settle();
+
+let previous = performance.now();
+function frame(now: number): void {
+  const delta = Math.min(100, Math.max(0, now - previous));
+  previous = now;
+
+  const speed = demo ? DEMO_SPEED : speedMultiplier(settings);
+  visualNow += delta * (speed - 1);
+
+  applyLighting();
+  view.render(visualNow);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/** Exposed for the DOM smoke test and for poking at it in the console. */
+export const __eurasia: { app: App; view: View; getState: () => GameState } = {
+  app,
+  view,
+  getState: () => active(),
+};

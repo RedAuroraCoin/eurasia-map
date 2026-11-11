@@ -25,6 +25,7 @@
     "data": "python3 tools/terrain/prepare.py"
   },
   "devDependencies": {
+    "@shaderfrog/glsl-parser": "7.0.1",
     "happy-dom": "21.0.4",
     "prettier": "3.8.2",
     "typescript": "7.0.2",
