@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.wrangler/
+.vercel/
+tests/e2e/.report/
+playwright-report/
+test-results/
+__pycache__/
+.venv/
+*.pyc
+.env
+.env.*
+.DS_Store
+tools/terrain/.cache/

@@ -1,0 +1,548 @@
+{
+  "generated_from": {
+    "land": {
+      "name": "Natural Earth 1:50m land",
+      "url": "https://naciscdn.org/naturalearth/50m/physical/ne_50m_land.zip",
+      "license": "Public domain (naturalearthdata.com/about/terms-of-use)",
+      "bytes": 457183,
+      "sha256": "0b8e670cf80dce9cbebe2a193bc44ba5602758c22e1fa603980553646d7ff162"
+    },
+    "elevation": {
+      "name": "ETOPO 2022 v1 60 arc-second surface elevation (NOAA/NCEI)",
+      "url": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
+      "license": "U.S. Government work, public domain; credit NOAA/NCEI",
+      "bytes": 465969062,
+      "sha256": "9d27d4b8ea8e76977e2988bca667d7c8fa68b927355feffcddd6b4875a7fd08e"
+    }
+  },
+  "maps": {
+    "300": {
+      "rows": 22,
+      "cols": 28,
+      "land": 300,
+      "land_target": 300,
+      "shape_iou": 0.96,
+      "land_elevation_m": {
+        "min": 30,
+        "p50": 429,
+        "p95": 1808,
+        "max": 4995,
+        "mean": 643
+      },
+      "sea_elevation_m": {
+        "min": -5881,
+        "p50": -3355
+      },
+      "landmarks": [
+        {
+          "name": "Тибет",
+          "lon": 88.0,
+          "lat": 32.5,
+          "cell": 323,
+          "land": true,
+          "elevation": 4995,
+          "expected": [
+            3000,
+            5200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Гималаи",
+          "lon": 84.0,
+          "lat": 28.5,
+          "cell": 350,
+          "land": true,
+          "elevation": 876,
+          "expected": [
+            800,
+            4500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Алтай",
+          "lon": 89.0,
+          "lat": 48.0,
+          "cell": 211,
+          "land": true,
+          "elevation": 1851,
+          "expected": [
+            500,
+            3000
+          ],
+          "ok": true
+        },
+        {
+          "name": "Иранское нагорье",
+          "lon": 54.0,
+          "lat": 31.0,
+          "cell": 318,
+          "land": true,
+          "elevation": 1519,
+          "expected": [
+            700,
+            2500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Западная Сибирь",
+          "lon": 76.0,
+          "lat": 60.0,
+          "cell": 125,
+          "land": true,
+          "elevation": 73,
+          "expected": [
+            -50,
+            300
+          ],
+          "ok": true
+        },
+        {
+          "name": "Альпы",
+          "lon": 10.0,
+          "lat": 46.5,
+          "cell": 228,
+          "land": true,
+          "elevation": 783,
+          "expected": [
+            400,
+            3500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Аравия",
+          "lon": 45.0,
+          "lat": 23.0,
+          "cell": 373,
+          "land": true,
+          "elevation": 800,
+          "expected": [
+            0,
+            1200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Гоби",
+          "lon": 105.0,
+          "lat": 43.0,
+          "cell": 241,
+          "land": true,
+          "elevation": 1488,
+          "expected": [
+            700,
+            2000
+          ],
+          "ok": true
+        },
+        {
+          "name": "Индо-Гангская низменность",
+          "lon": 80.0,
+          "lat": 26.0,
+          "cell": 350,
+          "land": true,
+          "elevation": 876,
+          "expected": [
+            -30,
+            400
+          ],
+          "ok": false
+        },
+        {
+          "name": "Туранская низменность",
+          "lon": 62.0,
+          "lat": 43.0,
+          "cell": 235,
+          "land": true,
+          "elevation": 90,
+          "expected": [
+            -60,
+            400
+          ],
+          "ok": true
+        },
+        {
+          "name": "Декан",
+          "lon": 78.0,
+          "lat": 18.0,
+          "cell": 406,
+          "land": true,
+          "elevation": 351,
+          "expected": [
+            150,
+            1200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Северо-Восточная Сибирь",
+          "lon": 128.0,
+          "lat": 65.0,
+          "cell": 104,
+          "land": true,
+          "elevation": 336,
+          "expected": [
+            100,
+            1500
+          ],
+          "ok": true
+        }
+      ]
+    },
+    "500": {
+      "rows": 29,
+      "cols": 35,
+      "land": 500,
+      "land_target": 500,
+      "shape_iou": 0.9522,
+      "land_elevation_m": {
+        "min": 6,
+        "p50": 410,
+        "p95": 1852,
+        "max": 5084,
+        "mean": 642
+      },
+      "sea_elevation_m": {
+        "min": -5985,
+        "p50": -3307
+      },
+      "landmarks": [
+        {
+          "name": "Тибет",
+          "lon": 88.0,
+          "lat": 32.5,
+          "cell": 509,
+          "land": true,
+          "elevation": 5042,
+          "expected": [
+            3000,
+            5200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Гималаи",
+          "lon": 84.0,
+          "lat": 28.5,
+          "cell": 578,
+          "land": true,
+          "elevation": 1299,
+          "expected": [
+            800,
+            4500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Алтай",
+          "lon": 89.0,
+          "lat": 48.0,
+          "cell": 369,
+          "land": true,
+          "elevation": 1353,
+          "expected": [
+            500,
+            3000
+          ],
+          "ok": true
+        },
+        {
+          "name": "Иранское нагорье",
+          "lon": 54.0,
+          "lat": 31.0,
+          "cell": 538,
+          "land": true,
+          "elevation": 1832,
+          "expected": [
+            700,
+            2500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Западная Сибирь",
+          "lon": 76.0,
+          "lat": 60.0,
+          "cell": 227,
+          "land": true,
+          "elevation": 83,
+          "expected": [
+            -50,
+            300
+          ],
+          "ok": true
+        },
+        {
+          "name": "Альпы",
+          "lon": 10.0,
+          "lat": 46.5,
+          "cell": 355,
+          "land": true,
+          "elevation": 814,
+          "expected": [
+            400,
+            3500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Аравия",
+          "lon": 45.0,
+          "lat": 23.0,
+          "cell": 606,
+          "land": true,
+          "elevation": 921,
+          "expected": [
+            0,
+            1200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Гоби",
+          "lon": 105.0,
+          "lat": 43.0,
+          "cell": 407,
+          "land": true,
+          "elevation": 1205,
+          "expected": [
+            700,
+            2000
+          ],
+          "ok": true
+        },
+        {
+          "name": "Индо-Гангская низменность",
+          "lon": 80.0,
+          "lat": 26.0,
+          "cell": 612,
+          "land": true,
+          "elevation": 378,
+          "expected": [
+            -30,
+            400
+          ],
+          "ok": true
+        },
+        {
+          "name": "Туранская низменность",
+          "lon": 62.0,
+          "lat": 43.0,
+          "cell": 399,
+          "land": true,
+          "elevation": 84,
+          "expected": [
+            -60,
+            400
+          ],
+          "ok": true
+        },
+        {
+          "name": "Декан",
+          "lon": 78.0,
+          "lat": 18.0,
+          "cell": 682,
+          "land": true,
+          "elevation": 438,
+          "expected": [
+            150,
+            1200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Северо-Восточная Сибирь",
+          "lon": 128.0,
+          "lat": 65.0,
+          "cell": 166,
+          "land": true,
+          "elevation": 900,
+          "expected": [
+            100,
+            1500
+          ],
+          "ok": true
+        }
+      ]
+    },
+    "800": {
+      "rows": 36,
+      "cols": 44,
+      "land": 800,
+      "land_target": 800,
+      "shape_iou": 0.925,
+      "land_elevation_m": {
+        "min": 3,
+        "p50": 402,
+        "p95": 1890,
+        "max": 5059,
+        "mean": 628
+      },
+      "sea_elevation_m": {
+        "min": -6099,
+        "p50": -3392
+      },
+      "landmarks": [
+        {
+          "name": "Тибет",
+          "lon": 88.0,
+          "lat": 32.5,
+          "cell": 816,
+          "land": true,
+          "elevation": 4961,
+          "expected": [
+            3000,
+            5200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Гималаи",
+          "lon": 84.0,
+          "lat": 28.5,
+          "cell": 903,
+          "land": true,
+          "elevation": 1535,
+          "expected": [
+            800,
+            4500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Алтай",
+          "lon": 89.0,
+          "lat": 48.0,
+          "cell": 552,
+          "land": true,
+          "elevation": 1951,
+          "expected": [
+            500,
+            3000
+          ],
+          "ok": true
+        },
+        {
+          "name": "Иранское нагорье",
+          "lon": 54.0,
+          "lat": 31.0,
+          "cell": 852,
+          "land": true,
+          "elevation": 1572,
+          "expected": [
+            700,
+            2500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Западная Сибирь",
+          "lon": 76.0,
+          "lat": 60.0,
+          "cell": 329,
+          "land": true,
+          "elevation": 63,
+          "expected": [
+            -50,
+            300
+          ],
+          "ok": true
+        },
+        {
+          "name": "Альпы",
+          "lon": 10.0,
+          "lat": 46.5,
+          "cell": 579,
+          "land": true,
+          "elevation": 784,
+          "expected": [
+            400,
+            3500
+          ],
+          "ok": true
+        },
+        {
+          "name": "Аравия",
+          "lon": 45.0,
+          "lat": 23.0,
+          "cell": 983,
+          "land": true,
+          "elevation": 504,
+          "expected": [
+            0,
+            1200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Гоби",
+          "lon": 105.0,
+          "lat": 43.0,
+          "cell": 643,
+          "land": true,
+          "elevation": 1370,
+          "expected": [
+            700,
+            2000
+          ],
+          "ok": true
+        },
+        {
+          "name": "Индо-Гангская низменность",
+          "lon": 80.0,
+          "lat": 26.0,
+          "cell": 946,
+          "land": true,
+          "elevation": 275,
+          "expected": [
+            -30,
+            400
+          ],
+          "ok": true
+        },
+        {
+          "name": "Туранская низменность",
+          "lon": 62.0,
+          "lat": 43.0,
+          "cell": 634,
+          "land": true,
+          "elevation": 91,
+          "expected": [
+            -60,
+            400
+          ],
+          "ok": true
+        },
+        {
+          "name": "Декан",
+          "lon": 78.0,
+          "lat": 18.0,
+          "cell": 1078,
+          "land": true,
+          "elevation": 283,
+          "expected": [
+            150,
+            1200
+          ],
+          "ok": true
+        },
+        {
+          "name": "Северо-Восточная Сибирь",
+          "lon": 128.0,
+          "lat": 65.0,
+          "cell": 252,
+          "land": true,
+          "elevation": 568,
+          "expected": [
+            100,
+            1500
+          ],
+          "ok": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+packages/shared/src/map/data.ts
+data/
+docs/
+node_modules/
+dist/
+package-lock.json

@@ -1,0 +1,21 @@
+{
+  "$comment": "Single source of truth for the map grids. tools/terrain/prepare.py reads this; it is also embedded in the generated data.ts and asserted by a test.",
+  "bbox": { "lon0": -25.0, "lon1": 180.0, "lat0": -12.0, "lat1": 80.0 },
+  "sizes": {
+    "300": { "rows": 22, "cols": 28, "land": 300 },
+    "500": { "rows": 29, "cols": 35, "land": 500 },
+    "800": { "rows": 36, "cols": 44, "land": 800 }
+  },
+  "sources": {
+    "land": {
+      "name": "Natural Earth 1:50m land",
+      "url": "https://naciscdn.org/naturalearth/50m/physical/ne_50m_land.zip",
+      "license": "Public domain (naturalearthdata.com/about/terms-of-use)"
+    },
+    "elevation": {
+      "name": "ETOPO 2022 v1 60 arc-second surface elevation (NOAA/NCEI)",
+      "url": "https://www.ngdc.noaa.gov/mgg/global/relief/ETOPO2022/data/60s/60s_surface_elev_gtif/ETOPO_2022_v1_60s_N90W180_surface.tif",
+      "license": "U.S. Government work, public domain; credit NOAA/NCEI"
+    }
+  }
+}

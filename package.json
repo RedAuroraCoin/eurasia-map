@@ -1,0 +1,35 @@
+{
+  "name": "eurasia",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Eurasia Map — a grid-map game that grows into a strategy game",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "packages/shared",
+    "packages/client",
+    "packages/server"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @eurasia/client",
+    "build": "npm run build -w @eurasia/client",
+    "preview": "npm run preview -w @eurasia/client",
+    "dev:server": "npm run dev -w @eurasia/server",
+    "typecheck": "tsc -p packages/shared --noEmit && tsc -p packages/client --noEmit && tsc -p packages/server --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "node tools/check-imports.mjs && prettier --check .",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "data": "python3 tools/terrain/prepare.py",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "happy-dom": "21.0.4",
+    "prettier": "3.8.2",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}
