@@ -117,7 +117,11 @@ export function depthTextureData(map: MapEntry): Uint8Array {
   const data = new Uint8Array(map.rows * map.cols);
   for (let index = 0; index < data.length; index++) {
     const elevation = map.elev[index] ?? 0;
-    const depth = map.mask[index] === '#' ? 0 : seaDepth(elevation);
+    // Land reads as "deep", not "shore": the water plane runs underneath the
+    // slabs, and a shore value there paints a bright foam lattice through the
+    // hairline seams. Land is hidden anyway — give it the colour that cannot
+    // glow.
+    const depth = map.mask[index] === '#' ? 1 : seaDepth(elevation);
     data[index] = Math.round(Math.min(1, Math.max(0, depth)) * 255);
   }
   return data;

@@ -7,8 +7,12 @@ import { type MapEntry, getMap, type MapSize } from '@eurasia/shared';
 
 export const CELL = 1;
 
-/** Visual exaggeration: 5 000 m of Tibet is about one cell tall. */
-export const MAX_VISUAL_HEIGHT = 1.1;
+/**
+ * Visual exaggeration. 5 200 m of Tibet is 2.3 cells tall, and a 400 m hill is
+ * half a cell — the board is only a few dozen cells wide, so a faithful scale
+ * would read as a flat plane with one bump.
+ */
+export const MAX_VISUAL_HEIGHT = 2.3;
 const ELEVATION_REFERENCE = 5200;
 const FLAT_HEIGHT = 0.06;
 const SEA_FLOOR = 0.9;
@@ -45,7 +49,7 @@ export function elevationToHeight(elevation: number, relief: boolean): number {
   if (!relief) return FLAT_HEIGHT;
   const above = Math.max(0, elevation);
   const k = Math.min(1, above / ELEVATION_REFERENCE);
-  return Math.pow(k, 0.78) * MAX_VISUAL_HEIGHT + FLAT_HEIGHT * 0.5;
+  return Math.pow(k, 0.62) * MAX_VISUAL_HEIGHT + FLAT_HEIGHT;
 }
 
 /** Sea floor depth in world units, used by the water shader and the 2D preview. */
@@ -57,20 +61,85 @@ export function boardSize(map: MapEntry): { width: number; depth: number } {
   return { width: map.cols * CELL, depth: map.rows * CELL };
 }
 
-/** The camera has to fit the board's diagonal in view, whatever the aspect. */
+/** The default view: from the south-east, about 50 degrees above the horizon. */
+export const VIEW_DIRECTION: readonly [number, number, number] = [0.55, 0.95, 0.62];
+
+const norm = (v: readonly [number, number, number]): [number, number, number] => {
+  const length = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / length, v[1] / length, v[2] / length];
+};
+
+const cross = (
+  a: readonly [number, number, number],
+  b: readonly [number, number, number],
+): [number, number, number] => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+
+/**
+ * The exact distance at which the whole board fits the frustum, found by
+ * bisection instead of a trigonometric estimate.
+ *
+ * The estimate is the trap: framing on the diagonal wastes a third of the
+ * screen, and framing on the half-extent crops the near edge, which is closer
+ * to the camera and therefore projects larger. Projecting the eight corners and
+ * solving for the distance has neither problem at any aspect ratio.
+ */
 export function fitDistance(
   map: MapEntry,
   fovDegrees: number,
   aspect: number,
-  margin = 1.25,
+  margin = 1.02,
+  targetY = 0.35,
+  tallest = 2.4,
 ): number {
   const { width, depth } = boardSize(map);
-  const radius = Math.hypot(width, depth) / 2;
-  const vertical = (fovDegrees * Math.PI) / 180;
-  const byHeight = radius / Math.tan(vertical / 2);
-  const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * Math.max(0.4, aspect));
-  const byWidth = radius / Math.tan(horizontal / 2);
-  return Math.max(byHeight, byWidth) * margin;
+  const direction = norm(VIEW_DIRECTION);
+  const target: [number, number, number] = [0, targetY, 0];
+  const forward: [number, number, number] = [-direction[0], -direction[1], -direction[2]];
+  const right = norm(cross(forward, [0, 1, 0]));
+  const up = cross(right, forward);
+
+  const tanV = Math.tan((fovDegrees * Math.PI) / 180 / 2);
+  const tanH = tanV * Math.max(0.4, aspect);
+
+  const corners: [number, number, number][] = [];
+  for (const x of [-width / 2, width / 2]) {
+    for (const z of [-depth / 2, depth / 2]) {
+      for (const y of [0, tallest]) corners.push([x, y, z]);
+    }
+  }
+
+  const fits = (distance: number): boolean => {
+    const camera: [number, number, number] = [
+      target[0] + direction[0] * distance,
+      target[1] + direction[1] * distance,
+      target[2] + direction[2] * distance,
+    ];
+    return corners.every((corner) => {
+      const rel: [number, number, number] = [
+        corner[0] - camera[0],
+        corner[1] - camera[1],
+        corner[2] - camera[2],
+      ];
+      const forwardDepth = rel[0] * forward[0] + rel[1] * forward[1] + rel[2] * forward[2];
+      if (forwardDepth <= 0.2) return false;
+      const x = rel[0] * right[0] + rel[1] * right[1] + rel[2] * right[2];
+      const y = rel[0] * up[0] + rel[1] * up[1] + rel[2] * up[2];
+      return Math.abs(x) <= forwardDepth * tanH && Math.abs(y) <= forwardDepth * tanV;
+    });
+  };
+
+  let low = 1;
+  let high = 600;
+  for (let i = 0; i < 40; i++) {
+    const middle = (low + high) / 2;
+    if (fits(middle)) high = middle;
+    else low = middle;
+  }
+  return high * margin;
 }
 
 export const mapFor = getMap;

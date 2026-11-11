@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GameState, MapEntry } from '@eurasia/shared';
 import { buildBuildings, buildTerrain, depthTextureData, OWNER_TINT } from './geometry';
-import { boardSize, elevationToHeight, fitDistance } from './grid';
+import { boardSize, elevationToHeight, fitDistance, VIEW_DIRECTION, worldToCell } from './grid';
 import type { Lighting } from './palette';
 import { WATER_FRAGMENT, WATER_VERTEX } from './water-shaders';
 
@@ -30,12 +30,13 @@ export interface View {
 }
 
 const FOV = 36;
-const FOG_NEAR = 34;
-const FOG_FAR = 105;
+/** The sea plane is larger than the board so the horizon is water, not a cut edge. */
+const SEA_SCALE = 3.5;
 
 /** A three-quarter view from the south-east, at exactly `distance` from the target. */
 function cameraPositionFor(distance: number): THREE.Vector3 {
-  return new THREE.Vector3(0.62, 0.74, 0.72).normalize().multiplyScalar(distance);
+  // Same direction the fit solved for — a different one would crop the corners.
+  return new THREE.Vector3(...VIEW_DIRECTION).normalize().multiplyScalar(distance);
 }
 
 /** One byte per cell: 0 at the shore, 255 in the abyss. Sampled by the water shader. */
@@ -75,6 +76,9 @@ export class Scene3D implements View {
   private buildingCells: number[] = [];
   private depthTexture: THREE.DataTexture;
 
+  private fogNear = 60;
+  private fogFar = 200;
+  private userMoved = false;
   private waterTime = 0;
   private lastBuildingUpdate = 0;
   private selected = -1;
@@ -103,17 +107,22 @@ export class Scene3D implements View {
     this.camera.position.copy(cameraPositionFor(fitDistance(map, FOV, 1)));
 
     this.controls = new OrbitControls(this.camera, canvas);
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.set(0, 0.35, 0);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.minDistance = 7;
-    this.controls.maxDistance = 120;
+    // Close enough to read a single cell, far enough that the near plane cannot
+    // slice into a mountain and show the sky through it.
+    this.controls.minDistance = 12;
+    this.controls.maxDistance = 160;
     this.controls.minPolarAngle = 0.18;
-    this.controls.maxPolarAngle = 1.32;
+    this.controls.maxPolarAngle = 1.22;
     this.controls.enablePan = true;
     this.controls.screenSpacePanning = false;
     this.controls.zoomSpeed = 0.85;
     this.controls.rotateSpeed = 0.65;
+    this.controls.addEventListener('start', () => {
+      this.userMoved = true;
+    });
     this.controls.update();
 
     this.hemi = new THREE.HemisphereLight(0xbfd4e6, 0x2a2b25, 0.8);
@@ -128,6 +137,9 @@ export class Scene3D implements View {
     this.scene.add(this.sun.target);
 
     const { width, depth } = boardSize(map);
+    const diagonal = Math.hypot(width, depth);
+    this.fogNear = diagonal * 1.5;
+    this.fogFar = diagonal * 4;
     const span = Math.max(width, depth) * 0.78;
     const shadowCamera = this.sun.shadow.camera;
     shadowCamera.left = -span;
@@ -148,9 +160,11 @@ export class Scene3D implements View {
 
   private buildWater(): void {
     const { width, depth } = boardSize(this.map);
+    // Geometry is the wide sea; UVs still map the board, so far outside the
+    // board the depth texture clamps to its edge — open ocean, no seam.
     const geometry = new THREE.PlaneGeometry(
-      width,
-      depth,
+      width * SEA_SCALE,
+      depth * SEA_SCALE,
       64 * (this.quality === 'high' ? 1 : 0.5),
       64 * (this.quality === 'high' ? 1 : 0.5),
     );
@@ -171,8 +185,9 @@ export class Scene3D implements View {
         uSun: { value: new THREE.Vector3(0.5, 0.8, 0.4) },
         uFog: { value: new THREE.Color('#8fb4c9') },
         uFoam: { value: 1 },
-        uFogNear: { value: FOG_NEAR },
-        uFogFar: { value: FOG_FAR },
+        uFogNear: { value: this.fogNear },
+        uFogFar: { value: this.fogFar },
+        uRadius: { value: Math.hypot(width, depth) / 2 },
       },
     });
 
@@ -217,7 +232,9 @@ export class Scene3D implements View {
     const matrix = new THREE.Matrix4();
     const color = new THREE.Color();
     cells.forEach((cell, i) => {
-      matrix.makeScale(0.985, cell.height, 0.985);
+      // Exactly one cell: a cosmetic inset leaves a seam between neighbours, and
+      // whatever lies under the seam becomes visible the moment the camera nears.
+      matrix.makeScale(1, cell.height, 1);
       matrix.setPosition(cell.x, 0, cell.z);
       mesh.setMatrixAt(i, matrix);
       color.setRGB(cell.color[0], cell.color[1], cell.color[2], THREE.SRGBColorSpace);
@@ -306,6 +323,10 @@ export class Scene3D implements View {
     this.map = map;
     this.selected = -1;
     this.hovered = -1;
+    const { width, depth } = boardSize(map);
+    const diagonal = Math.hypot(width, depth);
+    this.fogNear = diagonal * 1.5;
+    this.fogFar = diagonal * 4;
 
     if (this.water) {
       this.scene.remove(this.water);
@@ -404,7 +425,7 @@ export class Scene3D implements View {
       THREE.SRGBColorSpace,
     );
     this.scene.background = background;
-    this.scene.fog = new THREE.Fog(background, FOG_NEAR, FOG_FAR);
+    this.scene.fog = new THREE.Fog(background, this.fogNear, this.fogFar);
 
     if (this.water) {
       const uniforms = (this.water.material as THREE.ShaderMaterial).uniforms;
@@ -529,13 +550,38 @@ export class Scene3D implements View {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+
+    // The camera is built before the canvas has a size, so its fit was computed
+    // for the wrong aspect. Re-fit until the player takes over the camera.
+    if (!this.userMoved) {
+      this.camera.position.copy(cameraPositionFor(fitDistance(this.map, FOV, this.camera.aspect)));
+      this.controls.update();
+    }
   }
 
   private resetCamera(): void {
     const distance = fitDistance(this.map, FOV, this.camera.aspect || 1);
     this.camera.position.copy(cameraPositionFor(distance));
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.set(0, 0.35, 0);
+    this.userMoved = false;
     this.controls.update();
+  }
+
+  /**
+   * A guard, not a control: the orbit target sits on the ground, so a close,
+   * low camera can end up inside a mountain, where the near plane cuts the
+   * geometry open and the screen fills with sky. Lifting the camera is cheap and
+   * never fights the controls for long.
+   */
+  private keepAboveGround(): void {
+    const position = this.camera.position;
+    const cell = worldToCell(this.map, position.x, position.z);
+    const ground = cell >= 0 ? elevationToHeight(this.map.elev[cell] ?? 0, this.relief) : 0;
+    const minimum = ground + 0.55;
+    if (position.y < minimum) {
+      position.y = minimum;
+      this.camera.lookAt(this.controls.target);
+    }
   }
 
   render(now: number): void {
@@ -547,6 +593,7 @@ export class Scene3D implements View {
     }
     this.updateBuildings(this.state, now, false);
     this.controls.update();
+    this.keepAboveGround();
 
     if (this.selection && this.selection.visible && !this.reducedMotion) {
       const pulse = 1 + Math.sin(now / 420) * 0.012;

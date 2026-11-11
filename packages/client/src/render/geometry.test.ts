@@ -134,11 +134,11 @@ describe('popScale', () => {
 describe('depthTextureData', () => {
   const map = getMap(300);
 
-  it('has one byte per cell and no depth on land', () => {
+  it('marks land as deep so no foam can glow through the seams', () => {
     const data = depthTextureData(map);
     expect(data).toHaveLength(map.rows * map.cols);
     for (let i = 0; i < data.length; i++) {
-      if (map.mask[i] === '#') expect(data[i]).toBe(0);
+      if (map.mask[i] === '#') expect(data[i]).toBe(255);
     }
   });
 

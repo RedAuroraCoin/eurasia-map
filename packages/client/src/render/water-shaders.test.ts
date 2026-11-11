@@ -44,6 +44,7 @@ const PROVIDED_UNIFORMS = new Set([
   'uFoam',
   'uFogNear',
   'uFogFar',
+  'uRadius',
 ]);
 
 /** Injected by three.js for every ShaderMaterial. */

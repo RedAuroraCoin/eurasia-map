@@ -48,15 +48,18 @@ function ramp(stops: readonly (readonly [number, Rgb])[], t: number): Rgb {
 }
 
 /** Unclaimed land: green -> olive -> brown -> grey -> snow. */
+// Spread over the range that actually occurs: 95% of Eurasia is below 2 000 m,
+// so a ramp that only turns brown above 1 200 m reads as one flat green field.
 const LAND_STOPS: readonly (readonly [number, Rgb])[] = [
-  [0, [92, 124, 58]],
-  [150, [110, 138, 62]],
-  [600, [137, 141, 74]],
-  [1200, [154, 127, 79]],
-  [2200, [141, 131, 117]],
-  [3200, [170, 168, 162]],
-  [4200, [196, 195, 191]],
-  [5200, [240, 240, 238]],
+  [0, [79, 107, 51]],
+  [200, [95, 122, 58]],
+  [600, [125, 138, 69]],
+  [1000, [154, 139, 84]],
+  [1600, [168, 132, 92]],
+  [2400, [156, 138, 120]],
+  [3200, [176, 170, 162]],
+  [4200, [214, 211, 205]],
+  [5200, [244, 244, 242]],
 ];
 
 const SEA_STOPS: readonly (readonly [number, Rgb])[] = [

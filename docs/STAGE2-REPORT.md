@@ -54,6 +54,26 @@ What those tests actually pin down:
 - clicking a land cell in the real DOM claims it and spends 5 coins; the sea is refused with a
   message; the claim survives a simulated reload.
 
+## Fixes after the first look (2026-11-11)
+
+Reported: "heights are visible only in a narrow range, and the slightest zoom turns the map white".
+
+- **Heights.** `elevationToHeight` used `(e/5200)^0.78 × 1.1`, which put 95 % of Eurasia inside
+  0.15–0.35 units — the board read as a plain. Now `(e/5200)^0.62 × 2.3`, and the colour ramp was
+  re-spaced over 0–2 400 m instead of 0–5 200 m, so a 400 m plain, a 1 200 m hill and a 3 000 m
+  plateau are three different things.
+- **White on zoom.** Two causes, both real. The terrain slabs were scaled to 0.985 cells, leaving a
+  0.015-unit seam between neighbours — sub-pixel at default distance, a bright lattice once a cell
+  is 40 px wide — and the sea plane *underneath* the land was told "depth 0 = shore", which the
+  shader paints as white foam. Fixed by using the full cell and marking land as deep in the depth
+  texture. Also added: a guard that keeps the camera above the terrain (the orbit target sits on
+  the ground, so a close low camera could cut into a mountain and show sky), a sea plane 3.5× the
+  board that fades into the fog instead of ending in a hard edge, and framing solved by projecting
+  the board's eight corners rather than a tangent estimate.
+- **Framing.** The old estimate framed on the diagonal with a 1.25 margin, putting the camera ~40 %
+  further out than needed. `fitDistance` now bisects for the exact distance at every aspect ratio;
+  a test projects the land corners with three's own matrices and asserts they stay on screen.
+
 ## Not verified — and why
 
 - **The 3D scene has never been rendered.** This machine has no Chromium (13 shared libraries
