@@ -26,7 +26,7 @@ Override the cache with `EURASIA_CACHE=/path`.
 3. **Select cells** — rank by land coverage, take exactly N, then swap isolated specks for
    connected neighbours. The land count is exact by construction.
 4. **Sample elevation** — ETOPO 2022 60″ windowed through its own TIFF tiles, averaged per
-   cell over land (or sea, by the mask). Land and sea use the *same* bbox, so a cell and its
+   cell over land (or sea, by the mask). Land and sea use the _same_ bbox, so a cell and its
    height always describe the same patch of ground.
 5. **Write** — `data.ts` for the game, `data/mask-<n>.txt` for humans, a PNG preview, and
    `data/report.json` with the numeric checks.
@@ -41,11 +41,11 @@ to widen the band.
 
 Latest run:
 
-| size | grid | land | IoU | p50 | p95 | max |
-|---|---|---|---|---|---|---|
-| 300 | 28×22 | 300 | 0.960 | 429 m | 1 808 m | 4 995 m |
-| 500 | 35×29 | 500 | 0.952 | 410 m | 1 852 m | 5 084 m |
-| 800 | 44×36 | 800 | 0.925 | 402 m | 1 890 m | 5 059 m |
+| size | grid  | land | IoU   | p50   | p95     | max     |
+| ---- | ----- | ---- | ----- | ----- | ------- | ------- |
+| 300  | 28×22 | 300  | 0.960 | 429 m | 1 808 m | 4 995 m |
+| 500  | 35×29 | 500  | 0.952 | 410 m | 1 852 m | 5 084 m |
+| 800  | 44×36 | 800  | 0.925 | 402 m | 1 890 m | 5 059 m |
 
 At 300 cells one cell is 7.3° × 4.2°, so the Gangetic cell averages the plain with the
 Himalaya (876 m) and falls outside its band — expected at that resolution, not a bug.

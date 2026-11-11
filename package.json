@@ -22,11 +22,9 @@
     "test:watch": "vitest",
     "lint": "node tools/check-imports.mjs && prettier --check .",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
-    "data": "python3 tools/terrain/prepare.py",
-    "e2e": "playwright test"
+    "data": "python3 tools/terrain/prepare.py"
   },
   "devDependencies": {
-    "@playwright/test": "1.65.0",
     "happy-dom": "21.0.4",
     "prettier": "3.8.2",
     "typescript": "7.0.2",
