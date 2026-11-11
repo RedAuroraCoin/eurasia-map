@@ -3,7 +3,7 @@
 Done: repository, build, automated checks, structure, balance file, map and terrain data with a
 reproducible preparation script.
 
-Repository: `github.com/RedAuroraCoin/eurasia-map` (private), branch `main`.
+Repository: `github.com/RedAuroraCoin/eurasia-map`, branch `main`.
 
 ## What exists
 
