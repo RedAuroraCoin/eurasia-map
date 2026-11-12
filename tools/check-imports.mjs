@@ -77,3 +77,33 @@ if (violations > 0) {
   process.exit(1);
 }
 console.log(`import boundaries ok (${checked} files checked)`);
+
+// --------------------------------------------------------------- locale gate
+// The interface is English. Russian is not deleted — it lives in i18n/ru.ts and
+// is type-checked against the English dictionary — but a stray Cyrillic string
+// anywhere else means a translation was missed, and that is a build failure.
+const CYRILLIC = /[\u0400-\u04FF]/;
+const LOCALE_FILE = join(ROOT, 'packages', 'client', 'src', 'i18n', 'ru.ts');
+let leaked = 0;
+
+for (const file of walk(join(ROOT, 'packages', 'client', 'src'))) {
+  if (file === LOCALE_FILE) continue;
+  if (CYRILLIC.test(readFileSync(file, 'utf8'))) {
+    leaked++;
+    console.error(`${relative(ROOT, file)}: Cyrillic text outside the locale file`);
+  }
+}
+
+for (const file of ['index.html']) {
+  const path = join(ROOT, 'packages', 'client', file);
+  if (CYRILLIC.test(readFileSync(path, 'utf8'))) {
+    leaked++;
+    console.error(`${relative(ROOT, path)}: Cyrillic text outside the locale file`);
+  }
+}
+
+if (leaked > 0) {
+  console.error(`\n${leaked} untranslated string file(s).`);
+  process.exit(1);
+}
+console.log('locale ok (English only, outside i18n/ru.ts)');

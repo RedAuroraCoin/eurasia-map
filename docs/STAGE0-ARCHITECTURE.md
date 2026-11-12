@@ -3,6 +3,11 @@
 Status: **awaiting your sign-off**. Nothing under "Stages" is implemented before you answer the four
 questions in §12.
 
+> **Update, 2026-11-12.** The interface shipped in English. `packages/client/src/i18n/en.ts` is the
+> dictionary and the source of truth for its shape; `ru.ts` keeps the Russian translation,
+> type-checked against it, and switching locale is one line in `i18n/index.ts`. A lint gate fails
+> the build if Cyrillic appears anywhere else.
+
 Scope of this document: options, recommendation, rationale, and the verified facts behind them.
 Every claim marked *verified* was checked against the vendor's own documentation or the npm registry
 on 2026-11-11; anything not marked is a judgement call.

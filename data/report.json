@@ -35,7 +35,7 @@
       },
       "landmarks": [
         {
-          "name": "Тибет",
+          "name": "Tibet",
           "lon": 88.0,
           "lat": 32.5,
           "cell": 323,
@@ -48,7 +48,7 @@
           "ok": true
         },
         {
-          "name": "Гималаи",
+          "name": "Himalaya",
           "lon": 84.0,
           "lat": 28.5,
           "cell": 350,
@@ -61,7 +61,7 @@
           "ok": true
         },
         {
-          "name": "Алтай",
+          "name": "Altai",
           "lon": 89.0,
           "lat": 48.0,
           "cell": 211,
@@ -74,7 +74,7 @@
           "ok": true
         },
         {
-          "name": "Иранское нагорье",
+          "name": "Iranian plateau",
           "lon": 54.0,
           "lat": 31.0,
           "cell": 318,
@@ -87,7 +87,7 @@
           "ok": true
         },
         {
-          "name": "Западная Сибирь",
+          "name": "West Siberia",
           "lon": 76.0,
           "lat": 60.0,
           "cell": 125,
@@ -100,7 +100,7 @@
           "ok": true
         },
         {
-          "name": "Альпы",
+          "name": "Alps",
           "lon": 10.0,
           "lat": 46.5,
           "cell": 228,
@@ -113,7 +113,7 @@
           "ok": true
         },
         {
-          "name": "Аравия",
+          "name": "Arabia",
           "lon": 45.0,
           "lat": 23.0,
           "cell": 373,
@@ -126,7 +126,7 @@
           "ok": true
         },
         {
-          "name": "Гоби",
+          "name": "Gobi",
           "lon": 105.0,
           "lat": 43.0,
           "cell": 241,
@@ -139,7 +139,7 @@
           "ok": true
         },
         {
-          "name": "Индо-Гангская низменность",
+          "name": "Indo-Gangetic plain",
           "lon": 80.0,
           "lat": 26.0,
           "cell": 350,
@@ -152,7 +152,7 @@
           "ok": false
         },
         {
-          "name": "Туранская низменность",
+          "name": "Turan lowland",
           "lon": 62.0,
           "lat": 43.0,
           "cell": 235,
@@ -165,7 +165,7 @@
           "ok": true
         },
         {
-          "name": "Декан",
+          "name": "Deccan",
           "lon": 78.0,
           "lat": 18.0,
           "cell": 406,
@@ -178,7 +178,7 @@
           "ok": true
         },
         {
-          "name": "Северо-Восточная Сибирь",
+          "name": "North-east Siberia",
           "lon": 128.0,
           "lat": 65.0,
           "cell": 104,
@@ -211,7 +211,7 @@
       },
       "landmarks": [
         {
-          "name": "Тибет",
+          "name": "Tibet",
           "lon": 88.0,
           "lat": 32.5,
           "cell": 509,
@@ -224,7 +224,7 @@
           "ok": true
         },
         {
-          "name": "Гималаи",
+          "name": "Himalaya",
           "lon": 84.0,
           "lat": 28.5,
           "cell": 578,
@@ -237,7 +237,7 @@
           "ok": true
         },
         {
-          "name": "Алтай",
+          "name": "Altai",
           "lon": 89.0,
           "lat": 48.0,
           "cell": 369,
@@ -250,7 +250,7 @@
           "ok": true
         },
         {
-          "name": "Иранское нагорье",
+          "name": "Iranian plateau",
           "lon": 54.0,
           "lat": 31.0,
           "cell": 538,
@@ -263,7 +263,7 @@
           "ok": true
         },
         {
-          "name": "Западная Сибирь",
+          "name": "West Siberia",
           "lon": 76.0,
           "lat": 60.0,
           "cell": 227,
@@ -276,7 +276,7 @@
           "ok": true
         },
         {
-          "name": "Альпы",
+          "name": "Alps",
           "lon": 10.0,
           "lat": 46.5,
           "cell": 355,
@@ -289,7 +289,7 @@
           "ok": true
         },
         {
-          "name": "Аравия",
+          "name": "Arabia",
           "lon": 45.0,
           "lat": 23.0,
           "cell": 606,
@@ -302,7 +302,7 @@
           "ok": true
         },
         {
-          "name": "Гоби",
+          "name": "Gobi",
           "lon": 105.0,
           "lat": 43.0,
           "cell": 407,
@@ -315,7 +315,7 @@
           "ok": true
         },
         {
-          "name": "Индо-Гангская низменность",
+          "name": "Indo-Gangetic plain",
           "lon": 80.0,
           "lat": 26.0,
           "cell": 612,
@@ -328,7 +328,7 @@
           "ok": true
         },
         {
-          "name": "Туранская низменность",
+          "name": "Turan lowland",
           "lon": 62.0,
           "lat": 43.0,
           "cell": 399,
@@ -341,7 +341,7 @@
           "ok": true
         },
         {
-          "name": "Декан",
+          "name": "Deccan",
           "lon": 78.0,
           "lat": 18.0,
           "cell": 682,
@@ -354,7 +354,7 @@
           "ok": true
         },
         {
-          "name": "Северо-Восточная Сибирь",
+          "name": "North-east Siberia",
           "lon": 128.0,
           "lat": 65.0,
           "cell": 166,
@@ -387,7 +387,7 @@
       },
       "landmarks": [
         {
-          "name": "Тибет",
+          "name": "Tibet",
           "lon": 88.0,
           "lat": 32.5,
           "cell": 816,
@@ -400,7 +400,7 @@
           "ok": true
         },
         {
-          "name": "Гималаи",
+          "name": "Himalaya",
           "lon": 84.0,
           "lat": 28.5,
           "cell": 903,
@@ -413,7 +413,7 @@
           "ok": true
         },
         {
-          "name": "Алтай",
+          "name": "Altai",
           "lon": 89.0,
           "lat": 48.0,
           "cell": 552,
@@ -426,7 +426,7 @@
           "ok": true
         },
         {
-          "name": "Иранское нагорье",
+          "name": "Iranian plateau",
           "lon": 54.0,
           "lat": 31.0,
           "cell": 852,
@@ -439,7 +439,7 @@
           "ok": true
         },
         {
-          "name": "Западная Сибирь",
+          "name": "West Siberia",
           "lon": 76.0,
           "lat": 60.0,
           "cell": 329,
@@ -452,7 +452,7 @@
           "ok": true
         },
         {
-          "name": "Альпы",
+          "name": "Alps",
           "lon": 10.0,
           "lat": 46.5,
           "cell": 579,
@@ -465,7 +465,7 @@
           "ok": true
         },
         {
-          "name": "Аравия",
+          "name": "Arabia",
           "lon": 45.0,
           "lat": 23.0,
           "cell": 983,
@@ -478,7 +478,7 @@
           "ok": true
         },
         {
-          "name": "Гоби",
+          "name": "Gobi",
           "lon": 105.0,
           "lat": 43.0,
           "cell": 643,
@@ -491,7 +491,7 @@
           "ok": true
         },
         {
-          "name": "Индо-Гангская низменность",
+          "name": "Indo-Gangetic plain",
           "lon": 80.0,
           "lat": 26.0,
           "cell": 946,
@@ -504,7 +504,7 @@
           "ok": true
         },
         {
-          "name": "Туранская низменность",
+          "name": "Turan lowland",
           "lon": 62.0,
           "lat": 43.0,
           "cell": 634,
@@ -517,7 +517,7 @@
           "ok": true
         },
         {
-          "name": "Декан",
+          "name": "Deccan",
           "lon": 78.0,
           "lat": 18.0,
           "cell": 1078,
@@ -530,7 +530,7 @@
           "ok": true
         },
         {
-          "name": "Северо-Восточная Сибирь",
+          "name": "North-east Siberia",
           "lon": 128.0,
           "lat": 65.0,
           "cell": 252,

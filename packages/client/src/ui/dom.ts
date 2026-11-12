@@ -104,4 +104,4 @@ export function row(label: string, control: HTMLElement): HTMLElement {
   return h('div', { class: 'row' }, h('div', { class: 'row-head' }, text), control);
 }
 
-export const formatNumber = (value: number): string => value.toLocaleString('ru-RU');
+export const formatNumber = (value: number): string => value.toLocaleString('en-US');

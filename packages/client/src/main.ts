@@ -8,7 +8,7 @@ import {
   type GameState,
   type MapSize,
 } from '@eurasia/shared';
-import { ru } from './i18n/ru';
+import { t } from './i18n';
 import { lightingAt, timeOfDayFromDate } from './render/palette';
 import { createView, type View } from './render/view';
 import { browserStorage, clearSave, loadSave, saveState } from './state/save';
@@ -82,7 +82,7 @@ const root = document.querySelector<HTMLDivElement>('#app') ?? document.body;
 app.mount(root);
 
 const { view, mode } = createView(app.canvas, map, settings.relief, resolveQuality(settings));
-if (mode === '2d') app.setMessage(ru.messages.noWebgl, 'info');
+if (mode === '2d') app.setMessage(t.messages.noWebgl, 'info');
 view.resize();
 
 // --------------------------------------------------------------------- state
@@ -134,20 +134,20 @@ function updateStats(): void {
 function describeError(code: string): string {
   switch (code) {
     case 'no_coins':
-      return ru.messages.noCoins(BALANCE.claim.cost, active().coins[0]);
+      return t.messages.noCoins(BALANCE.claim.cost, active().coins[0]);
     case 'sea':
-      return ru.messages.sea;
+      return t.messages.sea;
     case 'taken':
     case 'already_owned':
-      return ru.messages.taken;
+      return t.messages.taken;
     default:
-      return ru.messages.failed;
+      return t.messages.failed;
   }
 }
 
 function toggleCell(index: number): void {
   if (demo) {
-    app.setMessage(ru.messages.demo, 'info');
+    app.setMessage(t.messages.demo, 'info');
     return;
   }
   if (index < 0 || index >= map.rows * map.cols) return;
@@ -171,8 +171,8 @@ function toggleCell(index: number): void {
   scheduleSave();
 
   for (const event of result.events) {
-    if (event.t === 'claimed') app.setMessage(ru.messages.claimed(event.cost), 'good');
-    if (event.t === 'unclaimed') app.setMessage(ru.messages.unclaimed(event.refund), 'good');
+    if (event.t === 'claimed') app.setMessage(t.messages.claimed(event.cost), 'good');
+    if (event.t === 'unclaimed') app.setMessage(t.messages.unclaimed(event.refund), 'good');
   }
 }
 
@@ -189,7 +189,7 @@ function settle(): void {
 
   const income = result.events.find((event) => event.t === 'income');
   if (income && income.t === 'income') {
-    app.setMessage(ru.messages.income(income.amount, income.days), 'good');
+    app.setMessage(t.messages.income(income.amount, income.days), 'good');
   }
 }
 
@@ -222,7 +222,7 @@ function switchSize(size: MapSize): void {
   view.setState(state, Date.now());
   updateStats();
   app.setSettings(settings, demo);
-  app.setMessage(loaded.ok ? ru.messages.loaded(state.claimed[0]) : ru.hud.hint, 'info');
+  app.setMessage(loaded.ok ? t.messages.loaded(state.claimed[0]) : t.hud.hint, 'info');
 }
 
 function buildDemoState(): GameState {
@@ -254,7 +254,7 @@ function toggleDemo(): void {
   app.setSettings(settings, demo);
   view.setState(active(), Date.now());
   updateStats();
-  app.setMessage(demo ? ru.messages.demo : ru.messages.demoOff, 'info');
+  app.setMessage(demo ? t.messages.demo : t.messages.demoOff, 'info');
 }
 
 async function reset(): Promise<void> {
@@ -271,7 +271,7 @@ async function reset(): Promise<void> {
   view.setSelected(selected);
   view.setState(state, Date.now());
   updateStats();
-  app.setMessage(ru.messages.reset, 'good');
+  app.setMessage(t.messages.reset, 'good');
 }
 
 // ------------------------------------------------------------------ visuals
@@ -384,13 +384,13 @@ state = loaded.ok ? loaded.state : createInitialState(nextSeed(), Date.now());
 selected = firstLand();
 
 if (loaded.ok) {
-  app.setMessage(ru.messages.loaded(state.claimed[0]), 'info');
+  app.setMessage(t.messages.loaded(state.claimed[0]), 'info');
 } else if (loaded.reason === 'corrupt') {
-  app.setMessage(ru.errors.saveCorrupt, 'error');
+  app.setMessage(t.errors.saveCorrupt, 'error');
 } else if (loaded.reason === 'newer') {
-  app.setMessage(ru.errors.saveNewer, 'error');
+  app.setMessage(t.errors.saveNewer, 'error');
 } else {
-  app.setMessage(ru.hud.hint, 'info');
+  app.setMessage(t.hud.hint, 'info');
 }
 
 app.canvas.focus({ preventScroll: true });

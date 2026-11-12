@@ -1,5 +1,5 @@
 import { MAP_SIZES, type MapSize } from '@eurasia/shared';
-import { ru } from '../i18n/ru';
+import { t } from '../i18n';
 import type { DayNight, Quality, Settings, Theme } from '../state/settings';
 import { formatNumber, h, row, segmented } from './dom';
 
@@ -67,7 +67,7 @@ export class App {
       attrs: {
         tabindex: '0',
         role: 'application',
-        'aria-label': `${ru.hud.hint}. ${ru.hud.keyboardHint}`,
+        'aria-label': `${t.hud.hint}. ${t.hud.keyboardHint}`,
       },
     });
 
@@ -87,105 +87,105 @@ export class App {
       MAP_SIZES.map((value) => ({ value, label: String(value) })),
       settings.size,
       handlers.onSize,
-      ru.settings.size,
+      t.settings.size,
     );
     const dayNight = segmented<DayNight>(
       [
-        { value: 'auto', label: ru.settings.lightingAuto },
-        { value: 'day', label: ru.settings.lightingDay },
-        { value: 'night', label: ru.settings.lightingNight },
+        { value: 'auto', label: t.settings.lightingAuto },
+        { value: 'day', label: t.settings.lightingDay },
+        { value: 'night', label: t.settings.lightingNight },
       ],
       settings.dayNight,
       handlers.onDayNight,
-      ru.settings.lighting,
+      t.settings.lighting,
     );
     const relief = segmented<string>(
       [
-        { value: 'on', label: ru.settings.reliefOn },
-        { value: 'off', label: ru.settings.reliefOff },
+        { value: 'on', label: t.settings.reliefOn },
+        { value: 'off', label: t.settings.reliefOff },
       ],
       settings.relief ? 'on' : 'off',
       (value) => handlers.onRelief(value === 'on'),
-      ru.settings.relief,
+      t.settings.relief,
     );
     const hurricanes = segmented<string>(
       [
-        { value: 'on', label: ru.settings.hurricanesOn },
-        { value: 'off', label: ru.settings.hurricanesOff },
+        { value: 'on', label: t.settings.hurricanesOn },
+        { value: 'off', label: t.settings.hurricanesOff },
       ],
       settings.hurricanes ? 'on' : 'off',
       (value) => handlers.onHurricanes(value === 'on'),
-      ru.settings.hurricanes,
+      t.settings.hurricanes,
     );
     const speed = segmented<number>(
-      ru.settings.speedOptions.map((label, index) => ({ value: index, label })),
+      t.settings.speedOptions.map((label, index) => ({ value: index, label })),
       settings.speed,
       handlers.onSpeed,
-      ru.settings.speed,
+      t.settings.speed,
     );
     const quality = segmented<Quality>(
       [
-        { value: 'auto', label: ru.settings.qualityAuto },
-        { value: 'high', label: ru.settings.qualityHigh },
-        { value: 'low', label: ru.settings.qualityLow },
+        { value: 'auto', label: t.settings.qualityAuto },
+        { value: 'high', label: t.settings.qualityHigh },
+        { value: 'low', label: t.settings.qualityLow },
       ],
       settings.quality,
       handlers.onQuality,
-      ru.settings.quality,
+      t.settings.quality,
     );
     const theme = segmented<Theme>(
       [
-        { value: 'auto', label: ru.settings.themeAuto },
-        { value: 'light', label: ru.settings.themeLight },
-        { value: 'dark', label: ru.settings.themeDark },
+        { value: 'auto', label: t.settings.themeAuto },
+        { value: 'light', label: t.settings.themeLight },
+        { value: 'dark', label: t.settings.themeDark },
       ],
       settings.theme,
       handlers.onTheme,
-      ru.settings.theme,
+      t.settings.theme,
     );
 
     this.segments = { size, theme, quality, dayNight, relief, hurricanes, speed };
 
     this.demoButton = h('button', {
       class: 'button',
-      text: ru.settings.demoOn,
+      text: t.settings.demoOn,
       attrs: { type: 'button' },
       on: { click: () => handlers.onDemo() },
     });
     const resetButton = h('button', {
       class: 'button button-danger',
-      text: ru.settings.reset,
+      text: t.settings.reset,
       attrs: { type: 'button' },
       on: { click: () => handlers.onReset() },
     });
 
     this.panel = h(
       'aside',
-      { class: 'panel', attrs: { 'aria-label': ru.panel.settings } },
+      { class: 'panel', attrs: { 'aria-label': t.panel.settings } },
       h(
         'div',
         { class: 'panel-head' },
-        h('span', { class: 'panel-title', text: ru.panel.settings }),
+        h('span', { class: 'panel-title', text: t.panel.settings }),
         h('button', {
           class: 'panel-close',
           text: '×',
-          attrs: { type: 'button', 'aria-label': ru.panel.close },
+          attrs: { type: 'button', 'aria-label': t.panel.close },
           on: { click: () => this.setPanelOpen(false) },
         }),
       ),
-      row(ru.settings.size, size.root),
-      row(ru.settings.lighting, dayNight.root),
-      row(ru.settings.relief, relief.root),
-      row(ru.settings.hurricanes, hurricanes.root),
-      row(ru.settings.speed, speed.root),
-      row(ru.settings.quality, quality.root),
-      row(ru.settings.theme, theme.root),
+      row(t.settings.size, size.root),
+      row(t.settings.lighting, dayNight.root),
+      row(t.settings.relief, relief.root),
+      row(t.settings.hurricanes, hurricanes.root),
+      row(t.settings.speed, speed.root),
+      row(t.settings.quality, quality.root),
+      row(t.settings.theme, theme.root),
       h('div', { class: 'panel-actions' }, this.demoButton, resetButton),
     );
 
     this.toggle = h('button', {
       class: 'panel-toggle',
-      text: ru.panel.settings,
+      text: t.panel.settings,
       attrs: { type: 'button', 'aria-expanded': 'false' },
       on: { click: () => this.setPanelOpen(!this.root.classList.contains('panel-open')) },
     });
@@ -196,14 +196,14 @@ export class App {
       h(
         'div',
         { class: 'stat' },
-        h('span', { class: 'stat-label', text: ru.panel.coins }),
+        h('span', { class: 'stat-label', text: t.panel.coins }),
         this.coinsEl,
         this.incomeEl,
       ),
       h(
         'div',
         { class: 'stat' },
-        h('span', { class: 'stat-label', text: ru.panel.cells }),
+        h('span', { class: 'stat-label', text: t.panel.cells }),
         this.cellsEl,
       ),
     );
@@ -215,8 +215,8 @@ export class App {
         h(
           'div',
           { class: 'brand' },
-          h('h1', { text: ru.app.title }),
-          h('p', { text: ru.app.tagline }),
+          h('h1', { text: t.app.title }),
+          h('p', { text: t.app.tagline }),
         ),
         stats,
         this.toggle,
@@ -228,18 +228,18 @@ export class App {
     this.dialog = h('dialog', { class: 'dialog' }) as HTMLDialogElement;
     const cancel = h('button', {
       class: 'button',
-      text: ru.confirm.resetNo,
+      text: t.confirm.resetNo,
       attrs: { type: 'button' },
       on: { click: () => this.settleReset(false) },
     });
     const confirm = h('button', {
       class: 'button button-danger',
-      text: ru.confirm.resetYes,
+      text: t.confirm.resetYes,
       attrs: { type: 'button' },
       on: { click: () => this.settleReset(true) },
     });
     this.dialog.append(
-      h('p', { text: ru.confirm.reset }),
+      h('p', { text: t.confirm.reset }),
       h('div', { class: 'dialog-actions' }, cancel, confirm),
     );
     this.dialog.addEventListener('cancel', (event) => {
@@ -253,9 +253,9 @@ export class App {
     return h(
       'div',
       { class: 'legend' },
-      h('span', { class: 'legend-label', text: ru.legend.elevation }),
+      h('span', { class: 'legend-label', text: t.legend.elevation }),
       h('span', { class: 'legend-ramp' }),
-      h('span', { class: 'legend-scale', text: '0 — 5 200 м' }),
+      h('span', { class: 'legend-scale', text: t.legend.range }),
     );
   }
 
@@ -265,9 +265,9 @@ export class App {
 
   updateStats(coins: number, income: number, claimed: number, total: number): void {
     this.coinsEl.textContent = formatNumber(coins);
-    this.incomeEl.textContent = ru.panel.perDay(income);
+    this.incomeEl.textContent = t.panel.perDay(income);
     this.incomeEl.classList.toggle('muted', income === 0);
-    this.cellsEl.textContent = ru.panel.progress(claimed, total);
+    this.cellsEl.textContent = t.panel.progress(claimed, total);
 
     const percent = total > 0 ? Math.round((claimed / total) * 100) : 0;
     this.barEl.style.width = `${percent}%`;
@@ -287,7 +287,7 @@ export class App {
     this.segments.relief.set(settings.relief ? 'on' : 'off');
     this.segments.hurricanes.set(settings.hurricanes ? 'on' : 'off');
     this.segments.speed.set(settings.speed);
-    this.demoButton.textContent = demo ? ru.settings.demoOff : ru.settings.demoOn;
+    this.demoButton.textContent = demo ? t.settings.demoOff : t.settings.demoOn;
     this.demoButton.classList.toggle('is-active', demo);
   }
 

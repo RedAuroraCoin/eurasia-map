@@ -115,10 +115,10 @@ describe('single-player shell', () => {
   it('boots with a board, a panel and stats', async () => {
     await boot();
 
-    expect(document.querySelector('h1')?.textContent).toBe('Карта Евразии');
+    expect(document.querySelector('h1')?.textContent).toBe('Eurasia Map');
     expect(document.querySelector('canvas')).not.toBeNull();
     expect(document.querySelectorAll('.segmented')).toHaveLength(7);
-    expect(document.querySelector('.stats')?.textContent).toContain('Монеты');
+    expect(document.querySelector('.stats')?.textContent).toContain('Coins');
     expect(document.querySelector('.stats')?.textContent).toContain('10');
     expect(drawCalls).toContain('fillRect');
   });
@@ -156,11 +156,11 @@ describe('single-player shell', () => {
     const landPoint = cellCentre(map.cols, map.rows, land);
     clickCell(landPoint.x, landPoint.y);
     expect(getState().cells[String(land)]).toBeDefined();
-    expect(document.querySelector('.status')?.textContent).toContain('Клетка занята');
+    expect(document.querySelector('.status')?.textContent).toContain('Cell claimed');
 
     const seaPoint = cellCentre(map.cols, map.rows, sea);
     clickCell(seaPoint.x, seaPoint.y);
-    expect(document.querySelector('.status')?.textContent).toContain('море');
+    expect(document.querySelector('.status')?.textContent).toContain('water');
   });
 
   it('persists progress between boots', async () => {
@@ -196,7 +196,7 @@ describe('single-player shell', () => {
   it('applies the theme to the document', async () => {
     await boot();
     const dark = [...document.querySelectorAll<HTMLButtonElement>('.segmented button')].find(
-      (button) => button.textContent === 'Тёмная',
+      (button) => button.textContent === 'Dark',
     );
     dark?.click();
     expect(document.documentElement.dataset.theme).toBe('dark');
@@ -205,7 +205,7 @@ describe('single-player shell', () => {
   it('enters demo mode without touching the saved city', async () => {
     const { getState } = await boot();
     const demoButton = [...document.querySelectorAll<HTMLButtonElement>('.button')].find(
-      (button) => button.textContent === 'Демо-город',
+      (button) => button.textContent === 'Demo city',
     );
     expect(demoButton).toBeDefined();
 
@@ -215,6 +215,6 @@ describe('single-player shell', () => {
     const state = getState();
     expect(state.claimed[0]).toBe(getMap(500).land);
     expect(state.coins[0]).toBe(0);
-    expect(document.querySelector('.status')?.textContent).toContain('Демо');
+    expect(document.querySelector('.status')?.textContent).toContain('Demo');
   });
 });

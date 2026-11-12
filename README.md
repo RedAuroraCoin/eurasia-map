@@ -30,6 +30,10 @@ docs              architecture decisions
 Dependency rule: `shared` imports nothing from the repo; `client` and `server` import
 `shared`; neither imports the other. Enforced by `npm run lint`, not by convention.
 
+The interface is English. Every string lives in `packages/client/src/i18n/`; `ru.ts` keeps the
+original Russian translation, type-checked against the English dictionary, and `index.ts` picks the
+locale in one line. `npm run lint` fails the build if Cyrillic text appears anywhere else.
+
 ## Commands
 
 ```bash

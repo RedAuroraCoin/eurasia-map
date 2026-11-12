@@ -1,8 +1,11 @@
+import type { Dict } from './en';
+
 /**
- * Every user-facing string lives here, so adding a language is adding a file.
- * Nothing else in the client may contain Russian text.
+ * Russian translation, kept because it is the game's original voice — and
+ * because it proves the design: one file per language, type-checked against the
+ * English dictionary, no code changes needed to switch.
  */
-export const ru = {
+export const ru: Dict = {
   app: {
     title: 'Карта Евразии',
     tagline: 'клеточная карта, которая вырастает в стратегию',
@@ -31,7 +34,7 @@ export const ru = {
     hurricanesOn: 'Вкл',
     hurricanesOff: 'Выкл',
     speed: 'Скорость времени',
-    speedOptions: ['1×', '60×', '600×'] as const,
+    speedOptions: ['1×', '60×', '600×'],
     quality: 'Качество',
     qualityAuto: 'Авто',
     qualityHigh: 'Высокое',
@@ -79,11 +82,10 @@ export const ru = {
   },
   legend: {
     elevation: 'Высота',
+    range: '0 — 5 200 м',
   },
   source: {
     label: 'Данные',
     text: 'Natural Earth 1:50m · ETOPO 2022, NOAA/NCEI',
   },
-} as const;
-
-export type Dict = typeof ru;
+};
