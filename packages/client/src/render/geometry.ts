@@ -19,6 +19,13 @@ import { CELL, cellToWorld, elevationToHeight, seaDepth } from './grid';
 
 export const OWNER_TINT: Rgb255 = [237, 168, 77];
 
+/** Buildings lean towards the owner colour but keep their stone look. */
+export const BUILDING_TINT: Rgb255 = [
+  Math.round(255 - (255 - OWNER_TINT[0]) * 0.4),
+  Math.round(255 - (255 - OWNER_TINT[1]) * 0.4),
+  Math.round(255 - (255 - OWNER_TINT[2]) * 0.4),
+];
+
 /** 0..255 -> 0..1. The only sanctioned way to hand a ramp colour to three. */
 export const unitColor = (rgb: Rgb255): [number, number, number] => [
   rgb[0] / 255,
@@ -73,11 +80,12 @@ export function buildTerrain(
 
 /**
  * Building height in world units at full growth. Has to stay in proportion with
- * the terrain exaggeration: a 0.8-unit tower next to a 5-unit mountain is a
- * pebble.
+ * the terrain exaggeration: a small tower next to a 7-unit mountain is a pebble.
+ * The footprint is wider than before because a castle reads as a building, while
+ * a tall thin one reads as a post.
  */
-const BUILDING_MAX = 1.6;
-const BUILDING_FOOTPRINT = 0.5;
+const BUILDING_MAX = 1.3;
+const BUILDING_FOOTPRINT = 0.66;
 
 /**
  * The little overshoot right after a claim. Returns 1 outside the animation

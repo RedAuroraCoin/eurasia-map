@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GameState, MapEntry } from '@eurasia/shared';
-import { buildBuildings, buildTerrain, depthTextureData, OWNER_TINT, unitColor } from './geometry';
+import { createCastleGeometry } from './castle';
+import {
+  BUILDING_TINT,
+  buildBuildings,
+  buildTerrain,
+  depthTextureData,
+  unitColor,
+} from './geometry';
 import { boardSize, elevationToHeight, fitDistance, VIEW_DIRECTION, worldToCell } from './grid';
 import type { Lighting } from './palette';
 import { WATER_FRAGMENT, WATER_VERTEX } from './water-shaders';
@@ -251,11 +258,13 @@ export class Scene3D implements View {
 
     // Buildings are rebuilt whenever the map or the state changes shape; their
     // height is then refreshed from the state at 10 Hz.
-    const buildingGeometry = new THREE.BoxGeometry(1, 1, 1);
-    buildingGeometry.translate(0, 0.5, 0);
+    // One merged castle, instanced: keep, towers, roofs and merlons in a single
+    // draw call, with the part colours baked into vertex colours.
+    const buildingGeometry = createCastleGeometry();
     const buildingMaterial = new THREE.MeshStandardMaterial({
-      roughness: 0.72,
-      metalness: 0.06,
+      roughness: 0.8,
+      metalness: 0.05,
+      vertexColors: true,
       color: 0xffffff,
     });
     const capacity = Math.max(1, this.map.land);
@@ -385,8 +394,8 @@ export class Scene3D implements View {
       matrix.setPosition(cell.x, cell.y - cell.height / 2, cell.z);
       this.buildings?.setMatrixAt(i, matrix);
 
-      const shade = 0.72 + 0.28 * Math.min(1, cell.scale);
-      const tint = unitColor(OWNER_TINT);
+      const shade = 0.92 + 0.08 * Math.min(1, cell.scale);
+      const tint = unitColor(BUILDING_TINT);
       color.setRGB(tint[0] * shade, tint[1] * shade, tint[2] * shade);
       this.buildings?.setColorAt(i, color);
 

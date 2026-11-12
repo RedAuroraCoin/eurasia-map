@@ -110,6 +110,25 @@ sent (`PCFSoftShadowMap has been removed`) was unrelated.
    and it means a player who runs at 600× sees buildings grow faster than their income suggests.
 4. **Per-size saves.** Three saves coexist; the panel has no "which map has progress" indicator yet.
 
+## Buildings: castles, not boxes
+
+A box reads as a placeholder; a castle reads as a building. `render/castle.ts` assembles one from
+primitives — a keep, four corner towers with conical roofs, eight merlons, a gate — merged into a
+single geometry of **216 triangles**, so eight hundred of them are still one instanced draw call.
+
+- Part colours (stone, shaded stone, terracotta roof, dark gate) are baked as **vertex colours**, so
+  three materials' worth of detail costs zero extra draw calls. The per-instance colour leans 40 %
+  towards the owner tint instead of replacing it, so castles stay stone-coloured and still show who
+  owns them.
+- Everything is built inside a unit box (footprint 1×1, base at y = 0, top at y = 1) because the
+  scene scales it per instance. A test asserts that contract, plus vertex colours in range and
+  normals present.
+- The silhouette was checked without a GPU by rasterising the indexed triangles in XY and printing
+  them: two roofed towers, merlons between them, a solid keep. That is the only "look" verification
+  this machine can do.
+- `BUILDING_MAX` 1.6 → 1.3 and footprint 0.5 → 0.66: a castle is wider than a tower, and at 1.6 it
+  would have read as a spire.
+
 ## Next: Stage 3 — hurricanes
 
 Spawn schedule (first ~6 s, then 35–75 s apart, at most two), a winding path, damage to cells inside
