@@ -7,7 +7,7 @@ import {
   saveSettings,
   speedMultiplier,
 } from './settings';
-import type { StorageLike } from './save';
+import { SETTINGS_KEY, type StorageLike } from './save';
 
 class MemoryStorage implements StorageLike {
   readonly items = new Map<string, string>();
@@ -71,7 +71,7 @@ describe('storage', () => {
 
   it('falls back to defaults on broken JSON', () => {
     const storage = new MemoryStorage();
-    storage.setItem('eurasia.settings', '{{{');
+    storage.setItem(SETTINGS_KEY, '{{{');
     expect(loadSettings(storage)).toEqual(DEFAULT_SETTINGS);
   });
 

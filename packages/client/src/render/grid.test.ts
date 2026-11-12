@@ -48,8 +48,8 @@ describe('elevationToHeight', () => {
 
   it('keeps the plateau visible but not silly', () => {
     const tibet = elevationToHeight(5000, true);
-    expect(tibet).toBeGreaterThan(1.5);
-    expect(tibet).toBeLessThan(3);
+    expect(tibet).toBeGreaterThan(4);
+    expect(tibet).toBeLessThan(9);
     // a hill has to be clearly taller than a plain, or the board reads as flat
     expect(elevationToHeight(1500, true)).toBeGreaterThan(elevationToHeight(300, true) * 2);
   });

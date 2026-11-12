@@ -67,6 +67,8 @@ sent (`PCFSoftShadowMap has been removed`) was unrelated.
   named `Rgb255` so the two spaces cannot be confused, and the owner tint was moved into the same
   0..255 space (it had been mixing 0.93 with 255). A test asserts no terrain colour is white after
   conversion.
+- **Settings key bumped** (`eurasia.settings.v2`): a stored `relief: false` from the previous look
+  would have kept the map flat and made the new scale look broken.
 - **Also fixed, and real though not the reported symptom:** the slabs were 0.985 cells wide, leaving
   a seam that would show the water plane at close range; the water under land was marked "shore" and
   painted foam through that seam; a close low camera could cut into a mountain and fill the screen
@@ -74,6 +76,12 @@ sent (`PCFSoftShadowMap has been removed`) was unrelated.
 - **Heights.** `elevationToHeight` used `(e/5200)^0.78 × 1.1`, which put 95 % of Eurasia inside
   0.15–0.35 units — the board read as a plain. Now `(e/5200)^0.62 × 2.3`, and the colour ramp was
   re-spaced over 0–2 400 m instead of 0–5 200 m.
+- **Relief, third pass.** The numbers were fine (0.08–2.33 units) but the *screen* relief was not:
+  a 2.3-unit Tibet on a 36-deep board is 5 % of the frame, and the camera fit was raising all four
+  board corners to the tallest peak, which pushed the camera back and cancelled the exaggeration.
+  Now `MAX_VISUAL_HEIGHT = 7` with a `^0.45` curve (a 400 m plain is 2.2 units, Tibet 7), the fit
+  uses the waterline plus the single highest cell, and a test measures the relief **in pixels**:
+  median land shows > 12 px of step and the peak > 70 px on a 900 px viewport.
 - **Framing.** The old estimate framed on the diagonal with a 1.25 margin, putting the camera ~40 %
   further out than needed. `fitDistance` now bisects for the exact distance at every aspect ratio;
   a test projects the land corners with three's own matrices and asserts they stay on screen.

@@ -8,11 +8,12 @@ import { type MapEntry, getMap, type MapSize } from '@eurasia/shared';
 export const CELL = 1;
 
 /**
- * Visual exaggeration. 5 200 m of Tibet is 2.3 cells tall, and a 400 m hill is
- * half a cell — the board is only a few dozen cells wide, so a faithful scale
- * would read as a flat plane with one bump.
+ * Visual exaggeration. At a faithful scale (one cell ~ 200 km) Everest would be
+ * 0.04 cells tall; the whole point of a diorama is to lie about that. 5 200 m is
+ * five cells tall and a 400 m plain is one and a half, which is the point where
+ * the relief reads as volume rather than as a colour map.
  */
-export const MAX_VISUAL_HEIGHT = 2.3;
+export const MAX_VISUAL_HEIGHT = 7;
 const ELEVATION_REFERENCE = 5200;
 const FLAT_HEIGHT = 0.06;
 const SEA_FLOOR = 0.9;
@@ -49,7 +50,7 @@ export function elevationToHeight(elevation: number, relief: boolean): number {
   if (!relief) return FLAT_HEIGHT;
   const above = Math.max(0, elevation);
   const k = Math.min(1, above / ELEVATION_REFERENCE);
-  return Math.pow(k, 0.62) * MAX_VISUAL_HEIGHT + FLAT_HEIGHT;
+  return Math.pow(k, 0.45) * MAX_VISUAL_HEIGHT + FLAT_HEIGHT;
 }
 
 /** Sea floor depth in world units, used by the water shader and the 2D preview. */
@@ -91,9 +92,8 @@ export function fitDistance(
   map: MapEntry,
   fovDegrees: number,
   aspect: number,
-  margin = 1.02,
+  margin = 1.06,
   targetY = 0.35,
-  tallest = 2.4,
 ): number {
   const { width, depth } = boardSize(map);
   const direction = norm(VIEW_DIRECTION);
@@ -105,11 +105,26 @@ export function fitDistance(
   const tanV = Math.tan((fovDegrees * Math.PI) / 180 / 2);
   const tanH = tanV * Math.max(0.4, aspect);
 
+  // The board's own corners are open sea, so raising them to the highest peak
+  // would push the camera back for nothing. Fit the waterline, then add the one
+  // point that can actually stick out: the top of the highest land cell.
   const corners: [number, number, number][] = [];
   for (const x of [-width / 2, width / 2]) {
-    for (const z of [-depth / 2, depth / 2]) {
-      for (const y of [0, tallest]) corners.push([x, y, z]);
+    for (const z of [-depth / 2, depth / 2]) corners.push([x, 0, z]);
+  }
+  let highest = -1;
+  let highestElevation = Number.NEGATIVE_INFINITY;
+  for (let index = 0; index < map.mask.length; index++) {
+    if (map.mask[index] !== '#') continue;
+    const elevation = map.elev[index] ?? 0;
+    if (elevation > highestElevation) {
+      highestElevation = elevation;
+      highest = index;
     }
+  }
+  if (highest >= 0) {
+    const { x, z } = cellToWorld(map, highest);
+    corners.push([x, elevationToHeight(highestElevation, true), z]);
   }
 
   const fits = (distance: number): boolean => {

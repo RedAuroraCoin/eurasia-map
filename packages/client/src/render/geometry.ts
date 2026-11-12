@@ -71,9 +71,13 @@ export function buildTerrain(
   return out;
 }
 
-/** Building height in world units at full growth. */
-const BUILDING_MAX = 0.78;
-const BUILDING_FOOTPRINT = 0.56;
+/**
+ * Building height in world units at full growth. Has to stay in proportion with
+ * the terrain exaggeration: a 0.8-unit tower next to a 5-unit mountain is a
+ * pebble.
+ */
+const BUILDING_MAX = 1.6;
+const BUILDING_FOOTPRINT = 0.5;
 
 /**
  * The little overshoot right after a claim. Returns 1 outside the animation

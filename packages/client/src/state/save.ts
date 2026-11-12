@@ -13,7 +13,12 @@ export interface StorageLike {
   removeItem(key: string): void;
 }
 
-export const SETTINGS_KEY = 'eurasia.settings';
+/**
+ * Bumped from `eurasia.settings` when the relief scale changed: a stored
+ * `relief: false` from the previous look would otherwise keep the map flat and
+ * make the new exaggeration look broken.
+ */
+export const SETTINGS_KEY = 'eurasia.settings.v2';
 
 /**
  * One save per map size: switching size is not a destructive act, and a player

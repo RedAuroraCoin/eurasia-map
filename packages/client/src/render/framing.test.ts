@@ -1,7 +1,7 @@
 import { MAP_SIZES, getMap } from '@eurasia/shared';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { cellToWorld, fitDistance, VIEW_DIRECTION } from './grid';
+import { cellToWorld, elevationToHeight, fitDistance, VIEW_DIRECTION } from './grid';
 
 /**
  * Framing, checked with three's own projection maths instead of a screenshot:
@@ -65,6 +65,41 @@ function landFrame(size: 300 | 500 | 800, aspect: number): Frame {
   };
 }
 
+/**
+ * The complaint this exists for: "the map shows the colours but not the volume".
+ * Relief that does not move enough pixels is not relief, whatever the numbers in
+ * the data say.
+ */
+function reliefPixels(
+  size: 300 | 500 | 800,
+  aspect: number,
+  viewportHeight: number,
+): { median: number; peak: number } {
+  const map = getMap(size);
+  const distance = fitDistance(map, FOV, aspect);
+  const camera = new THREE.PerspectiveCamera(FOV, aspect, 0.1, 400);
+  camera.position.copy(DIRECTION.clone().multiplyScalar(distance));
+  camera.lookAt(TARGET);
+  camera.updateMatrixWorld(true);
+
+  // Height only reads as height if a cell's top is visibly above its own base.
+  // Comparing the highest cell with the lowest one instead measures the depth
+  // difference between them, which is a different (and misleading) number.
+  const heights: number[] = [];
+  for (let index = 0; index < map.mask.length; index++) {
+    if (map.mask[index] !== '#') continue;
+    const { x, z } = cellToWorld(map, index);
+    const top = new THREE.Vector3(x, elevationToHeight(map.elev[index] ?? 0, true), z).project(
+      camera,
+    );
+    const base = new THREE.Vector3(x, 0, z).project(camera);
+    heights.push((Math.abs(top.y - base.y) / 2) * viewportHeight);
+  }
+  heights.sort((a, b) => a - b);
+  const at = (p: number): number => heights[Math.floor(p * (heights.length - 1))] ?? 0;
+  return { median: at(0.5), peak: at(1) };
+}
+
 describe('default framing', () => {
   for (const aspect of [0.6, 1, 1.6, 2.2]) {
     it(`keeps the land in frame at aspect ${aspect}`, () => {
@@ -79,4 +114,15 @@ describe('default framing', () => {
       }
     });
   }
+
+  it('actually shows the relief, not just its colours', () => {
+    for (const size of MAP_SIZES) {
+      const { median, peak } = reliefPixels(size, 1.6, 900);
+      // Half the land must show a visible step, and the peak must be a feature
+      // of the frame rather than a rounding error. Below ~8 % of the viewport
+      // the board reads as a coloured plate.
+      expect(median).toBeGreaterThan(12);
+      expect(peak).toBeGreaterThan(70);
+    }
+  });
 });
