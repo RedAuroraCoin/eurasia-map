@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GameState, MapEntry } from '@eurasia/shared';
 import { createCastleGeometry } from './castle';
+import { BUILDING_MODEL_URL, loadBuildingModel } from './model';
 import {
   BUILDING_TINT,
   buildBuildings,
@@ -82,6 +83,27 @@ export class Scene3D implements View {
   private terrainCells: number[] = [];
   private buildingCells: number[] = [];
   private depthTexture: THREE.DataTexture;
+
+  /** A GLB dropped into public/models/castle.glb replaces the procedural castle. */
+  private model: THREE.BufferGeometry | null = null;
+  private modelRequested = false;
+
+  /**
+   * Asked once per view. If the file is not there the request 404s and the
+   * procedural castle stays — no error, no download, no loader in the bundle.
+   */
+  private loadCustomModelOnce(): void {
+    if (this.modelRequested) return;
+    this.modelRequested = true;
+    void loadBuildingModel(BUILDING_MODEL_URL).then((geometry) => {
+      if (!geometry) return;
+      this.model = geometry;
+      if (!this.buildings) return;
+      const previous = this.buildings.geometry;
+      this.buildings.geometry = geometry;
+      if (previous !== geometry) previous.dispose();
+    });
+  }
 
   private fogNear = 60;
   private fogFar = 200;
@@ -214,7 +236,8 @@ export class Scene3D implements View {
     }
     if (this.buildings) {
       this.scene.remove(this.buildings);
-      this.buildings.geometry.dispose();
+      // The custom model outlives this mesh: it is reused on every rebuild.
+      if (this.buildings.geometry !== this.model) this.buildings.geometry.dispose();
       (this.buildings.material as THREE.Material).dispose();
       this.buildings = null;
     }
@@ -260,7 +283,8 @@ export class Scene3D implements View {
     // height is then refreshed from the state at 10 Hz.
     // One merged castle, instanced: keep, towers, roofs and merlons in a single
     // draw call, with the part colours baked into vertex colours.
-    const buildingGeometry = createCastleGeometry();
+    this.loadCustomModelOnce();
+    const buildingGeometry = this.model ?? createCastleGeometry();
     const buildingMaterial = new THREE.MeshStandardMaterial({
       roughness: 0.8,
       metalness: 0.05,
