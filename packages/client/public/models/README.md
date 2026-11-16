@@ -1,7 +1,17 @@
 # Custom building models
 
-Drop a file called `castle.glb` in this folder and the game uses it instead of the
-procedural castle. No rebuild step, no config, no code change: export, copy, refresh.
+The game ships with two procedural castles, one per side. Drop a GLB in this folder and
+it replaces them. No rebuild step, no config, no code change: export, copy, refresh.
+
+| File           | Replaces                            |
+| -------------- | ----------------------------------- |
+| `castle-a.glb` | the amber side (side A)             |
+| `castle-b.glb` | the blue side (side B)              |
+| `castle.glb`   | both, unless a per-side file exists |
+
+To see both sides on one map before multiplayer exists, open the game with
+`?castles=both` — it alternates the owner of the claimed cells. That is a review
+switch: it changes nothing in the engine, the wallet or the save.
 
 If the file is missing, unreadable or not a GLB, the procedural castle stays and the
 console says why. A bad export cannot break the game.
@@ -10,9 +20,10 @@ console says why. A bad export cannot break the game.
 
 1. Model the building with its base on the ground plane (bottom at Z = 0, or Y = 0 —
    the loader moves it there anyway, but it is easier to judge while modelling).
-2. `File → Export → glTF 2.0 (.glb/.gltf)`, format \*\*glTF Binary (.glb)`,
-`+Y Up`on,`Apply Modifiers` on.
-3. Copy the result here as `castle.glb` and reload the page.
+2. Export with `File → Export → glTF 2.0`; choose the **glTF Binary (.glb)** format, turn on
+   +Y Up, and leave Apply Modifiers on.
+3. Copy the result here as `castle-a.glb` / `castle-b.glb` (or `castle.glb` for both)
+   and reload the page.
 
 Scale does not matter — the model is fitted into the unit box automatically. Rotation
 does: the loader does not guess which way is "front", so the side you want facing the

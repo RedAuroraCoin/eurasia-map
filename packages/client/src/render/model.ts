@@ -22,6 +22,15 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
  */
 export const BUILDING_MODEL_URL = 'models/castle.glb';
 
+/**
+ * Per-side models take precedence: `castle-a.glb` for the amber side,
+ * `castle-b.glb` for the blue one. A single `castle.glb` replaces both.
+ */
+export const SIDE_MODEL_URLS: readonly [string, string] = [
+  'models/castle-a.glb',
+  'models/castle-b.glb',
+];
+
 /** Used for meshes that carry no material colour of their own. */
 const DEFAULT_HEX = '#cfc7b4';
 
@@ -109,6 +118,22 @@ export function normalizeToUnitBox(geometry: THREE.BufferGeometry): THREE.Buffer
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
+}
+
+/**
+ * Both sides at once. A side without its own file falls back to the shared
+ * `castle.glb`, and a side with neither keeps the procedural castle.
+ */
+export async function loadSideModels(): Promise<
+  [THREE.BufferGeometry | null, THREE.BufferGeometry | null]
+> {
+  const [a, b] = await Promise.all([
+    loadBuildingModel(SIDE_MODEL_URLS[0]),
+    loadBuildingModel(SIDE_MODEL_URLS[1]),
+  ]);
+  if (a && b) return [a, b];
+  const shared = await loadBuildingModel(BUILDING_MODEL_URL);
+  return [a ?? shared, b ?? shared];
 }
 
 /** Returns null when there is no model at `url` — the caller keeps its fallback. */

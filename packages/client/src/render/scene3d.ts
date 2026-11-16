@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GameState, MapEntry } from '@eurasia/shared';
 import { createCastleGeometry } from './castle';
-import { BUILDING_MODEL_URL, loadBuildingModel } from './model';
+import { loadSideModels } from './model';
 import {
-  BUILDING_TINT,
   buildBuildings,
+  buildingTint,
   buildTerrain,
   depthTextureData,
+  sideFor,
   unitColor,
 } from './geometry';
 import { boardSize, elevationToHeight, fitDistance, VIEW_DIRECTION, worldToCell } from './grid';
@@ -74,19 +75,23 @@ export class Scene3D implements View {
   private reducedMotion = false;
 
   private terrain: THREE.InstancedMesh | null = null;
-  private buildings: THREE.InstancedMesh | null = null;
+  /** One mesh per side: two silhouettes cannot share an instanced geometry. */
+  private buildings: [THREE.InstancedMesh, THREE.InstancedMesh] | null = null;
   private water: THREE.Mesh | null = null;
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
   private hoverRing: THREE.LineSegments | null = null;
 
   private terrainCells: number[] = [];
-  private buildingCells: number[] = [];
+  private buildingCells: [number[], number[]] = [[], []];
   private depthTexture: THREE.DataTexture;
 
-  /** A GLB dropped into public/models/castle.glb replaces the procedural castle. */
-  private model: THREE.BufferGeometry | null = null;
+  /** GLBs in public/models replace the procedural castles, per side. */
+  private models: [THREE.BufferGeometry | null, THREE.BufferGeometry | null] = [null, null];
   private modelRequested = false;
+
+  /** Review switch: alternate owners so both castle designs are visible. */
+  private sidePreview = false;
 
   /**
    * Asked once per view. If the file is not there the request 404s and the
@@ -95,13 +100,18 @@ export class Scene3D implements View {
   private loadCustomModelOnce(): void {
     if (this.modelRequested) return;
     this.modelRequested = true;
-    void loadBuildingModel(BUILDING_MODEL_URL).then((geometry) => {
-      if (!geometry) return;
-      this.model = geometry;
+    void loadSideModels().then((models) => {
+      if (!models[0] && !models[1]) return;
+      this.models = models;
       if (!this.buildings) return;
-      const previous = this.buildings.geometry;
-      this.buildings.geometry = geometry;
-      if (previous !== geometry) previous.dispose();
+      for (const side of [0, 1] as const) {
+        const geometry = models[side];
+        if (!geometry) continue;
+        const mesh = this.buildings[side];
+        const previous = mesh.geometry;
+        mesh.geometry = geometry;
+        if (previous !== geometry) previous.dispose();
+      }
     });
   }
 
@@ -113,10 +123,17 @@ export class Scene3D implements View {
   private selected = -1;
   private hovered = -1;
 
-  constructor(canvas: HTMLCanvasElement, map: MapEntry, relief: boolean, quality: Quality) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    map: MapEntry,
+    relief: boolean,
+    quality: Quality,
+    sidePreview = false,
+  ) {
     this.map = map;
     this.relief = relief;
     this.quality = quality;
+    this.sidePreview = sidePreview;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -235,10 +252,13 @@ export class Scene3D implements View {
       this.terrain = null;
     }
     if (this.buildings) {
-      this.scene.remove(this.buildings);
-      // The custom model outlives this mesh: it is reused on every rebuild.
-      if (this.buildings.geometry !== this.model) this.buildings.geometry.dispose();
-      (this.buildings.material as THREE.Material).dispose();
+      for (const side of [0, 1] as const) {
+        const mesh = this.buildings[side];
+        this.scene.remove(mesh);
+        // A custom model outlives its mesh: it is reused on every rebuild.
+        if (mesh.geometry !== this.models[side]) mesh.geometry.dispose();
+        if (side === 0) (mesh.material as THREE.Material).dispose();
+      }
       this.buildings = null;
     }
     if (this.glow) {
@@ -281,10 +301,9 @@ export class Scene3D implements View {
 
     // Buildings are rebuilt whenever the map or the state changes shape; their
     // height is then refreshed from the state at 10 Hz.
-    // One merged castle, instanced: keep, towers, roofs and merlons in a single
-    // draw call, with the part colours baked into vertex colours.
+    // Two castles, one per side, each instanced: two draw calls for every
+    // building on the map, with part colours baked into vertex colours.
     this.loadCustomModelOnce();
-    const buildingGeometry = this.model ?? createCastleGeometry();
     const buildingMaterial = new THREE.MeshStandardMaterial({
       roughness: 0.8,
       metalness: 0.05,
@@ -292,13 +311,24 @@ export class Scene3D implements View {
       color: 0xffffff,
     });
     const capacity = Math.max(1, this.map.land);
-    const buildingMesh = new THREE.InstancedMesh(buildingGeometry, buildingMaterial, capacity);
-    buildingMesh.castShadow = this.quality === 'high';
-    buildingMesh.receiveShadow = true;
-    buildingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    buildingMesh.count = 0;
-    this.buildings = buildingMesh;
-    this.scene.add(buildingMesh);
+    const keepMesh = new THREE.InstancedMesh(
+      this.models[0] ?? createCastleGeometry('keep'),
+      buildingMaterial,
+      capacity,
+    );
+    const bastionMesh = new THREE.InstancedMesh(
+      this.models[1] ?? createCastleGeometry('bastion'),
+      buildingMaterial,
+      capacity,
+    );
+    for (const mesh of [keepMesh, bastionMesh]) {
+      mesh.castShadow = this.quality === 'high';
+      mesh.receiveShadow = true;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.count = 0;
+      this.scene.add(mesh);
+    }
+    this.buildings = [keepMesh, bastionMesh];
 
     this.rebuildGlow();
     this.rebuildSelection();
@@ -397,41 +427,52 @@ export class Scene3D implements View {
   }
 
   private updateBuildings(state: GameState | null, now: number, force: boolean): void {
-    if (!this.buildings || !this.glow) return;
+    const meshes = this.buildings;
+    if (!meshes || !this.glow) return;
     if (!state) {
-      this.buildings.count = 0;
+      meshes[0].count = 0;
+      meshes[1].count = 0;
       return;
     }
     if (!force && now - this.lastBuildingUpdate < 100) return;
     this.lastBuildingUpdate = now;
 
     const cells = buildBuildings(this.map, state, now, this.relief);
-    this.buildingCells = cells.map((cell) => cell.index);
 
     const matrix = new THREE.Matrix4();
     const color = new THREE.Color();
     const positions = this.glow.geometry.getAttribute('position') as THREE.BufferAttribute;
     const glowCapacity = positions.count;
+    const counts: [number, number] = [0, 0];
+    this.buildingCells = [[], []];
 
     cells.forEach((cell, i) => {
+      const side = sideFor(cell.index, this.sidePreview);
+      const mesh = meshes[side];
+      const slot = counts[side]++;
+      this.buildingCells[side].push(cell.index);
+
       matrix.makeScale(cell.width, cell.height, cell.width);
       matrix.setPosition(cell.x, cell.y - cell.height / 2, cell.z);
-      this.buildings?.setMatrixAt(i, matrix);
+      mesh.setMatrixAt(slot, matrix);
 
       const shade = 0.92 + 0.08 * Math.min(1, cell.scale);
-      const tint = unitColor(BUILDING_TINT);
+      const tint = unitColor(buildingTint(side));
       color.setRGB(tint[0] * shade, tint[1] * shade, tint[2] * shade);
-      this.buildings?.setColorAt(i, color);
+      mesh.setColorAt(slot, color);
 
       if (i < glowCapacity) {
         positions.setXYZ(i, cell.x, cell.y + cell.height * 0.55, cell.z);
       }
     });
 
-    this.buildings.count = cells.length;
-    this.buildings.instanceMatrix.needsUpdate = true;
-    if (this.buildings.instanceColor) this.buildings.instanceColor.needsUpdate = true;
-    this.buildings.computeBoundingSphere();
+    for (const side of [0, 1] as const) {
+      const mesh = meshes[side];
+      mesh.count = counts[side];
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      mesh.computeBoundingSphere();
+    }
 
     positions.needsUpdate = true;
     this.glow.geometry.setDrawRange(0, Math.min(cells.length, glowCapacity));
@@ -563,13 +604,21 @@ export class Scene3D implements View {
     this.raycaster.setFromCamera(this.pointer, this.camera);
 
     const targets: THREE.Object3D[] = [];
-    if (this.buildings && this.buildings.count > 0) targets.push(this.buildings);
+    if (this.buildings) {
+      for (const side of [0, 1] as const) {
+        if (this.buildings[side].count > 0) targets.push(this.buildings[side]);
+      }
+    }
     if (this.terrain) targets.push(this.terrain);
 
     const hits = this.raycaster.intersectObjects(targets, false);
     for (const hit of hits) {
-      if (hit.object === this.buildings && hit.instanceId !== undefined) {
-        return this.buildingCells[hit.instanceId] ?? -1;
+      if (hit.instanceId !== undefined && this.buildings) {
+        for (const side of [0, 1] as const) {
+          if (hit.object === this.buildings[side]) {
+            return this.buildingCells[side][hit.instanceId] ?? -1;
+          }
+        }
       }
       if (hit.object === this.terrain && hit.instanceId !== undefined) {
         return this.terrainCells[hit.instanceId] ?? -1;

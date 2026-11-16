@@ -17,14 +17,35 @@ import { CELL, cellToWorld, elevationToHeight, seaDepth } from './grid';
  * coast is shaped — is testable without a GPU.
  */
 
-export const OWNER_TINT: Rgb255 = [237, 168, 77];
+/**
+ * Two sides, two colours: amber and blue. Side A is the local player, so
+ * single-player looks exactly as it did before the second side existed.
+ */
+export const OWNER_TINTS: readonly [Rgb255, Rgb255] = [
+  [237, 168, 77],
+  [86, 140, 214],
+];
+
+export const ownerTint = (side: number): Rgb255 => OWNER_TINTS[side === 1 ? 1 : 0];
+
+/** Claimed cells are still tinted for side A only; owners arrive with Stage 4. */
+export const OWNER_TINT: Rgb255 = OWNER_TINTS[0];
 
 /** Buildings lean towards the owner colour but keep their stone look. */
-export const BUILDING_TINT: Rgb255 = [
-  Math.round(255 - (255 - OWNER_TINT[0]) * 0.4),
-  Math.round(255 - (255 - OWNER_TINT[1]) * 0.4),
-  Math.round(255 - (255 - OWNER_TINT[2]) * 0.4),
-];
+export function buildingTint(side: number): Rgb255 {
+  const [r, g, b] = ownerTint(side);
+  const lean = (channel: number): number => Math.round(255 - (255 - channel) * 0.4);
+  return [lean(r), lean(g), lean(b)];
+}
+
+/**
+ * Which side owns a cell. Single-player: everything is side A. The preview flag
+ * splits the existing claims by index parity, which is the only way to see both
+ * castle designs on one map before a second player exists — it is a review
+ * switch, not a rule, and it never touches coins, saves or the engine.
+ */
+export const sideFor = (index: number, preview: boolean): 0 | 1 =>
+  preview && index % 2 === 1 ? 1 : 0;
 
 /** 0..255 -> 0..1. The only sanctioned way to hand a ramp colour to three. */
 export const unitColor = (rgb: Rgb255): [number, number, number] => [

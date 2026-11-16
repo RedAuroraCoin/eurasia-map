@@ -110,7 +110,24 @@ sent (`PCFSoftShadowMap has been removed`) was unrelated.
    and it means a player who runs at 600× sees buildings grow faster than their income suggests.
 4. **Per-size saves.** Three saves coexist; the panel has no "which map has progress" indicator yet.
 
-## Buildings: castles, not boxes
+## Buildings: castles, not boxes, one per side
+
+Two sides get two different castles, because at twenty pixels the outline is what tells
+them apart — a shared shape with a different tint would not survive the zoom-out.
+
+- **Side A — keep.** Wide crenellated keep, four round corner towers with conical roofs,
+  eight merlons, a gate. Warm stone, terracotta roofs.
+- **Side B — bastion.** One tapering round tower with a slate spire above four low square
+  bastions and a curtain wall. Cooler stone, blue-grey roofs.
+- Each is one merged geometry (~216 and ~174 triangles) in its own `InstancedMesh`, so the
+  whole map costs **two draw calls**, not one per building. The material is shared.
+- Owner colours are amber and blue; buildings lean 40 % towards the owner so they stay
+  stone-coloured. `?castles=both` alternates owners for art review — a switch in the
+  renderer, not a rule in the engine.
+- Per-side custom models: `models/castle-a.glb` and `models/castle-b.glb`, with
+  `models/castle.glb` as the shared fallback.
+
+### The first castle
 
 A box reads as a placeholder; a castle reads as a building. `render/castle.ts` assembles one from
 primitives — a keep, four corner towers with conical roofs, eight merlons, a gate — merged into a

@@ -81,7 +81,19 @@ const app = new App(settings, handlers);
 const root = document.querySelector<HTMLDivElement>('#app') ?? document.body;
 app.mount(root);
 
-const { view, mode } = createView(app.canvas, map, settings.relief, resolveQuality(settings));
+/**
+ * `?castles=both` alternates the owner of the claimed cells so both castle
+ * designs can be reviewed on one map. A review switch, not a rule: it changes
+ * nothing in the engine, the wallet or the save.
+ */
+const sidePreview = new URLSearchParams(location.search).get('castles') === 'both';
+const { view, mode } = createView(
+  app.canvas,
+  map,
+  settings.relief,
+  resolveQuality(settings),
+  sidePreview,
+);
 if (mode === '2d') app.setMessage(t.messages.noWebgl, 'info');
 view.resize();
 

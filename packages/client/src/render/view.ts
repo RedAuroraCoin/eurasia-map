@@ -29,11 +29,12 @@ export function createView(
   map: MapEntry,
   relief: boolean,
   quality: Quality,
+  sidePreview = false,
 ): ViewResult {
   if (!hasWebGL()) return { view: new Flat2D(canvas, map, relief), mode: '2d' };
 
   try {
-    return { view: new Scene3D(canvas, map, relief, quality), mode: '3d' };
+    return { view: new Scene3D(canvas, map, relief, quality, sidePreview), mode: '3d' };
   } catch {
     return { view: new Flat2D(canvas, map, relief), mode: '2d' };
   }
