@@ -37,10 +37,24 @@ camera should face −Z (towards the viewer at the default camera angle).
   colour. Textures are dropped, so a UV-mapped stone wall will come out as one flat
   colour — paint with separate materials or with vertex colours instead.
 - **No animations, no skinning.** The building's only motion is the growth scale.
-- **Proportions.** The model is fitted so the tallest dimension is 1 unit and the
-  footprint is at most 1 × 1. The game then places it 0.66 cells wide and up to 1.3
-  units tall, so a model authored roughly 2 : 1 (height : width) appears undistorted.
+- **Proportions.** Height and footprint are fitted independently: the model ends up 1
+  unit tall and 1 unit across, and the game places it 0.66 cells wide and up to 1.3 units
+  tall. That slot is roughly 2 : 1, so a model authored near 2 : 1 (height : width) keeps
+  its proportions; anything flatter gets stretched taller to fill the cell, and anything
+  much thinner is widened. Filling the cell matters more than exact proportions — a
+  faithful 4 : 1 tower reads as a needle next to everything else.
 - **Y-up, metres or centimetres — either is fine.** Only relative size matters.
+
+## What ships today
+
+`castle-b.glb` — side B, 1 545 triangles, dark stone with purple vertex colours. It is
+loaded like any other model here: delete it and side B falls back to the procedural
+bastion. Check any replacement before committing it:
+
+    node tools/inspect-glb.mjs packages/client/public/models/castle-b.glb --ascii
+
+That prints triangles, materials, the final in-game size and a crude silhouette, which
+is the only look you get on a machine without a browser.
 
 ## Attribution
 

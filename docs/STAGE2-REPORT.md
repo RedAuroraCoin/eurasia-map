@@ -125,7 +125,14 @@ them apart — a shared shape with a different tint would not survive the zoom-o
   stone-coloured. `?castles=both` alternates owners for art review — a switch in the
   renderer, not a rule in the engine.
 - Per-side custom models: `models/castle-a.glb` and `models/castle-b.glb`, with
-  `models/castle.glb` as the shared fallback.
+  `models/castle.glb` as the shared fallback. Side B ships one: `castle-b.glb`, 1 545
+  triangles, dark stone with purple vertex colours.
+- **The fit changed for it.** Fitting a model by its longest dimension made a 2 : 1 tower
+  0.31 cells wide — a needle next to a 0.66-wide castle. Height and footprint are now
+  fitted independently, so every building fills the same cell and an authored 2 : 1 shape
+  lands at 1.97 : 1 in game, a 7 % change rather than a factor of two.
+- `tools/inspect-glb.mjs` reports triangles, materials, final in-game size and an ASCII
+  silhouette for any GLB, which is how a model gets checked without a browser.
 
 ### The first castle
 

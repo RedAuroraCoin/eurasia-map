@@ -74,6 +74,17 @@ describe('custom model pipeline', () => {
     expect((box.max.x + box.min.x) / 2).toBeCloseTo(0, 5);
   });
 
+  it('fills the cell footprint instead of fitting by the longest side', () => {
+    // a 5 : 1 tower — the shape that used to end up a third of a cell wide
+    const geometry = new THREE.BoxGeometry(2, 10, 2);
+    normalizeToUnitBox(geometry);
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox!;
+    expect(box.max.x - box.min.x).toBeCloseTo(1, 5);
+    expect(box.max.z - box.min.z).toBeCloseTo(1, 5);
+    expect(box.max.y - box.min.y).toBeCloseTo(1, 5);
+  });
+
   it('keeps a wide model inside the cell instead of letting it bulge', () => {
     const geometry = new THREE.BoxGeometry(40, 5, 10);
     normalizeToUnitBox(geometry);

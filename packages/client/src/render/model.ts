@@ -98,8 +98,14 @@ export function mergeObject(root: THREE.Object3D): THREE.BufferGeometry | null {
 
 /**
  * Fit the model into the unit box the instancing contract expects: base at
- * y = 0, centred on x/z, no dimension above 1. Scaling is uniform, so a model
- * wider than it is tall ends up shorter than a full unit rather than distorted.
+ * y = 0, centred on x/z, one unit tall, one unit across.
+ *
+ * Height and footprint are fitted *independently* on purpose. The game places a
+ * building 0.66 cells wide and up to 1.3 units tall, which is a 1 : 2 slot; a
+ * model fitted by its longest side would come out at a third of the cell — a
+ * needle next to the procedural castles. Filling both axes means every building
+ * occupies the same footprint, and a model authored around 2 : 1 (tall : wide)
+ * keeps its proportions almost exactly.
  */
 export function normalizeToUnitBox(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
   geometry.computeBoundingBox();
@@ -109,12 +115,13 @@ export function normalizeToUnitBox(geometry: THREE.BufferGeometry): THREE.Buffer
   const size = new THREE.Vector3();
   box.getSize(size);
   const widest = Math.max(size.x, size.z);
-  const scale = Math.min(size.y > 1e-6 ? 1 / size.y : 1, widest > 1e-6 ? 1 / widest : 1);
+  const scaleY = size.y > 1e-6 ? 1 / size.y : 1;
+  const scaleXZ = widest > 1e-6 ? 1 / widest : 1;
 
   const center = new THREE.Vector3();
   box.getCenter(center);
   geometry.translate(-center.x, -box.min.y, -center.z);
-  geometry.scale(scale, scale, scale);
+  geometry.scale(scaleXZ, scaleY, scaleXZ);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
   return geometry;
