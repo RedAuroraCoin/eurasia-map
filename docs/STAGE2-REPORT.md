@@ -121,9 +121,14 @@ them apart — a shared shape with a different tint would not survive the zoom-o
   bastions and a curtain wall. Cooler stone, blue-grey roofs.
 - Each is one merged geometry (~216 and ~174 triangles) in its own `InstancedMesh`, so the
   whole map costs **two draw calls**, not one per building. The material is shared.
-- Owner colours are amber and blue; buildings lean 40 % towards the owner so they stay
-  stone-coloured. `?castles=both` alternates owners for art review — a switch in the
-  renderer, not a rule in the engine.
+- Owner colours are amber and blue, mixed 60 % into the building: the stone renders as
+  rgb(188,125,78) on side A and rgb(93,110,144) on side B, which is a difference you can
+  see without reading anything. A 40 % mix was invisible at play zoom.
+- **Settings → Sides → Two** alternates owners so both designs can be seen before
+  two-player mode exists (`?castles=both` does the same for a link). A display switch in
+  the renderer, not a rule in the engine — and it is in the panel, because a hidden URL
+  parameter is not a feature: the first version shipped one and the second castle was
+  never seen.
 - Per-side custom models: `models/castle-a.glb` and `models/castle-b.glb`, with
   `models/castle.glb` as the shared fallback. Side B ships one: `castle-b.glb`, 1 545
   triangles, dark stone with purple vertex colours.

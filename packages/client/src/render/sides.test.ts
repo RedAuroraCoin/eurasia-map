@@ -17,12 +17,13 @@ describe('two sides', () => {
     expect(ownerTint(7)).toEqual(OWNER_TINTS[0]);
   });
 
-  it('tint buildings towards the owner without discarding the stone', () => {
-    for (const side of [0, 1]) {
-      const [r, g, b] = buildingTint(side);
-      expect(Math.min(r, g, b)).toBeGreaterThan(175);
-    }
-    expect(buildingTint(0)).not.toEqual(buildingTint(1));
+  it('tint buildings far enough apart to read at a glance', () => {
+    const [aR, , aB] = buildingTint(0);
+    const [bR, , bB] = buildingTint(1);
+    expect(aR - bR).toBeGreaterThan(60); // side A is much redder
+    expect(bB - aB).toBeGreaterThan(60); // side B is much bluer
+    // still light enough to read as stone rather than paint
+    for (const side of [0, 1]) expect(Math.max(...buildingTint(side))).toBeGreaterThan(180);
   });
 
   it('puts every cell on side A in single-player', () => {

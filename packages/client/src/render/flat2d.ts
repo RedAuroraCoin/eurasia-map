@@ -37,6 +37,12 @@ export class Flat2D implements View {
     this.state = state;
   }
 
+  /**
+   * The flat view has no castle geometry to swap — two sides are a 3D concern.
+   * The method exists so the panel toggle works the same on both views.
+   */
+  setSidePreview(_preview: boolean): void {}
+
   setLighting(lighting: Lighting): void {
     this.lighting = lighting;
   }

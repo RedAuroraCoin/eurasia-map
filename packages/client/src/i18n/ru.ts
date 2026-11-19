@@ -46,6 +46,9 @@ export const ru: Dict = {
     demoOn: 'Демо-город',
     demoOff: 'Выйти из демо',
     reset: 'Начать заново',
+    sides: 'Стороны',
+    sidesOne: 'Одна',
+    sidesBoth: 'Две',
   },
   confirm: {
     reset: 'Удалить прогресс и начать заново? Это нельзя отменить.',

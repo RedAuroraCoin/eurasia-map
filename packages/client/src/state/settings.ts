@@ -14,6 +14,12 @@ export interface Settings {
   /** Index into SPEEDS. */
   readonly speed: number;
   readonly size: MapSize;
+  /**
+   * `both` renders the claimed cells as two sides, alternating, so both castle
+   * designs can be seen before the two-player mode exists. A display switch: it
+   * never changes the rules, the wallet or the save.
+   */
+  readonly sides: 'one' | 'both';
 }
 
 /** 1x, 60x (an hour a minute), 600x (a day in 2.4 minutes). */
@@ -27,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hurricanes: true,
   speed: 0,
   size: 500,
+  sides: 'one',
 };
 
 const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
@@ -56,6 +63,7 @@ export function parseSettings(raw: unknown): Settings {
     size: (MAP_SIZES as readonly number[]).includes(size)
       ? (size as MapSize)
       : DEFAULT_SETTINGS.size,
+    sides: pick<'one' | 'both'>(source.sides, ['one', 'both'], DEFAULT_SETTINGS.sides),
   };
 }
 

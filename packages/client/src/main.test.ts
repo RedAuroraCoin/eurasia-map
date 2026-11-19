@@ -117,7 +117,7 @@ describe('single-player shell', () => {
 
     expect(document.querySelector('h1')?.textContent).toBe('Eurasia Map');
     expect(document.querySelector('canvas')).not.toBeNull();
-    expect(document.querySelectorAll('.segmented')).toHaveLength(7);
+    expect(document.querySelectorAll('.segmented')).toHaveLength(8);
     expect(document.querySelector('.stats')?.textContent).toContain('Coins');
     expect(document.querySelector('.stats')?.textContent).toContain('10');
     expect(drawCalls).toContain('fillRect');

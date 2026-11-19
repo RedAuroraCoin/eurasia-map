@@ -9,9 +9,9 @@ it replaces them. No rebuild step, no config, no code change: export, copy, refr
 | `castle-b.glb` | the blue side (side B)              |
 | `castle.glb`   | both, unless a per-side file exists |
 
-To see both sides on one map before multiplayer exists, open the game with
-`?castles=both` — it alternates the owner of the claimed cells. That is a review
-switch: it changes nothing in the engine, the wallet or the save.
+To see both sides on one map before multiplayer exists, set **Settings → Sides → Two**
+(or open the game with `?castles=both`). It alternates the owner of the claimed cells —
+a display switch that changes nothing in the engine, the wallet or the save.
 
 If the file is missing, unreadable or not a GLB, the procedural castle stays and the
 console says why. A bad export cannot break the game.

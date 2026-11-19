@@ -44,6 +44,9 @@ export const en = {
     demoOn: 'Demo city',
     demoOff: 'Exit demo',
     reset: 'Start over',
+    sides: 'Sides',
+    sidesOne: 'One',
+    sidesBoth: 'Two',
   },
   confirm: {
     reset: 'Delete the progress and start over? This cannot be undone.',

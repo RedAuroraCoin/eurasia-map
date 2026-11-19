@@ -8,6 +8,7 @@ export interface AppHandlers {
   onTheme(theme: Theme): void;
   onQuality(quality: Quality): void;
   onRelief(on: boolean): void;
+  onSides(both: boolean): void;
   onDayNight(mode: DayNight): void;
   onHurricanes(on: boolean): void;
   onSpeed(index: number): void;
@@ -58,6 +59,7 @@ export class App {
     relief: ReturnType<typeof segmented<string>>;
     hurricanes: ReturnType<typeof segmented<string>>;
     speed: ReturnType<typeof segmented<number>>;
+    sides: ReturnType<typeof segmented<string>>;
   };
 
   private readonly demoButton: HTMLButtonElement;
@@ -108,6 +110,15 @@ export class App {
       (value) => handlers.onRelief(value === 'on'),
       t.settings.relief,
     );
+    const sides = segmented<string>(
+      [
+        { value: 'one', label: t.settings.sidesOne },
+        { value: 'both', label: t.settings.sidesBoth },
+      ],
+      settings.sides,
+      (value) => handlers.onSides(value === 'both'),
+      t.settings.sides,
+    );
     const hurricanes = segmented<string>(
       [
         { value: 'on', label: t.settings.hurricanesOn },
@@ -144,7 +155,7 @@ export class App {
       t.settings.theme,
     );
 
-    this.segments = { size, theme, quality, dayNight, relief, hurricanes, speed };
+    this.segments = { size, theme, quality, dayNight, relief, hurricanes, speed, sides };
 
     this.demoButton = h('button', {
       class: 'button',
@@ -176,6 +187,7 @@ export class App {
       row(t.settings.size, size.root),
       row(t.settings.lighting, dayNight.root),
       row(t.settings.relief, relief.root),
+      row(t.settings.sides, sides.root),
       row(t.settings.hurricanes, hurricanes.root),
       row(t.settings.speed, speed.root),
       row(t.settings.quality, quality.root),

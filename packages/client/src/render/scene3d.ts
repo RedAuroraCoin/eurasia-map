@@ -32,6 +32,8 @@ export interface View {
   setSelected(index: number): void;
   setHovered(index: number): void;
   setReducedMotion(reduced: boolean): void;
+  /** Render the claimed cells as two sides, alternating. A display switch. */
+  setSidePreview(preview: boolean): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -404,6 +406,12 @@ export class Scene3D implements View {
     this.buildWater();
     this.rebuildTerrain();
     this.resetCamera();
+  }
+
+  setSidePreview(preview: boolean): void {
+    if (preview === this.sidePreview) return;
+    this.sidePreview = preview;
+    this.updateBuildings(this.state, performance.now(), true);
   }
 
   setState(state: GameState, now: number): void {

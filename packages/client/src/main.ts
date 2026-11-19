@@ -73,6 +73,12 @@ const handlers: AppHandlers = {
     saveSettings(storage, settings);
     app.setSettings(settings, demo);
   },
+  onSides: (both) => {
+    settings = { ...settings, sides: both ? 'both' : 'one' };
+    saveSettings(storage, settings);
+    view.setSidePreview(both);
+    app.setSettings(settings, demo);
+  },
   onDemo: () => toggleDemo(),
   onReset: () => void reset(),
 };
@@ -82,11 +88,13 @@ const root = document.querySelector<HTMLDivElement>('#app') ?? document.body;
 app.mount(root);
 
 /**
- * `?castles=both` alternates the owner of the claimed cells so both castle
- * designs can be reviewed on one map. A review switch, not a rule: it changes
- * nothing in the engine, the wallet or the save.
+ * Two sides is a display switch, not a rule: it alternates the owner of the
+ * claimed cells so both castle designs can be seen before two-player mode
+ * exists. It changes nothing in the engine, the wallet or the save.
+ * `?castles=both` forces it on for a shared link; the panel toggle persists.
  */
-const sidePreview = new URLSearchParams(location.search).get('castles') === 'both';
+const sidePreview =
+  settings.sides === 'both' || new URLSearchParams(location.search).get('castles') === 'both';
 const { view, mode } = createView(
   app.canvas,
   map,

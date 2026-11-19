@@ -23,6 +23,13 @@ class MemoryStorage implements StorageLike {
 }
 
 describe('parseSettings', () => {
+  it('reads the two-sides switch and rejects anything else', () => {
+    expect(parseSettings({ sides: 'both' }).sides).toBe('both');
+    expect(parseSettings({ sides: 'one' }).sides).toBe('one');
+    expect(parseSettings({ sides: 'two' }).sides).toBe('one');
+    expect(parseSettings({}).sides).toBe('one');
+  });
+
   it('returns defaults for anything that is not an object', () => {
     for (const value of [null, undefined, 42, 'x', []]) {
       expect(parseSettings(value)).toEqual(DEFAULT_SETTINGS);

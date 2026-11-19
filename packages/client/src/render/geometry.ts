@@ -31,10 +31,14 @@ export const ownerTint = (side: number): Rgb255 => OWNER_TINTS[side === 1 ? 1 : 
 /** Claimed cells are still tinted for side A only; owners arrive with Stage 4. */
 export const OWNER_TINT: Rgb255 = OWNER_TINTS[0];
 
-/** Buildings lean towards the owner colour but keep their stone look. */
+/**
+ * Buildings are tinted hard towards the owner colour: at the zoom level the game
+ * is normally played at, a subtle cast is invisible and the player has to know
+ * whose castle is whose without reading anything.
+ */
 export function buildingTint(side: number): Rgb255 {
   const [r, g, b] = ownerTint(side);
-  const lean = (channel: number): number => Math.round(255 - (255 - channel) * 0.4);
+  const lean = (channel: number): number => Math.round(255 - (255 - channel) * 0.6);
   return [lean(r), lean(g), lean(b)];
 }
 
