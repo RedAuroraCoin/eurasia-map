@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  // GitHub Pages serves a project site from /<repo>/, so the base is injected
+  // there. Everything else (dev server, the Worker) uses the root.
+  base: process.env.VITE_BASE ?? '/',
   build: {
     target: 'es2022',
     outDir: 'dist',
