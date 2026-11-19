@@ -9,6 +9,8 @@ it replaces them. No rebuild step, no config, no code change: export, copy, refr
 | `castle-b.glb` | the blue side (side B)              |
 | `castle.glb`   | both, unless a per-side file exists |
 
+Both sides ship a model today, so the procedural castles are only the fallback.
+
 To see both sides on one map before multiplayer exists, set **Settings → Sides → Two**
 (or open the game with `?castles=both`). It alternates the owner of the claimed cells —
 a display switch that changes nothing in the engine, the wallet or the save.
@@ -47,14 +49,22 @@ camera should face −Z (towards the viewer at the default camera angle).
 
 ## What ships today
 
-`castle-b.glb` — side B, 1 545 triangles, dark stone with purple vertex colours. It is
-loaded like any other model here: delete it and side B falls back to the procedural
-bastion. Check any replacement before committing it:
+- `castle-a.glb` — side A, 1 545 triangles, dark stone with purple vertex colours.
+- `castle-b.glb` — side B, 1 464 triangles, golden sandstone with dark green roofs.
+  **Generated**, not hand-made: `node tools/make-castle-b.mjs` rebuilds it byte for byte
+  from the same seed. Edit the script, not the binary.
+
+Delete either file and that side falls back to its procedural castle. Check any
+replacement before committing it:
 
     node tools/inspect-glb.mjs packages/client/public/models/castle-b.glb --ascii
 
 That prints triangles, materials, the final in-game size and a crude silhouette, which
 is the only look you get on a machine without a browser.
+
+Models are tinted only 25 % towards the owner colour, against 60 % for the procedural
+castles: a hand-made palette should survive, and the two models already differ by
+design.
 
 ## Attribution
 

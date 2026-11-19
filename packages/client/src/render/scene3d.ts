@@ -6,6 +6,7 @@ import { loadSideModels } from './model';
 import {
   buildBuildings,
   buildingTint,
+  MODEL_TINT_STRENGTH,
   buildTerrain,
   depthTextureData,
   sideFor,
@@ -465,7 +466,9 @@ export class Scene3D implements View {
       mesh.setMatrixAt(slot, matrix);
 
       const shade = 0.92 + 0.08 * Math.min(1, cell.scale);
-      const tint = unitColor(buildingTint(side));
+      const tint = unitColor(
+        buildingTint(side, this.models[side] ? MODEL_TINT_STRENGTH : undefined),
+      );
       color.setRGB(tint[0] * shade, tint[1] * shade, tint[2] * shade);
       mesh.setColorAt(slot, color);
 

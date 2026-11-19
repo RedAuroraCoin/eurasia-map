@@ -130,8 +130,14 @@ them apart — a shared shape with a different tint would not survive the zoom-o
   parameter is not a feature: the first version shipped one and the second castle was
   never seen.
 - Per-side custom models: `models/castle-a.glb` and `models/castle-b.glb`, with
-  `models/castle.glb` as the shared fallback. Side B ships one: `castle-b.glb`, 1 545
-  triangles, dark stone with purple vertex colours.
+  `models/castle.glb` as the shared fallback. Both sides ship one: side A is a 1 545
+  triangle dark-stone tower with purple vertex colours, side B a 1 464 triangle golden
+  sandstone tower with dark green roofs.
+- Side B's model is **generated** by `tools/make-castle-b.mjs` — deterministic, so the
+  asset can be rebuilt after a tweak instead of being an opaque blob. The script asserts
+  its own triangle budget and fails the build if it drifts.
+- Models are tinted 25 % towards the owner colour instead of 60 %: a golden castle turned
+  60 % blue is a blue castle, and the two models already differ by design.
 - **The fit changed for it.** Fitting a model by its longest dimension made a 2 : 1 tower
   0.31 cells wide — a needle next to a 0.66-wide castle. Height and footprint are now
   fitted independently, so every building fills the same cell and an authored 2 : 1 shape

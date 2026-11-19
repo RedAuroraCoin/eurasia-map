@@ -36,11 +36,18 @@ export const OWNER_TINT: Rgb255 = OWNER_TINTS[0];
  * is normally played at, a subtle cast is invisible and the player has to know
  * whose castle is whose without reading anything.
  */
-export function buildingTint(side: number): Rgb255 {
+export function buildingTint(side: number, strength = 0.6): Rgb255 {
   const [r, g, b] = ownerTint(side);
-  const lean = (channel: number): number => Math.round(255 - (255 - channel) * 0.6);
+  const lean = (channel: number): number => Math.round(255 - (255 - channel) * strength);
   return [lean(r), lean(g), lean(b)];
 }
+
+/**
+ * A hand-made model carries its own palette — a golden castle turned 60 % blue
+ * is a blue castle. Models get a light lean instead: enough to read as "theirs",
+ * not enough to repaint them.
+ */
+export const MODEL_TINT_STRENGTH = 0.25;
 
 /**
  * Which side owns a cell. Single-player: everything is side A. The preview flag
