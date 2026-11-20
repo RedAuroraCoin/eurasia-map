@@ -63,13 +63,14 @@ IoU against the rasterised coastline, elevation percentiles, landmark elevations
 
 ## Status
 
-| Stage                              | State                              |
-| ---------------------------------- | ---------------------------------- |
-| 0. Decisions                       | done — choices confirmed           |
-| 1. Skeleton, balance, terrain data | done — see `docs/STAGE1-REPORT.md` |
-| 2. Single-player game              | done — see `docs/STAGE2-REPORT.md` |
-| 3. Hurricanes                      | next                               |
-| 4–7                                | not started                        |
+| Stage                              | State                                       |
+| ---------------------------------- | ------------------------------------------- |
+| 0. Decisions                       | done — choices confirmed                    |
+| 1. Skeleton, balance, terrain data | done — see `docs/STAGE1-REPORT.md`          |
+| 2. Single-player game              | done — see `docs/STAGE2-REPORT.md`          |
+| 3. Hurricanes                      | next                                        |
+| 4. Two-player room                 | contract agreed — `docs/STAGE4-CONTRACT.md` |
+| 5–7                                | not started                                 |
 
 Every rule change ships with a test; every protocol or save-format change bumps a version
 and adds a migration.
