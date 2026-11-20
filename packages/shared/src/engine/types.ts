@@ -3,7 +3,7 @@
  * together with a migration in the client and in the room. Protocol versioning
  * is separate: they change for different reasons.
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /** Who owns a cell. Single-player uses slot 0 only. */
 export type Slot = 0 | 1;
@@ -31,11 +31,19 @@ export interface GameState {
   readonly claimed: readonly [number, number];
   /** Last UTC day index income was credited for. */
   readonly lastDay: number;
+  /**
+   * Cell the king stands on, per slot. -1 until the capital is founded: the
+   * first claim places the king, and every later claim must be one king move
+   * away from it. Only the king builds.
+   */
+  readonly kings: readonly [number, number];
 }
 
 export type Command =
   | { readonly k: 'claim'; readonly cell: number; readonly slot: Slot }
   | { readonly k: 'unclaim'; readonly cell: number; readonly slot: Slot }
+  /** Step the king onto a cell it already owns. Free: no tower is built. */
+  | { readonly k: 'move'; readonly cell: number; readonly slot: Slot }
   /** Nothing to do but let time pass — used on load, on visibility change, on a day alarm. */
   | { readonly k: 'tick' };
 
@@ -46,11 +54,15 @@ export type ErrorCode =
   | 'already_owned'
   | 'not_owned'
   | 'no_coins'
+  | 'not_adjacent'
+  | 'king_unplaced'
+  | 'king_cell'
   | 'unknown_command';
 
 export type GameEvent =
   | { readonly t: 'claimed'; readonly cell: number; readonly slot: Slot; readonly cost: number }
   | { readonly t: 'unclaimed'; readonly cell: number; readonly slot: Slot; readonly refund: number }
+  | { readonly t: 'moved'; readonly cell: number; readonly slot: Slot }
   | {
       readonly t: 'income';
       readonly slot: Slot;
@@ -84,4 +96,6 @@ export interface Ctx {
   readonly nowMs: number;
   readonly isLand: (cell: number) => boolean;
   readonly cellCount: number;
+  /** Grid width, needed to know which cells are neighbours without wrapping rows. */
+  readonly cols: number;
 }

@@ -44,6 +44,32 @@ function parseCell(raw: unknown): CellState | null {
   return { o, t };
 }
 
+/**
+ * v1 saves have no kings. Deriving them from the oldest owned cell per slot is
+ * deterministic and keeps an old city playable instead of throwing it away.
+ */
+function deriveKings(cells: Record<string, CellState>): [number, number] {
+  const kings: [number, number] = [-1, -1];
+  for (const [key, cell] of Object.entries(cells)) {
+    const index = Number(key);
+    const slot = cell.o;
+    const current = kings[slot] ?? -1;
+    if (current < 0 || index < current) kings[slot] = index;
+  }
+  return kings;
+}
+
+function parseKings(raw: unknown): [number, number] | null {
+  if (!Array.isArray(raw) || raw.length !== 2) return null;
+  const out: [number, number] = [-1, -1];
+  for (let i = 0; i < 2; i++) {
+    const value = raw[i];
+    if (!isFiniteNumber(value) || !Number.isInteger(value) || value < -1) return null;
+    out[i] = value;
+  }
+  return out;
+}
+
 function parsePair(raw: unknown): [number, number] | null {
   if (!Array.isArray(raw) || raw.length !== 2) return null;
   const [a, b] = raw;
@@ -78,6 +104,8 @@ export function parseState(raw: unknown): GameState | null {
   }
   if (count !== parsedClaimed[0]) return null;
 
+  const kings = parseKings(raw.kings) ?? deriveKings(parsedCells);
+
   return {
     v,
     seed,
@@ -85,6 +113,7 @@ export function parseState(raw: unknown): GameState | null {
     coins: parsedCoins,
     claimed: parsedClaimed,
     lastDay,
+    kings,
   };
 }
 

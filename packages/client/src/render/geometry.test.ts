@@ -14,6 +14,7 @@ const ctx = (nowMs: number) => ({
   nowMs,
   isLand: (cell: number) => getMap(500).mask[cell] === '#',
   cellCount: getMap(500).rows * getMap(500).cols,
+  cols: getMap(500).cols,
 });
 
 function claimedState(cells: number[]) {
@@ -28,13 +29,22 @@ function claimedState(cells: number[]) {
   return state;
 }
 
+/**
+ * A connected run of land cells, in walking order: the king can only build one
+ * step from where it stands, so tests that need several claims need a path.
+ */
 const landCells = (count: number): number[] => {
   const map = getMap(500);
-  const out: number[] = [];
-  for (let i = 0; i < map.mask.length && out.length < count; i++) {
-    if (map.mask[i] === '#') out.push(i);
+  // A straight run east: every step is a king move, and a run cannot dead-end
+  // the way a greedy walk can.
+  for (let row = 0; row < map.rows; row++) {
+    for (let col = 0; col + count <= map.cols; col++) {
+      const run: number[] = [];
+      for (let i = 0; i < count; i++) run.push(row * map.cols + col + i);
+      if (run.every((cell) => map.mask[cell] === '#')) return run;
+    }
   }
-  return out;
+  throw new Error(`no straight run of ${count} land cells`);
 };
 
 describe('buildTerrain', () => {

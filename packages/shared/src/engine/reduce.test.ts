@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BALANCE, MS_PER_DAY, dayIndex } from '../balance';
 import type { Ctx, GameState } from './types';
-import { accrue, createInitialState, pendingIncome, reduce } from './reduce';
+import { accrue, createInitialState, kingMoves, pendingIncome, reduce } from './reduce';
 
 const T0 = Date.UTC(2026, 0, 1); // exactly a UTC midnight, so day boundaries are unambiguous
 const DAY = MS_PER_DAY;
@@ -10,6 +10,7 @@ const ctx = (nowMs: number, sea: readonly number[] = []): Ctx => ({
   nowMs,
   isLand: (cell) => cell >= 0 && cell < 100 && !sea.includes(cell),
   cellCount: 100,
+  cols: 10,
 });
 
 const claim = (state: GameState, cell: number, nowMs = T0, slot: 0 | 1 = 0) =>
@@ -78,12 +79,24 @@ describe('claiming', () => {
 
 describe('unclaiming', () => {
   it('refunds exactly what was paid', () => {
+    // The king stands on the newest cell, so the older one is the one to remove.
+    const first = claim(createInitialState(1, T0), 7);
+    const second = claim(first.state, 8);
+    expect(second.state.coins[0]).toBe(0);
+
+    const removed = unclaim(second.state, 7);
+    expect(removed.ok).toBe(true);
+    expect(removed.state.coins[0]).toBe(BALANCE.claim.refund);
+    expect(removed.state.claimed[0]).toBe(1);
+    expect(removed.state.cells['7']).toBeUndefined();
+  });
+
+  it('refuses to remove the cell the king is standing on', () => {
     const claimed = claim(createInitialState(1, T0), 7);
     const removed = unclaim(claimed.state, 7);
-    expect(removed.ok).toBe(true);
-    expect(removed.state.coins[0]).toBe(BALANCE.claim.startCoins);
-    expect(removed.state.claimed[0]).toBe(0);
-    expect(removed.state.cells['7']).toBeUndefined();
+    expect(removed.ok).toBe(false);
+    expect(removed.ok === false && removed.code).toBe('king_cell');
+    expect(removed.state.cells['7']).toBeDefined();
   });
 
   it('cannot remove the opponent cells', () => {
@@ -136,6 +149,72 @@ describe('income', () => {
     let s = createInitialState(1, T0);
     s = claim(s, 0).state;
     expect(pendingIncome(s, 0, T0 + 2 * DAY)).toEqual({ days: 2, amount: 2 });
+  });
+});
+
+describe('the king', () => {
+  it('is placed by the first claim, anywhere on land', () => {
+    const r = claim(createInitialState(1, T0), 55);
+    expect(r.ok).toBe(true);
+    expect(r.state.kings[0]).toBe(55);
+  });
+
+  it('builds only one step away, diagonals included', () => {
+    const first = claim(createInitialState(1, T0), 55);
+    // 55 is row 5, column 5 of a 10-wide grid: 44, 45, 46, 54, 56, 64, 65, 66
+    for (const cell of [44, 45, 46, 54, 56, 64, 65, 66]) {
+      const r = claim(first.state, cell);
+      expect(r.ok, `cell ${cell}`).toBe(true);
+      expect(r.state.kings[0]).toBe(cell);
+    }
+  });
+
+  it('refuses a claim two cells away', () => {
+    const first = claim(createInitialState(1, T0), 55);
+    const far = claim(first.state, 57);
+    expect(far.ok).toBe(false);
+    expect(far.ok === false && far.code).toBe('not_adjacent');
+    expect(far.state).toEqual(first.state);
+  });
+
+  it('does not wrap around the edge of a row', () => {
+    // 9 is the last column of row 0, 10 the first of row 1: neighbours in the
+    // array, not on the map.
+    const first = claim(createInitialState(1, T0), 9);
+    const wrapped = claim(first.state, 10);
+    expect(wrapped.ok).toBe(false);
+    expect(wrapped.ok === false && wrapped.code).toBe('not_adjacent');
+  });
+
+  it('steps onto its own land for free', () => {
+    let s = createInitialState(1, T0);
+    s = claim(s, 55).state;
+    s = claim(s, 56).state; // king on 56, coins 0
+    const back = reduce(s, { k: 'move', cell: 55, slot: 0 }, ctx(T0));
+    expect(back.ok).toBe(true);
+    expect(back.state.kings[0]).toBe(55);
+    expect(back.state.coins[0]).toBe(0);
+    expect(back.events).toContainEqual({ t: 'moved', cell: 55, slot: 0 });
+  });
+
+  it('cannot step onto land it does not own', () => {
+    const s = claim(createInitialState(1, T0), 55).state;
+    const r = reduce(s, { k: 'move', cell: 56, slot: 0 }, ctx(T0));
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.code).toBe('not_owned');
+  });
+
+  it('cannot step before it exists', () => {
+    const r = reduce(createInitialState(1, T0), { k: 'move', cell: 5, slot: 0 }, ctx(T0));
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.code).toBe('king_unplaced');
+  });
+
+  it('has eight moves in the middle, three in a corner, five on an edge', () => {
+    expect(kingMoves(55, ctx(T0))).toHaveLength(8);
+    expect(kingMoves(0, ctx(T0))).toHaveLength(3);
+    expect(kingMoves(5, ctx(T0))).toHaveLength(5);
+    expect(kingMoves(99, ctx(T0))).toHaveLength(3);
   });
 });
 

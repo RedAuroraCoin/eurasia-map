@@ -123,7 +123,7 @@ describe('single-player shell', () => {
     expect(drawCalls).toContain('fillRect');
   });
 
-  it('claims a cell on Enter and refunds it on a second press', async () => {
+  it('claims a cell on Enter, and refuses to demolish the king square', async () => {
     const { getState } = await boot();
     const canvas = document.querySelector('canvas');
 
@@ -134,11 +134,14 @@ describe('single-player shell', () => {
     const afterClaim = getState();
     expect(afterClaim.claimed[0]).toBe(1);
     expect(afterClaim.coins[0]).toBe(5);
+    expect(afterClaim.kings[0]).toBeGreaterThanOrEqual(0);
 
+    // The king stands on the cell it just built: no second press, no refund.
     canvas?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     flushFrames();
-    expect(getState().claimed[0]).toBe(0);
-    expect(getState().coins[0]).toBe(10);
+    expect(getState().claimed[0]).toBe(1);
+    expect(getState().coins[0]).toBe(5);
+    expect(document.querySelector('.status')?.textContent).toContain('king is standing here');
   });
 
   it('claims a land cell on click and refuses the sea', async () => {

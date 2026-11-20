@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { GameState, MapEntry } from '@eurasia/shared';
 import { createCastleGeometry } from './castle';
+import { createKingGeometry } from './king';
 import { loadSideModels } from './model';
 import {
   buildBuildings,
   buildingTint,
   MODEL_TINT_STRENGTH,
+  ownerTint,
   buildTerrain,
   depthTextureData,
   sideFor,
@@ -80,6 +82,8 @@ export class Scene3D implements View {
   private terrain: THREE.InstancedMesh | null = null;
   /** One mesh per side: two silhouettes cannot share an instanced geometry. */
   private buildings: [THREE.InstancedMesh, THREE.InstancedMesh] | null = null;
+  /** One chess king per side; only two ever exist, so no instancing. */
+  private kingMeshes: [THREE.Mesh | null, THREE.Mesh | null] = [null, null];
   private water: THREE.Mesh | null = null;
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
@@ -254,6 +258,13 @@ export class Scene3D implements View {
       (this.terrain.material as THREE.Material).dispose();
       this.terrain = null;
     }
+    for (const side of [0, 1] as const) {
+      const king = this.kingMeshes[side];
+      if (!king) continue;
+      this.scene.remove(king);
+      (king.material as THREE.Material).dispose();
+      this.kingMeshes[side] = null;
+    }
     if (this.buildings) {
       for (const side of [0, 1] as const) {
         const mesh = this.buildings[side];
@@ -332,6 +343,23 @@ export class Scene3D implements View {
       this.scene.add(mesh);
     }
     this.buildings = [keepMesh, bastionMesh];
+
+    // Kings: one geometry, two materials, because the colour is the side.
+    const kingGeometry = createKingGeometry();
+    for (const side of [0, 1] as const) {
+      const tint = unitColor(ownerTint(side));
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color().setRGB(tint[0], tint[1], tint[2], THREE.SRGBColorSpace),
+        roughness: 0.45,
+        metalness: 0.25,
+      });
+      const king = new THREE.Mesh(kingGeometry, material);
+      king.scale.set(0.26, 0.44, 0.26);
+      king.castShadow = this.quality === 'high';
+      king.visible = false;
+      this.scene.add(king);
+      this.kingMeshes[side] = king;
+    }
 
     this.rebuildGlow();
     this.rebuildSelection();
@@ -477,6 +505,16 @@ export class Scene3D implements View {
       }
     });
 
+    // Kings stand on their square, on top of whatever was built there.
+    for (const side of [0, 1] as const) {
+      const king = this.kingMeshes[side];
+      if (!king) continue;
+      const index = state.kings[side];
+      const cell = cells.find((candidate) => candidate.index === index);
+      king.visible = cell !== undefined;
+      if (cell) king.position.set(cell.x, cell.y + cell.height / 2 + 0.02, cell.z);
+    }
+
     for (const side of [0, 1] as const) {
       const mesh = meshes[side];
       mesh.count = counts[side];
@@ -553,6 +591,7 @@ export class Scene3D implements View {
       coins: [0, 0],
       claimed: [0, 0],
       lastDay: 0,
+      kings: [-1, -1],
     };
   }
 

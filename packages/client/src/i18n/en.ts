@@ -54,9 +54,9 @@ export const en = {
     resetNo: 'Cancel',
   },
   hud: {
-    hint: 'Click a cell to claim it, click again to refund',
-    hintTouch: 'Tap a cell to claim it',
-    keyboardHint: 'Arrow keys to select, Enter to claim',
+    hint: 'Click a cell next to your king to build; click your own land to step',
+    hintTouch: 'Tap a cell next to your king to build',
+    keyboardHint: 'Arrow keys to select, Enter to build, Shift+Enter to demolish',
     cell: (row: number, col: number) => `Row ${row + 1}, column ${col + 1}`,
     land: 'Land',
     sea: 'Sea',
@@ -77,6 +77,10 @@ export const en = {
     demo: 'Demo: the city grew on its own, no coins are earned',
     demoOff: 'Demo off, your city is intact',
     noWebgl: 'WebGL is unavailable — the flat view is on',
+    notAdjacent: 'The king moves one cell at a time',
+    needKing: 'Place your king on the map to found the capital',
+    kingCell: 'The king is standing here — move it first',
+    moved: 'The king stepped over',
     loaded: (claimed: number) =>
       claimed === 1 ? 'Loaded 1 claimed cell' : `Loaded ${claimed} claimed cells`,
   },

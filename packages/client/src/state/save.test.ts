@@ -1,4 +1,11 @@
-import { createInitialState, getMap, reduce } from '@eurasia/shared';
+import {
+  BALANCE,
+  SAVE_VERSION,
+  createInitialState,
+  getMap,
+  kingMoves,
+  reduce,
+} from '@eurasia/shared';
 import { describe, expect, it } from 'vitest';
 import { clearSave, loadSave, migrate, saveKey, saveState, type StorageLike } from './save';
 
@@ -23,16 +30,29 @@ function withCells(count: number) {
     nowMs: T0,
     isLand: (index: number) => map.mask[index] === '#',
     cellCount: map.mask.length,
+    cols: map.cols,
   };
+  // The king builds one step at a time, so claims follow a walk, not index order.
+  let start = 0;
+  while (start < map.mask.length && map.mask[start] !== '#') start++;
+
   let state = createInitialState(7, T0);
+  state = { ...state, coins: [count * BALANCE.claim.cost + 5, 5] };
   let claimed = 0;
-  for (let index = 0; index < map.mask.length && claimed < count; index++) {
-    if (map.mask[index] !== '#') continue;
-    const result = reduce(state, { k: 'claim', cell: index, slot: 0 }, ctx);
-    if (result.ok) {
-      state = result.state;
-      claimed++;
-    }
+  let here = start;
+  const seen = new Set<number>();
+  while (claimed < count) {
+    const result = reduce(state, { k: 'claim', cell: here, slot: 0 }, ctx);
+    if (!result.ok) throw new Error(`could not claim ${here}: ${result.code}`);
+    state = result.state;
+    seen.add(here);
+    claimed++;
+    const next = kingMoves(here, ctx).find(
+      (cell) =>
+        map.mask[cell] === '#' && !seen.has(cell) && state.cells[String(cell)] === undefined,
+    );
+    if (next === undefined) break;
+    here = next;
   }
   return state;
 }
@@ -85,7 +105,11 @@ describe('rejecting bad saves', () => {
   it('refuses a save from a newer version instead of guessing', () => {
     storage.setItem(
       saveKey(300),
-      JSON.stringify({ v: 2, savedAt: T0, state: { ...withCells(1), v: 2 } }),
+      JSON.stringify({
+        v: SAVE_VERSION + 1,
+        savedAt: T0,
+        state: { ...withCells(1), v: SAVE_VERSION + 1 },
+      }),
     );
     expect(loadSave(storage, 300)).toEqual({ ok: false, reason: 'newer' });
   });

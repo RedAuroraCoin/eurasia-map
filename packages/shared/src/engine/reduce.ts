@@ -13,8 +13,35 @@ export function createInitialState(seed: number, nowMs: number): GameState {
     coins: [start, start],
     claimed: [0, 0],
     lastDay: dayIndex(nowMs),
+    kings: [-1, -1],
   };
 }
+
+/**
+ * The eight cells a chess king could step to, clipped to the grid. Row wrapping
+ * is the trap here: cell 27 and cell 28 are neighbours in the array and on
+ * opposite edges of the map.
+ */
+export function kingMoves(cell: number, ctx: Ctx): number[] {
+  const cols = ctx.cols;
+  const rows = Math.ceil(ctx.cellCount / cols);
+  const col = cell % cols;
+  const row = Math.floor(cell / cols);
+  const moves: number[] = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const r = row + dr;
+      const c = col + dc;
+      if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+      moves.push(r * cols + c);
+    }
+  }
+  return moves;
+}
+
+export const isKingMove = (from: number, to: number, ctx: Ctx): boolean =>
+  from >= 0 && kingMoves(from, ctx).includes(to);
 
 const key = (cell: number): string => String(cell);
 
@@ -88,11 +115,19 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
       if (s.coins[slot] < BALANCE.claim.cost) {
         return reject(s, 'no_coins', events, cell);
       }
+      // Only the king builds, and it builds where it can walk: the first claim
+      // founds the capital anywhere, every later one must be one king move away.
+      const king = s.kings[slot];
+      if (king >= 0 && !isKingMove(king, cell, ctx)) {
+        return reject(s, 'not_adjacent', events, cell);
+      }
 
       const coins: [number, number] = [s.coins[0], s.coins[1]];
       const claimed: [number, number] = [s.claimed[0], s.claimed[1]];
+      const kings: [number, number] = [s.kings[0], s.kings[1]];
       coins[slot] -= BALANCE.claim.cost;
       claimed[slot] += 1;
+      kings[slot] = cell;
 
       const next: CellState = { o: slot, t: ctx.nowMs };
       const nextState: GameState = {
@@ -100,9 +135,29 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
         cells: { ...s.cells, [key(cell)]: next },
         coins,
         claimed,
+        kings,
       };
       events.push({ t: 'claimed', cell, slot, cost: BALANCE.claim.cost });
       return { ok: true, state: nextState, events };
+    }
+
+    case 'move': {
+      const { cell, slot } = cmd;
+      if (!Number.isInteger(cell) || cell < 0 || cell >= ctx.cellCount) {
+        return reject(s, 'out_of_bounds', events, cell);
+      }
+      const king = s.kings[slot];
+      if (king < 0) return reject(s, 'king_unplaced', events, cell);
+      if (!isKingMove(king, cell, ctx)) return reject(s, 'not_adjacent', events, cell);
+      const existing = s.cells[key(cell)];
+      if (existing === undefined || existing.o !== slot) {
+        return reject(s, 'not_owned', events, cell);
+      }
+
+      const kings: [number, number] = [s.kings[0], s.kings[1]];
+      kings[slot] = cell;
+      events.push({ t: 'moved', cell, slot });
+      return { ok: true, state: { ...s, kings }, events };
     }
 
     case 'unclaim': {
@@ -113,6 +168,10 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
       const existing = s.cells[key(cell)];
       if (existing === undefined || existing.o !== slot) {
         return reject(s, 'not_owned', events, cell);
+      }
+      // The king is standing on it: move the king first.
+      if (s.kings[slot] === cell) {
+        return reject(s, 'king_cell', events, cell);
       }
 
       const coins: [number, number] = [s.coins[0], s.coins[1]];

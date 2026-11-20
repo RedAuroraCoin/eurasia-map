@@ -164,6 +164,28 @@ single geometry of **216 triangles**, so eight hundred of them are still one ins
 - `BUILDING_MAX` 1.6 → 1.3 and footprint 0.5 → 0.66: a castle is wider than a tower, and at 1.6 it
   would have read as a spire.
 
+## The king builds
+
+Claiming is no longer free-form: a side has one king, and only the king builds.
+
+- **First claim founds the capital** anywhere on land and places the king there.
+- **Every later claim must be one king move away** — the eight neighbours of a chess king,
+  clipped to the grid. The king moves onto the cell it builds, so expansion is a walk.
+- **Stepping onto your own land is free** and builds nothing: that is how the king gets
+  back to a branch it left. A plain click on your own cell next to the king steps; a click
+  further away demolishes; Shift+click always demolishes.
+- **The king's own square cannot be demolished** — move it first.
+- The king is a 168-triangle chess piece in the side's colour, standing on top of whatever
+  was built on its square, so it rises with the tower as it grows.
+
+Engine-side this is one new field (`kings: [number, number]`, -1 until placed), one new
+command (`move`), three new error codes and `kingMoves()`. The row-wrap trap is covered by
+a test: cells 9 and 10 are neighbours in the array and on opposite edges of the map.
+
+**Save format v1 → v2.** Old saves have no king; the migration derives it from the oldest
+owned cell per slot, which is deterministic and keeps an existing city playable instead of
+discarding it.
+
 ## Next: Stage 3 — hurricanes
 
 Spawn schedule (first ~6 s, then 35–75 s apart, at most two), a winding path, damage to cells inside

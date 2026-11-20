@@ -4,6 +4,7 @@ import {
   createInitialState,
   dayIndex,
   getMap,
+  isKingMove,
   reduce,
   type GameState,
   type MapSize,
@@ -113,6 +114,7 @@ const ctx = () => ({
   nowMs: Date.now(),
   isLand: (index: number) => map.mask[index] === '#',
   cellCount: map.rows * map.cols,
+  cols: map.cols,
 });
 
 function nextSeed(): number {
@@ -160,12 +162,18 @@ function describeError(code: string): string {
     case 'taken':
     case 'already_owned':
       return t.messages.taken;
+    case 'not_adjacent':
+      return t.messages.notAdjacent;
+    case 'king_unplaced':
+      return t.messages.needKing;
+    case 'king_cell':
+      return t.messages.kingCell;
     default:
       return t.messages.failed;
   }
 }
 
-function toggleCell(index: number): void {
+function toggleCell(index: number, demolish = false): void {
   if (demo) {
     app.setMessage(t.messages.demo, 'info');
     return;
@@ -173,9 +181,15 @@ function toggleCell(index: number): void {
   if (index < 0 || index >= map.rows * map.cols) return;
 
   const owned = state.cells[String(index)] !== undefined;
-  const command = owned
-    ? ({ k: 'unclaim', cell: index, slot: 0 } as const)
-    : ({ k: 'claim', cell: index, slot: 0 } as const);
+  const king = state.kings[0];
+  // Shift demolishes from anywhere; a plain click on your own cell next to the
+  // king steps there instead, because that is the move you will want far more often.
+  const stepping = owned && !demolish && isKingMove(king, index, ctx());
+  const command = stepping
+    ? ({ k: 'move', cell: index, slot: 0 } as const)
+    : owned
+      ? ({ k: 'unclaim', cell: index, slot: 0 } as const)
+      : ({ k: 'claim', cell: index, slot: 0 } as const);
 
   const result = reduce(state, command, ctx());
   if (!result.ok) {
@@ -190,9 +204,10 @@ function toggleCell(index: number): void {
   updateStats();
   scheduleSave();
 
-  for (const event of result.events) {
-    if (event.t === 'claimed') app.setMessage(t.messages.claimed(event.cost), 'good');
-    if (event.t === 'unclaimed') app.setMessage(t.messages.unclaimed(event.refund), 'good');
+  for (const change of result.events) {
+    if (change.t === 'claimed') app.setMessage(t.messages.claimed(change.cost), 'good');
+    if (change.t === 'unclaimed') app.setMessage(t.messages.unclaimed(change.refund), 'good');
+    if (change.t === 'moved') app.setMessage(t.messages.moved, 'info');
   }
 }
 
@@ -249,9 +264,11 @@ function buildDemoState(): GameState {
   const now = Date.now();
   const cells: Record<string, { o: 0 | 1; t: number }> = {};
   let claimed = 0;
+  let first = -1;
   for (let index = 0; index < map.mask.length; index++) {
     if (map.mask[index] !== '#') continue;
     cells[String(index)] = { o: 0, t: now - 40 * BALANCE.time.msPerDay };
+    if (first < 0) first = index;
     claimed++;
   }
   return {
@@ -261,6 +278,7 @@ function buildDemoState(): GameState {
     coins: [0, 0],
     claimed: [claimed, 0],
     lastDay: dayIndex(now),
+    kings: [first, -1],
   };
 }
 
@@ -339,7 +357,7 @@ app.canvas.addEventListener('pointerup', (event) => {
   // A drag is an orbit, not a claim.
   if (distance > 8 || elapsed > 700) return;
   app.canvas.focus({ preventScroll: true });
-  toggleCell(view.pick(event.clientX, event.clientY));
+  toggleCell(view.pick(event.clientX, event.clientY), event.shiftKey);
 });
 
 app.canvas.addEventListener('pointermove', (event) => {
@@ -369,7 +387,7 @@ app.canvas.addEventListener('keydown', (event) => {
     case 'Enter':
     case ' ':
       event.preventDefault();
-      toggleCell(selected);
+      toggleCell(selected, event.shiftKey);
       return;
     default:
       return;
