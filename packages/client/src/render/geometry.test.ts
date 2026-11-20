@@ -158,7 +158,9 @@ describe('buildBuildings', () => {
     }
     const state = {
       ...createInitialState(1, T0),
-      cells: { [String(sea)]: { o: 0 as const, t: T0 } },
+      cells: {
+        [String(sea)]: { o: 0 as const, t: T0, hp: BALANCE.hurricane.cellHp },
+      },
       claimed: [1, 0] as [number, number],
     };
     expect(buildBuildings(map800, state, T0, true)).toHaveLength(0);

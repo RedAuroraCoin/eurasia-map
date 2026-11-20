@@ -81,6 +81,10 @@ export const en = {
     needKing: 'Place your king on the map to found the capital',
     kingCell: 'The king is standing here — move it first',
     moved: 'The king stepped over',
+    storm: (hits: number, destroyed: number) =>
+      destroyed > 0
+        ? `Hurricane: ${hits} towers damaged, ${destroyed} destroyed`
+        : `Hurricane: ${hits} towers damaged`,
     loaded: (claimed: number) =>
       claimed === 1 ? 'Loaded 1 claimed cell' : `Loaded ${claimed} claimed cells`,
   },

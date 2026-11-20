@@ -3,7 +3,7 @@
  * together with a migration in the client and in the room. Protocol versioning
  * is separate: they change for different reasons.
  */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** Who owns a cell. Single-player uses slot 0 only. */
 export type Slot = 0 | 1;
@@ -13,6 +13,8 @@ export interface CellState {
   readonly o: Slot;
   /** When the cell was claimed, ms since epoch. */
   readonly t: number;
+  /** Hit points. Storms damage a tower before they level it. */
+  readonly hp: number;
 }
 
 /**
@@ -44,6 +46,8 @@ export type Command =
   | { readonly k: 'unclaim'; readonly cell: number; readonly slot: Slot }
   /** Step the king onto a cell it already owns. Free: no tower is built. */
   | { readonly k: 'move'; readonly cell: number; readonly slot: Slot }
+  /** A storm landing on cells. Both sides take it; nobody chooses the target. */
+  | { readonly k: 'damage'; readonly cells: readonly number[] }
   /** Nothing to do but let time pass — used on load, on visibility change, on a day alarm. */
   | { readonly k: 'tick' };
 
@@ -63,6 +67,18 @@ export type GameEvent =
   | { readonly t: 'claimed'; readonly cell: number; readonly slot: Slot; readonly cost: number }
   | { readonly t: 'unclaimed'; readonly cell: number; readonly slot: Slot; readonly refund: number }
   | { readonly t: 'moved'; readonly cell: number; readonly slot: Slot }
+  | {
+      readonly t: 'damaged';
+      readonly cell: number;
+      readonly hp: number;
+      readonly destroyed: boolean;
+    }
+  | {
+      readonly t: 'storm';
+      readonly hits: number;
+      readonly destroyed: number;
+      readonly bySlot: readonly [number, number];
+    }
   | {
       readonly t: 'income';
       readonly slot: Slot;

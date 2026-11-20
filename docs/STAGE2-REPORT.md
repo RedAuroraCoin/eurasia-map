@@ -186,7 +186,38 @@ a test: cells 9 and 10 are neighbours in the array and on opposite edges of the 
 owned cell per slot, which is deterministic and keeps an existing city playable instead of
 discarding it.
 
-## Next: Stage 3 — hurricanes
+## Hurricanes: partial damage, deterministic plans
+
+A hurricane is a **plan**, not a simulation. The server (or the single-player clock) picks a
+seed and emits a complete object: seed, side, start time, a winding path through control
+points, a vortex radius, and the moment the funnel is fully formed. That object never
+changes, so the two-player room will send the exact same object to both clients and they
+will animate it in perfect lockstep — no tick loop, no state drift.
+
+- **Partial damage, not destruction.** Every tower has 100 HP. A hurricane does 35 damage
+  to every cell inside ~45 % of its vortex radius. One hit cracks a tower (it shrinks and
+  darkens), two hits weaken it further, the third levels it. The king steps off a ruined
+  square automatically; if it has no owned neighbour the capital disappears.
+- **The funnel sits on the terrain.** The view samples the ground height under the
+  storm's centre each frame, so the funnel touches mountains and plains alike.
+- **Schedule.** First ~6 s, then 35–75 s between spawns, max 2 at once, lifetime 28–42 s.
+  Damage lands at 30 % of the storm's life. While players are away the schedule is
+  paused; on return the first storm waits the normal gap.
+- **Deterministic.** The path is a Catmull-Rom spline through 5 control points; the same
+  seed always yields the same path, the same damage cells, the same timing. A test
+  asserts that `planStorm(42) === planStorm(42)` and that damage cells are a subset of
+  land.
+- **Single-player UI.** Settings → Hurricanes toggles the whole system. When a storm
+  hits, the message line reports: "Hurricane: 3 towers damaged, 1 destroyed" or just
+  damaged.
+- **Visuals.** Three draw calls per storm: a squashed dome, a tapering funnel with
+  three spinning rings, a point-cloud debris ring. Two storms max = six draw calls.
+  The funnel leans and spins; the cloud dome sways. Colours shift with day/night.
+- **No tick loop.** The damage is resolved once, at the plan's `damageAt` moment, by
+  calling `reduce(state, { k: 'damage', cells: stormCells(plan, map) })`. The client
+  just animates the plan against the clock.
+
+## Next: Stage 4 — two-player room
 
 Spawn schedule (first ~6 s, then 35–75 s apart, at most two), a winding path, damage to cells inside
 45 % of the vortex radius once the funnel is fully visible, the layered cloud dome with a spiral and

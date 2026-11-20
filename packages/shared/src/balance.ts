@@ -45,8 +45,16 @@ export const BalanceSchema = z.object({
     pauseMaxMs: z.number().int().positive(),
     lifeMinMs: z.number().int().positive(),
     lifeMaxMs: z.number().int().positive(),
-    /** Share of the vortex radius that actually destroys cells. */
+    /** Share of the vortex radius that actually damages cells. */
     damageRadiusRatio: z.number().gt(0).lt(1),
+    /** Vortex radius in cells. */
+    vortexRadiusCells: z.number().positive(),
+    /** Hit points of one tower. Damage is partial: a tower can be cracked and survive. */
+    cellHp: z.number().int().positive(),
+    /** Damage one hurricane does to every cell it passes over. */
+    damagePerHit: z.number().int().positive(),
+    /** When in the storm's life the funnel is fully formed and damage lands. */
+    damageAtRatio: z.number().gt(0).lt(1),
     /** Spawn weights, west and east. */
     sideWeights: z.object({ west: z.number().nonnegative(), east: z.number().nonnegative() }),
   }),
@@ -91,6 +99,11 @@ const RAW = {
     lifeMinMs: 28_000,
     lifeMaxMs: 42_000,
     damageRadiusRatio: 0.45,
+    vortexRadiusCells: 3.4,
+    cellHp: 100,
+    // Three hits destroy a tower: one storm cracks it, three level it.
+    damagePerHit: 35,
+    damageAtRatio: 0.3,
     sideWeights: { west: 1, east: 1 },
   },
 

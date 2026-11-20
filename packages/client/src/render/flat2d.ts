@@ -1,4 +1,4 @@
-import { cellColor, cssRgb, type GameState, type MapEntry } from '@eurasia/shared';
+import { cellColor, cssRgb, type GameState, type MapEntry, type StormPlan } from '@eurasia/shared';
 import { buildBuildings } from './geometry';
 import type { View } from './scene3d';
 import type { Lighting } from './palette';
@@ -42,6 +42,9 @@ export class Flat2D implements View {
    * The method exists so the panel toggle works the same on both views.
    */
   setSidePreview(_preview: boolean): void {}
+
+  /** The flat view has no storm geometry; the message line still reports damage. */
+  setStorms(_plans: readonly StormPlan[]): void {}
 
   setLighting(lighting: Lighting): void {
     this.lighting = lighting;

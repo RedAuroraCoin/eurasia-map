@@ -4,8 +4,13 @@ import {
   createInitialState,
   dayIndex,
   getMap,
+  hash01,
   isKingMove,
+  nextStormGap,
+  planStorm,
   reduce,
+  stormCells,
+  type StormPlan,
   type GameState,
   type MapSize,
 } from '@eurasia/shared';
@@ -262,12 +267,16 @@ function switchSize(size: MapSize): void {
 
 function buildDemoState(): GameState {
   const now = Date.now();
-  const cells: Record<string, { o: 0 | 1; t: number }> = {};
+  const cells: Record<string, { o: 0 | 1; t: number; hp: number }> = {};
   let claimed = 0;
   let first = -1;
   for (let index = 0; index < map.mask.length; index++) {
     if (map.mask[index] !== '#') continue;
-    cells[String(index)] = { o: 0, t: now - 40 * BALANCE.time.msPerDay };
+    cells[String(index)] = {
+      o: 0,
+      t: now - 40 * BALANCE.time.msPerDay,
+      hp: BALANCE.hurricane.cellHp,
+    };
     if (first < 0) first = index;
     claimed++;
   }
@@ -439,6 +448,78 @@ applyLighting(true);
 settle();
 
 let previous = performance.now();
+interface ActiveStorm {
+  readonly plan: StormPlan;
+  damaged: boolean;
+}
+
+let storms: ActiveStorm[] = [];
+let nextStormAt = 0;
+let stormCounter = 0;
+
+/**
+ * Hurricanes are a schedule plus a plan, not a simulation: the plan is fixed at
+ * spawn, the damage is resolved once when the funnel is fully formed, and the
+ * view only animates. The same plan object is what the two-player room will
+ * issue, so the storm looks identical on both screens.
+ */
+function updateStorms(now: number): void {
+  if (!settings.hurricanes || demo) {
+    if (storms.length > 0) {
+      storms = [];
+      view.setStorms([]);
+    }
+    nextStormAt = 0;
+    return;
+  }
+
+  const hud = BALANCE.hurricane;
+  if (nextStormAt === 0) nextStormAt = now + hud.firstDelayMs;
+
+  if (now >= nextStormAt && storms.length < hud.maxActive) {
+    const seed = nextSeed();
+    const life = hud.lifeMinMs + Math.floor(hash01(seed) * (hud.lifeMaxMs - hud.lifeMinMs));
+    const plan = planStorm({
+      seed,
+      id: ++stormCounter,
+      startAt: now,
+      durationMs: life,
+      rows: map.rows,
+      cols: map.cols,
+    });
+    storms.push({ plan, damaged: false });
+    nextStormAt = now + nextStormGap(seed);
+    view.setStorms(storms.map((storm) => storm.plan));
+  }
+
+  for (const storm of storms) {
+    if (storm.damaged || now < storm.plan.damageAt) continue;
+    storm.damaged = true;
+
+    const result = reduce(state, { k: 'damage', cells: stormCells(storm.plan, map) }, ctx());
+    if (!result.ok) continue;
+
+    state = result.state;
+    view.setState(state, Date.now());
+    updateStats();
+    scheduleSave();
+
+    const summary = result.events.find((event) => event.t === 'storm');
+    if (summary && summary.t === 'storm' && summary.hits > 0) {
+      app.setMessage(
+        t.messages.storm(summary.hits, summary.destroyed),
+        summary.destroyed > 0 ? 'error' : 'info',
+      );
+    }
+  }
+
+  const alive = storms.filter((storm) => now < storm.plan.endsAt);
+  if (alive.length !== storms.length) {
+    storms = alive;
+    view.setStorms(storms.map((storm) => storm.plan));
+  }
+}
+
 function frame(now: number): void {
   const delta = Math.min(100, Math.max(0, now - previous));
   previous = now;
@@ -447,6 +528,7 @@ function frame(now: number): void {
   visualNow += delta * (speed - 1);
 
   applyLighting();
+  updateStorms(visualNow);
   view.render(visualNow);
   requestAnimationFrame(frame);
 }

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { GameState, MapEntry } from '@eurasia/shared';
+import { stormPointAt, type GameState, type MapEntry, type StormPlan } from '@eurasia/shared';
 import { createCastleGeometry } from './castle';
 import { createKingGeometry } from './king';
+import { createStormLook, type StormLook } from './storm-look';
 import { loadSideModels } from './model';
 import {
   buildBuildings,
@@ -14,7 +15,14 @@ import {
   sideFor,
   unitColor,
 } from './geometry';
-import { boardSize, elevationToHeight, fitDistance, VIEW_DIRECTION, worldToCell } from './grid';
+import {
+  boardSize,
+  CELL,
+  elevationToHeight,
+  fitDistance,
+  VIEW_DIRECTION,
+  worldToCell,
+} from './grid';
 import type { Lighting } from './palette';
 import { WATER_FRAGMENT, WATER_VERTEX } from './water-shaders';
 
@@ -37,6 +45,8 @@ export interface View {
   setReducedMotion(reduced: boolean): void;
   /** Render the claimed cells as two sides, alternating. A display switch. */
   setSidePreview(preview: boolean): void;
+  /** The storms currently alive. The engine has already decided their damage. */
+  setStorms(plans: readonly StormPlan[]): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -84,6 +94,9 @@ export class Scene3D implements View {
   private buildings: [THREE.InstancedMesh, THREE.InstancedMesh] | null = null;
   /** One chess king per side; only two ever exist, so no instancing. */
   private kingMeshes: [THREE.Mesh | null, THREE.Mesh | null] = [null, null];
+  private storms = new Map<number, StormLook>();
+  private night = 0;
+  private stormPlans: readonly StormPlan[] = [];
   private water: THREE.Mesh | null = null;
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
@@ -437,6 +450,26 @@ export class Scene3D implements View {
     this.resetCamera();
   }
 
+  setStorms(plans: readonly StormPlan[]): void {
+    this.stormPlans = plans;
+    const alive = new Set(plans.map((plan) => plan.id));
+
+    for (const [id, look] of this.storms) {
+      if (alive.has(id)) continue;
+      this.scene.remove(look.group);
+      look.dispose();
+      this.storms.delete(id);
+    }
+
+    for (const plan of plans) {
+      if (this.storms.has(plan.id)) continue;
+      const look = createStormLook(plan.radius);
+      look.setNight(this.night);
+      this.scene.add(look.group);
+      this.storms.set(plan.id, look);
+    }
+  }
+
   setSidePreview(preview: boolean): void {
     if (preview === this.sidePreview) return;
     this.sidePreview = preview;
@@ -461,6 +494,32 @@ export class Scene3D implements View {
       this.terrain?.setColorAt(i, color);
     });
     if (this.terrain.instanceColor) this.terrain.instanceColor.needsUpdate = true;
+  }
+
+  /**
+   * Storms follow their plan's path in cell space; the funnel's base sits on the
+   * terrain under it, which is what makes it look like it touches the ground.
+   */
+  private updateStorms(now: number): void {
+    if (this.storms.size === 0) return;
+    for (const plan of this.stormPlans) {
+      const look = this.storms.get(plan.id);
+      if (!look) continue;
+      const [col, row] = stormPointAt(plan, now);
+      const x = (col - this.map.cols / 2 + 0.5) * CELL;
+      const z = (row - this.map.rows / 2 + 0.5) * CELL;
+
+      const cellCol = Math.min(this.map.cols - 1, Math.max(0, Math.round(col)));
+      const cellRow = Math.min(this.map.rows - 1, Math.max(0, Math.round(row)));
+      const index = cellRow * this.map.cols + cellCol;
+      const ground =
+        this.map.mask[index] === '#'
+          ? elevationToHeight(this.map.elev[index] ?? 0, this.relief)
+          : 0;
+
+      look.group.position.set(x, ground, z);
+      look.update(plan, now);
+    }
   }
 
   private updateBuildings(state: GameState | null, now: number, force: boolean): void {
@@ -528,6 +587,8 @@ export class Scene3D implements View {
   }
 
   setLighting(lighting: Lighting): void {
+    this.night = lighting.night;
+    for (const look of this.storms.values()) look.setNight(this.night);
     const sun = new THREE.Vector3(...lighting.sunDir).normalize();
     const distance = Math.max(...Object.values(boardSize(this.map))) * 1.6;
     this.sun.position.set(sun.x * distance, Math.max(2, sun.y) * distance, sun.z * distance);
@@ -719,6 +780,7 @@ export class Scene3D implements View {
   }
 
   render(now: number): void {
+    this.updateStorms(now);
     const delta = this.reducedMotion ? 0 : 1 / 60;
     this.waterTime += delta;
     if (this.water) {

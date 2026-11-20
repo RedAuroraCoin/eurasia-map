@@ -129,7 +129,7 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
       claimed[slot] += 1;
       kings[slot] = cell;
 
-      const next: CellState = { o: slot, t: ctx.nowMs };
+      const next: CellState = { o: slot, t: ctx.nowMs, hp: BALANCE.hurricane.cellHp };
       const nextState: GameState = {
         ...s,
         cells: { ...s.cells, [key(cell)]: next },
@@ -139,6 +139,48 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
       };
       events.push({ t: 'claimed', cell, slot, cost: BALANCE.claim.cost });
       return { ok: true, state: nextState, events };
+    }
+
+    case 'damage': {
+      const cells: Record<string, CellState> = { ...s.cells };
+      const claimed: [number, number] = [s.claimed[0], s.claimed[1]];
+      const kings: [number, number] = [s.kings[0], s.kings[1]];
+      const damage = BALANCE.hurricane.damagePerHit;
+      const bySlot: [number, number] = [0, 0];
+      let hits = 0;
+      let destroyed = 0;
+
+      for (const cell of cmd.cells) {
+        const existing = cells[key(cell)];
+        if (existing === undefined) continue;
+        hits++;
+        bySlot[existing.o] += 1;
+        const hp = Math.max(0, existing.hp - damage);
+
+        if (hp > 0) {
+          cells[key(cell)] = { ...existing, hp };
+          events.push({ t: 'damaged', cell, hp, destroyed: false });
+          continue;
+        }
+
+        delete cells[key(cell)];
+        claimed[existing.o] = Math.max(0, claimed[existing.o] - 1);
+        destroyed++;
+        events.push({ t: 'damaged', cell, hp: 0, destroyed: true });
+
+        // The king cannot stand on rubble: it falls back to an owned neighbour,
+        // and only if there is none does the capital disappear.
+        if (kings[existing.o] === cell) {
+          const fallback = kingMoves(cell, ctx).find(
+            (neighbour) => cells[key(neighbour)]?.o === existing.o,
+          );
+          kings[existing.o] = fallback ?? -1;
+        }
+      }
+
+      if (hits === 0) return { ok: true, state: s, events };
+      events.push({ t: 'storm', hits, destroyed, bySlot });
+      return { ok: true, state: { ...s, cells, claimed, kings }, events };
     }
 
     case 'move': {

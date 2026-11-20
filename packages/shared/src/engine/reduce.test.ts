@@ -35,7 +35,7 @@ describe('claiming', () => {
     expect(r.ok).toBe(true);
     expect(r.state.coins[0]).toBe(BALANCE.claim.startCoins - BALANCE.claim.cost);
     expect(r.state.claimed[0]).toBe(1);
-    expect(r.state.cells['7']).toEqual({ o: 0, t: T0 });
+    expect(r.state.cells['7']).toEqual({ o: 0, t: T0, hp: BALANCE.hurricane.cellHp });
     expect(r.events).toEqual([{ t: 'claimed', cell: 7, slot: 0, cost: BALANCE.claim.cost }]);
   });
 
@@ -52,7 +52,7 @@ describe('claiming', () => {
     const second = claim(first.state, 7, T0, 1);
     expect(second.ok).toBe(false);
     expect(second.ok === false && second.code).toBe('taken');
-    expect(second.state.cells['7']).toEqual({ o: 0, t: T0 });
+    expect(second.state.cells['7']).toEqual({ o: 0, t: T0, hp: BALANCE.hurricane.cellHp });
   });
 
   it('rejects when the player cannot afford it, and says why', () => {
@@ -149,6 +149,72 @@ describe('income', () => {
     let s = createInitialState(1, T0);
     s = claim(s, 0).state;
     expect(pendingIncome(s, 0, T0 + 2 * DAY)).toEqual({ days: 2, amount: 2 });
+  });
+});
+
+describe('storms', () => {
+  const hit = (state: GameState, cells: number[]) => reduce(state, { k: 'damage', cells }, ctx(T0));
+  const max = BALANCE.hurricane.cellHp;
+  const damage = BALANCE.hurricane.damagePerHit;
+
+  it('damages a tower without destroying it', () => {
+    const s = claim(createInitialState(1, T0), 55).state;
+    const r = hit(s, [55]);
+    expect(r.ok).toBe(true);
+    expect(r.state.cells['55']?.hp).toBe(max - damage);
+    expect(r.state.claimed[0]).toBe(1);
+    expect(r.events).toContainEqual({ t: 'damaged', cell: 55, hp: max - damage, destroyed: false });
+  });
+
+  it('levels it on the third hit, without a refund', () => {
+    let s = claim(createInitialState(1, T0), 55).state;
+    const coins = s.coins[0];
+
+    s = hit(s, [55]).state;
+    s = hit(s, [55]).state;
+    expect(s.cells['55']?.hp).toBe(max - 2 * damage); // cracked, still standing
+    expect(s.claimed[0]).toBe(1);
+
+    s = hit(s, [55]).state;
+    expect(s.cells['55']).toBeUndefined();
+    expect(s.claimed[0]).toBe(0);
+    expect(s.coins[0]).toBe(coins); // storm damage is never refunded
+  });
+
+  it('reports a summary of what it hit', () => {
+    let s = createInitialState(1, T0);
+    s = { ...s, coins: [50, 50] };
+    s = claim(s, 55).state;
+    s = claim(s, 56).state;
+    const r = hit(s, [55, 56, 999]);
+    expect(r.events).toContainEqual({ t: 'storm', hits: 2, destroyed: 0, bySlot: [2, 0] });
+  });
+
+  it('ignores cells nobody owns', () => {
+    const s = claim(createInitialState(1, T0), 55).state;
+    const before = JSON.stringify(s.cells);
+    const r = hit(s, [10, 11, 12]);
+    expect(r.ok).toBe(true);
+    expect(JSON.stringify(r.state.cells)).toBe(before);
+    expect(r.events.some((event) => event.t === 'storm')).toBe(false);
+  });
+
+  it('moves the king off a ruined capital, or loses it if there is nowhere to go', () => {
+    let s = claim(createInitialState(1, T0), 55).state;
+    s = claim(s, 56).state; // king on 56, 55 owned
+    for (let i = 0; i < 3; i++) s = hit(s, [56]).state;
+    expect(s.cells['56']).toBeUndefined();
+    expect(s.kings[0]).toBe(55); // fell back to the neighbour it still owns
+
+    let alone = claim(createInitialState(1, T0), 40).state;
+    for (let i = 0; i < 3; i++) alone = hit(alone, [40]).state;
+    expect(alone.kings[0]).toBe(-1); // no neighbours: the capital is gone
+  });
+
+  it('clamps health at zero instead of going negative', () => {
+    const s = claim(createInitialState(1, T0), 55).state;
+    const r = hit(s, [55]);
+    expect(r.state.cells['55']?.hp).toBeGreaterThanOrEqual(0);
   });
 });
 

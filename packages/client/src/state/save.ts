@@ -1,4 +1,4 @@
-import { SAVE_VERSION, type CellState, type GameState } from '@eurasia/shared';
+import { BALANCE, SAVE_VERSION, type CellState, type GameState } from '@eurasia/shared';
 
 /**
  * Saved progress, with an explicit version envelope and a migration chain.
@@ -38,10 +38,13 @@ const isFiniteNumber = (value: unknown): value is number =>
 
 function parseCell(raw: unknown): CellState | null {
   if (!isRecord(raw)) return null;
-  const { o, t } = raw;
+  const { o, t, hp } = raw;
   if (o !== 0 && o !== 1) return null;
   if (!isFiniteNumber(t) || t < 0) return null;
-  return { o, t };
+  // v2 saves have no health: a tower that survived the format change is intact.
+  const max = BALANCE.hurricane.cellHp;
+  const health = isFiniteNumber(hp) ? Math.max(0, Math.min(max, Math.floor(hp))) : max;
+  return { o, t, hp: health };
 }
 
 /**

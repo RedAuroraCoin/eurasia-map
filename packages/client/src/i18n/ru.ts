@@ -81,6 +81,10 @@ export const ru: Dict = {
     needKing: 'Поставьте короля на карту, чтобы основать столицу',
     kingCell: 'Здесь стоит король — сначала уведите его',
     moved: 'Король сделал шаг',
+    storm: (hits: number, destroyed: number) =>
+      destroyed > 0
+        ? `Ураган: повреждено ${hits}, разрушено ${destroyed}`
+        : `Ураган: повреждено ${hits}`,
     loaded: (claimed: number) => `Прогресс загружен: ${claimed} клеток`,
   },
   errors: {

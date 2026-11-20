@@ -83,6 +83,8 @@ export interface BuildingInstance {
   readonly height: number;
   readonly width: number;
   readonly scale: number;
+  /** 0..1 of full hit points; the scene darkens a battered tower. */
+  readonly health: number;
 }
 
 const mix = (a: Rgb, b: Rgb, k: number): Rgb => [
@@ -145,7 +147,11 @@ export function buildBuildings(
     const { x, z } = cellToWorld(map, index);
     const ground = elevationToHeight(map.elev[index] ?? 0, relief);
     const grown = cellHeight(index, cell.t, now);
-    const scale = grown * popScale(cell.t, now);
+    // A storm batters a tower before it levels it: damage shows as a lost
+    // storey, down to 45 % of its height at the last hit point.
+    const health = Math.max(0, Math.min(1, cell.hp / BALANCE.hurricane.cellHp));
+    const battered = 0.45 + 0.55 * health;
+    const scale = grown * popScale(cell.t, now) * battered;
     const height = Math.max(0.02, BUILDING_MAX * scale);
 
     out.push({
@@ -156,6 +162,7 @@ export function buildBuildings(
       height,
       width: BUILDING_FOOTPRINT * CELL,
       scale: grown,
+      health,
     });
   }
   return out.sort((a, b) => a.index - b.index);
