@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { getMap } from '@eurasia/shared';
+import { BALANCE, getMap } from '@eurasia/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -127,7 +127,9 @@ describe('single-player shell', () => {
     expect(invite?.classList.contains('hidden')).toBe(false);
     expect(invite?.textContent).toBe('Play with a friend');
     expect(document.querySelector('.stats')?.textContent).toContain('Coins');
-    expect(document.querySelector('.stats')?.textContent).toContain('10');
+    expect(document.querySelector('.stats')?.textContent).toContain(
+      String(BALANCE.claim.startCoins),
+    );
     expect(drawCalls).toContain('fillRect');
   });
 
@@ -137,7 +139,7 @@ describe('single-player shell', () => {
 
     // No capital yet, so the flat view draws no king marker.
     expect(drawCalls).not.toContain('arc');
-    expect(getState().coins[0]).toBe(10);
+    expect(getState().coins[0]).toBe(BALANCE.claim.startCoins);
     canvas?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     flushFrames();
 
@@ -145,14 +147,14 @@ describe('single-player shell', () => {
     // The first claim places the king, and the flat view marks it with an arc.
     expect(drawCalls).toContain('arc');
     expect(afterClaim.claimed[0]).toBe(1);
-    expect(afterClaim.coins[0]).toBe(5);
+    expect(afterClaim.coins[0]).toBe(BALANCE.claim.startCoins - BALANCE.claim.cost);
     expect(afterClaim.kings[0]).toBeGreaterThanOrEqual(0);
 
     // The king stands on the cell it just built: no second press, no refund.
     canvas?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     flushFrames();
     expect(getState().claimed[0]).toBe(1);
-    expect(getState().coins[0]).toBe(5);
+    expect(getState().coins[0]).toBe(BALANCE.claim.startCoins - BALANCE.claim.cost);
     expect(document.querySelector('.status')?.textContent).toContain('king is standing here');
   });
 
@@ -192,7 +194,7 @@ describe('single-player shell', () => {
 
     const second = await boot();
     expect(second.getState().claimed[0]).toBe(1);
-    expect(second.getState().coins[0]).toBe(5);
+    expect(second.getState().coins[0]).toBe(BALANCE.claim.startCoins - BALANCE.claim.cost);
   });
 
   it('switches map size and starts a separate city there', async () => {

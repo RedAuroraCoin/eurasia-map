@@ -84,7 +84,7 @@ const RAW = {
   claim: {
     cost: 5,
     refund: 5,
-    startCoins: 10,
+    startCoins: 30,
   },
 
   income: {

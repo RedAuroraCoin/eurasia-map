@@ -58,7 +58,10 @@ describe('claiming', () => {
   it('rejects when the player cannot afford it, and says why', () => {
     let s = createInitialState(1, T0);
     s = claim(s, 0).state;
-    s = claim(s, 1).state; // 10 coins spent, 0 left
+    s = claim(s, 1).state;
+    // What is under test is the empty wallet, not how many claims it took to
+    // get there, so the balance is set rather than spent down.
+    s = { ...s, coins: [0, s.coins[1]] };
     expect(s.coins[0]).toBe(0);
 
     const r = claim(s, 2);
@@ -82,11 +85,11 @@ describe('unclaiming', () => {
     // The king stands on the newest cell, so the older one is the one to remove.
     const first = claim(createInitialState(1, T0), 7);
     const second = claim(first.state, 8);
-    expect(second.state.coins[0]).toBe(0);
+    expect(second.state.coins[0]).toBe(BALANCE.claim.startCoins - 2 * BALANCE.claim.cost);
 
     const removed = unclaim(second.state, 7);
     expect(removed.ok).toBe(true);
-    expect(removed.state.coins[0]).toBe(BALANCE.claim.refund);
+    expect(removed.state.coins[0]).toBe(BALANCE.claim.startCoins - BALANCE.claim.cost);
     expect(removed.state.claimed[0]).toBe(1);
     expect(removed.state.cells['7']).toBeUndefined();
   });
@@ -112,10 +115,10 @@ describe('income', () => {
   it('pays one coin per claimed cell per elapsed UTC day', () => {
     let s = createInitialState(1, T0);
     s = claim(s, 0).state;
-    s = claim(s, 1).state; // 2 cells, coins now 0
+    s = claim(s, 1).state; // 2 cells
 
     const r = reduce(s, { k: 'tick' }, ctx(T0 + 3 * DAY));
-    expect(r.state.coins[0]).toBe(6);
+    expect(r.state.coins[0]).toBe(BALANCE.claim.startCoins - 2 * BALANCE.claim.cost + 6);
     expect(r.events).toContainEqual({ t: 'income', slot: 0, days: 3, amount: 6, cells: 2 });
   });
 
@@ -124,8 +127,8 @@ describe('income', () => {
     s = claim(s, 0).state;
     const first = reduce(s, { k: 'tick' }, ctx(T0 + DAY));
     const second = reduce(first.state, { k: 'tick' }, ctx(T0 + DAY + 1000));
-    expect(first.state.coins[0]).toBe(6); // 5 left + 1
-    expect(second.state.coins[0]).toBe(6);
+    expect(first.state.coins[0]).toBe(BALANCE.claim.startCoins - BALANCE.claim.cost + 1);
+    expect(second.state.coins[0]).toBe(first.state.coins[0]);
   });
 
   it('does not mint coins when the clock goes backwards', () => {
@@ -255,7 +258,8 @@ describe('the king', () => {
   it('steps onto its own land for free', () => {
     let s = createInitialState(1, T0);
     s = claim(s, 55).state;
-    s = claim(s, 56).state; // king on 56, coins 0
+    s = claim(s, 56).state; // king on 56
+    s = { ...s, coins: [0, s.coins[1]] };
     const back = reduce(s, { k: 'move', cell: 55, slot: 0 }, ctx(T0));
     expect(back.ok).toBe(true);
     expect(back.state.kings[0]).toBe(55);
