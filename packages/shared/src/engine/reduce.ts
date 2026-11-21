@@ -73,6 +73,61 @@ export function accrue(state: GameState, nowMs: number): { state: GameState; eve
   return { state: { ...state, coins, lastDay: today }, events };
 }
 
+/**
+ * Daily flooding: every owned cell takes on water, loses a little health to it,
+ * and is lost to the sea at the maximum.
+ *
+ * Deliberately part of the day settlement rather than a separate command: the
+ * room and the browser then cannot disagree about whether today's rise has been
+ * applied, because both settle through the same `lastDay`.
+ */
+export function applyFlood(
+  state: GameState,
+  days: number,
+  ctx: Ctx,
+): { state: GameState; events: GameEvent[] } {
+  const rules = BALANCE.flood;
+  const rise = rules.baseRisePerDay * days;
+  if (days <= 0 || rise <= 0) return { state, events: [] };
+
+  const cells: Record<string, CellState> = { ...state.cells };
+  const claimed: [number, number] = [state.claimed[0], state.claimed[1]];
+  const kings: [number, number] = [state.kings[0], state.kings[1]];
+  const bySlot: [number, number] = [0, 0];
+  const damage = Math.round(rise * rules.damagePerLevel);
+  let risen = 0;
+  let destroyed = 0;
+
+  for (const [k, cell] of Object.entries(state.cells)) {
+    const water = Math.min(rules.maxLevel, (cell.water ?? 0) + rise);
+
+    if (water >= rules.maxLevel) {
+      delete cells[k];
+      claimed[cell.o] = Math.max(0, claimed[cell.o] - 1);
+      destroyed++;
+      // Same rule as a destroyed tower: the king steps to an owned neighbour,
+      // and the capital is gone only when there is nowhere to step.
+      if (kings[cell.o] === Number(k)) {
+        const fallback = kingMoves(Number(k), ctx).find(
+          (neighbour) => cells[key(neighbour)]?.o === cell.o,
+        );
+        kings[cell.o] = fallback ?? -1;
+      }
+      continue;
+    }
+
+    const hp = Math.max(0, cell.hp - damage);
+    cells[k] = hp > 0 ? { ...cell, water, hp } : { ...cell, water };
+    bySlot[cell.o] += 1;
+    risen++;
+  }
+
+  if (risen === 0 && destroyed === 0) return { state, events: [] };
+
+  const events: GameEvent[] = [{ t: 'flood', risen, destroyed, bySlot }];
+  return { state: { ...state, cells, claimed, kings }, events };
+}
+
 function reject(
   state: GameState,
   code: Extract<GameEvent, { t: 'rejected' }>['code'],
@@ -92,9 +147,12 @@ function reject(
  * and immediately claims a cell is not charged against stale coins.
  */
 export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
+  // How many whole days this call settles. Read before `accrue` moves `lastDay`.
+  const elapsed = dayIndex(ctx.nowMs) - state.lastDay;
   const settled = accrue(state, ctx.nowMs);
-  const s = settled.state;
-  const events: GameEvent[] = [...settled.events];
+  const flood = applyFlood(settled.state, elapsed, ctx);
+  const s = flood.state;
+  const events: GameEvent[] = [...settled.events, ...flood.events];
 
   switch (cmd.k) {
     case 'tick':
@@ -150,15 +208,18 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
       let hits = 0;
       let destroyed = 0;
 
+      const maxWater = BALANCE.flood.maxLevel;
       for (const cell of cmd.cells) {
         const existing = cells[key(cell)];
         if (existing === undefined) continue;
         hits++;
         bySlot[existing.o] += 1;
         const hp = Math.max(0, existing.hp - damage);
+        // A hurricane is also a storm surge: it pushes water inland.
+        const water = Math.min(maxWater, (existing.water ?? 0) + BALANCE.flood.stormBonus);
 
-        if (hp > 0) {
-          cells[key(cell)] = { ...existing, hp };
+        if (hp > 0 && water < maxWater) {
+          cells[key(cell)] = { ...existing, hp, water };
           events.push({ t: 'damaged', cell, hp, destroyed: false });
           continue;
         }

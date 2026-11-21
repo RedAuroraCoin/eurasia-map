@@ -85,6 +85,8 @@ export interface BuildingInstance {
   readonly scale: number;
   /** 0..1 of full hit points; the scene darkens a battered tower. */
   readonly health: number;
+  /** 0..1 of the flood maximum; a swamped tower sinks into the sea. */
+  readonly water: number;
 }
 
 const mix = (a: Rgb, b: Rgb, k: number): Rgb => [
@@ -151,7 +153,11 @@ export function buildBuildings(
     // storey, down to 45 % of its height at the last hit point.
     const health = Math.max(0, Math.min(1, cell.hp / BALANCE.hurricane.cellHp));
     const battered = 0.45 + 0.55 * health;
-    const scale = grown * popScale(cell.t, now) * battered;
+    // Water does not just damage: it swallows. At the maximum the cell is gone,
+    // so the last visible state before that is a stub barely above the surface.
+    const water = Math.max(0, Math.min(1, (cell.water ?? 0) / BALANCE.flood.maxLevel));
+    const swamped = 1 - 0.8 * water;
+    const scale = grown * popScale(cell.t, now) * battered * swamped;
     const height = Math.max(0.02, BUILDING_MAX * scale);
 
     out.push({
@@ -163,6 +169,7 @@ export function buildBuildings(
       width: BUILDING_FOOTPRINT * CELL,
       scale: grown,
       health,
+      water,
     });
   }
   return out.sort((a, b) => a.index - b.index);

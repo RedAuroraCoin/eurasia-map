@@ -3,7 +3,7 @@
  * together with a migration in the client and in the room. Protocol versioning
  * is separate: they change for different reasons.
  */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** Who owns a cell. Single-player uses slot 0 only. */
 export type Slot = 0 | 1;
@@ -15,6 +15,12 @@ export interface CellState {
   readonly t: number;
   /** Hit points. Storms damage a tower before they level it. */
   readonly hp: number;
+  /**
+   * Water level, 0..100. Absent means 0 — keeping it optional keeps saves of a
+   * dry map exactly as small as they were before flooding existed.
+   * At `BALANCE.flood.maxLevel` the cell drowns and is lost.
+   */
+  readonly water?: number;
 }
 
 /**
@@ -77,6 +83,15 @@ export type GameEvent =
       readonly t: 'storm';
       readonly hits: number;
       readonly destroyed: number;
+      readonly bySlot: readonly [number, number];
+    }
+  | {
+      readonly t: 'flood';
+      /** Cells that rose but survived. */
+      readonly risen: number;
+      /** Cells that reached the maximum and were lost to the sea. */
+      readonly destroyed: number;
+      /** Surviving risers per slot. */
       readonly bySlot: readonly [number, number];
     }
   | {

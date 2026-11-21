@@ -86,6 +86,10 @@ export const en = {
         ? `Hurricane: ${hits} towers damaged, ${destroyed} destroyed`
         : `Hurricane: ${hits} towers damaged`,
     roomSizeLocked: 'The room fixes the map and the rules',
+    flood: (risen: number, destroyed: number) =>
+      destroyed > 0
+        ? `Flood: ${destroyed} cells drowned, water rising in ${risen}`
+        : `Flood: water rising in ${risen} cells`,
     waitingOpponent: 'Waiting for opponent…',
     opponentConnected: 'Opponent connected',
     opponentDisconnected: 'Opponent disconnected',

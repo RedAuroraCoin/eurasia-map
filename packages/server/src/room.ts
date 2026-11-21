@@ -11,6 +11,8 @@ import {
   nextStormGap,
   hash01,
   getMap,
+  dayIndex,
+  MS_PER_DAY,
   type StormPlan,
   type MapSize,
 } from '@eurasia/shared';
@@ -53,6 +55,8 @@ interface StoredState {
   storms: Record<string, StormPlan>;
   /** Next storm spawn timestamp (server clock). */
   nextStormAt: number;
+  /** Next UTC midnight, when the daily flood is settled for an idle room. */
+  nextDayAt: number;
   /** Monotonic storm id counter. */
   stormCounter: number;
   /** last active connection timestamp, for idle detection. */
@@ -459,6 +463,20 @@ export class Room {
       }
     }
 
+    // Daily settlement, so an idle room still collects income and floods:
+    // both are keyed on lastDay, so one tick applies every elapsed day at once.
+    if (!stored.nextDayAt) stored.nextDayAt = (dayIndex(now) + 1) * MS_PER_DAY;
+    if (now >= stored.nextDayAt) {
+      const result = reduce(stored.gameState, { k: 'tick' }, this.makeContext(stored.size));
+      stored.nextDayAt = (dayIndex(now) + 1) * MS_PER_DAY;
+      if (result.state !== stored.gameState) {
+        stored.gameState = result.state;
+        stored.rev++;
+        this.broadcast(stored, result.events);
+      }
+      changed = true;
+    }
+
     if (now - stored.lastActive > ROOM_TTL_MS) {
       await this.state.storage.deleteAll();
       return;
@@ -489,6 +507,7 @@ export class Room {
       rev: 0,
       storms: {},
       nextStormAt: 0,
+      nextDayAt: 0,
       stormCounter: 0,
       lastActive: Date.now(),
     };
@@ -502,6 +521,7 @@ export class Room {
     }
     // Rooms created before the terrain fix stored no size; 500 is the default.
     if (!stored.size) stored.size = 500;
+    if (!stored.nextDayAt) stored.nextDayAt = (dayIndex(Date.now()) + 1) * MS_PER_DAY;
     await this.putStored(stored);
   }
 
@@ -536,9 +556,18 @@ export class Room {
       if (plan.endsAt > now) next = Math.min(next, plan.endsAt);
     }
     if (stored.nextStormAt > now) next = Math.min(next, stored.nextStormAt);
+    if (stored.nextDayAt > now) next = Math.min(next, stored.nextDayAt);
 
     if (next !== Infinity) {
       await this.state.storage.setAlarm(next);
+    }
+  }
+
+  /** Push the current state to every seated connection. */
+  private broadcast(stored: StoredState, events: readonly GameEvent[], ack = 0): void {
+    for (const [cid, seat] of Object.entries(stored.connections) as [string, -1 | 0 | 1][]) {
+      if (seat !== 0 && seat !== 1) continue;
+      this.send(cid, { rev: stored.rev, state: stored.gameState, events, ack });
     }
   }
 

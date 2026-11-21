@@ -276,6 +276,14 @@ function settle(): void {
   updateStats();
   scheduleSave();
 
+  const flood = result.events.find((event) => event.t === 'flood');
+  if (flood && flood.t === 'flood') {
+    app.setMessage(
+      t.messages.flood(flood.risen, flood.destroyed),
+      flood.destroyed > 0 ? 'error' : 'info',
+    );
+  }
+
   const income = result.events.find((event) => event.t === 'income');
   if (income && income.t === 'income') {
     app.setMessage(t.messages.income(income.amount, income.days), 'good');
@@ -503,6 +511,7 @@ function sayEvents(events: readonly GameEvent[]): void {
     if (event.t === 'claimed') app.setMessage(t.messages.claimed(event.cost), 'good');
     if (event.t === 'unclaimed') app.setMessage(t.messages.unclaimed(event.refund), 'good');
     if (event.t === 'moved') app.setMessage(t.messages.moved, 'info');
+    if (event.t === 'flood') app.setMessage(t.messages.flood(event.risen, event.destroyed), 'info');
     if (event.t === 'storm' && event.hits > 0) {
       app.setMessage(
         t.messages.storm(event.hits, event.destroyed),

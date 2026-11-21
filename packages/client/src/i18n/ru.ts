@@ -86,6 +86,10 @@ export const ru: Dict = {
         ? `Ураган: повреждено ${hits}, разрушено ${destroyed}`
         : `Ураган: повреждено ${hits}`,
     roomSizeLocked: 'В комнате карта и правила зафиксированы',
+    flood: (risen: number, destroyed: number) =>
+      destroyed > 0
+        ? `Затопление: ${destroyed} клеток ушло под воду, вода поднимается в ${risen}`
+        : `Затопление: вода поднимается в ${risen} клетках`,
     waitingOpponent: 'Ожидание соперника…',
     opponentConnected: 'Соперник подключился',
     opponentDisconnected: 'Соперник отключился',

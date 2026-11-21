@@ -44,7 +44,12 @@ function parseCell(raw: unknown): CellState | null {
   // v2 saves have no health: a tower that survived the format change is intact.
   const max = BALANCE.hurricane.cellHp;
   const health = isFiniteNumber(hp) ? Math.max(0, Math.min(max, Math.floor(hp))) : max;
-  return { o, t, hp: health };
+  // v4 adds water. A save from before flooding is simply dry.
+  const savedWater = (raw as { water?: unknown }).water;
+  const water = isFiniteNumber(savedWater)
+    ? Math.max(0, Math.min(BALANCE.flood.maxLevel, savedWater))
+    : undefined;
+  return water === undefined ? { o, t, hp: health } : { o, t, hp: health, water };
 }
 
 /**
@@ -110,7 +115,7 @@ export function parseState(raw: unknown): GameState | null {
   const kings = parseKings(raw.kings) ?? deriveKings(parsedCells);
 
   return {
-    v,
+    v: SAVE_VERSION,
     seed,
     cells: parsedCells,
     coins: parsedCoins,

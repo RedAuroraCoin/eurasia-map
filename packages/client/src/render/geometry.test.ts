@@ -147,6 +147,30 @@ describe('buildBuildings', () => {
     expect(day60).toBeCloseTo(day30, 6);
   });
 
+  it('sinks a tower as the water rises, to a stub just before it drowns', () => {
+    const [cell] = landCells(1) as [number];
+    const base = claimedState([cell]);
+    // Fully grown, so growth does not muddy the comparison.
+    const grownAt = T0 + 60 * MS_PER_DAY;
+    const at = (water: number): number => {
+      const state = {
+        ...base,
+        cells: { [String(cell)]: { ...base.cells[String(cell)]!, water } },
+      };
+      return buildBuildings(map, state, grownAt, true)[0]?.height ?? 0;
+    };
+
+    const dry = at(0);
+    const half = at(BALANCE.flood.maxLevel / 2);
+    const nearly = at(BALANCE.flood.maxLevel - 1);
+
+    expect(dry).toBeGreaterThan(0);
+    expect(half).toBeLessThan(dry);
+    expect(nearly).toBeLessThan(half);
+    // Never below the floor: even swamped, something is still drawn.
+    expect(nearly).toBeGreaterThan(0);
+  });
+
   it('ignores claimed cells that are not land', () => {
     const map800 = getMap(800);
     let sea = -1;
