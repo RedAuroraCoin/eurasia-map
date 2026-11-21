@@ -42,6 +42,7 @@ function flushFrames(limit = 4): void {
 }
 
 beforeEach(() => {
+  vi.restoreAllMocks();
   vi.resetModules();
   drawCalls.length = 0;
   rafQueue = [];
@@ -164,6 +165,36 @@ describe('single-player shell', () => {
     // The regression: chess used to start before the game state existed.
     expect(getChess()?.pieces).toHaveLength(32);
     expect(getChess()?.seaLevel).toBe(BALANCE.flood.startLevel);
+  });
+
+  it('keeps building-game hurricanes out of chess', async () => {
+    // The world clock in the app is Date.now(), so the storm schedule is driven
+    // by it; freezing and stepping it is how a fresh boot sees a hurricane.
+    let world = Date.UTC(2026, 0, 1, 12);
+    vi.spyOn(Date, 'now').mockImplementation(() => world);
+    const step = (frames: number): void => {
+      for (let i = 0; i < frames; i++) {
+        world += 1000;
+        flushFrames(1);
+      }
+    };
+
+    const { getStormCount } = await boot();
+
+    // Building game: a hurricane arrives within the first seconds.
+    step(12);
+    expect(getStormCount()).toBeGreaterThan(0);
+
+    // Chess: the same clock, and no storm may ever appear.
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+    expect(getStormCount()).toBe(0);
+
+    step(30);
+    expect(getStormCount()).toBe(0);
   });
 
   it('switches to chess and fields two armies', async () => {

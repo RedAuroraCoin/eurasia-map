@@ -52,6 +52,15 @@ let demoState: GameState | null = null;
  * carries `lastDay`, and `clockFor` resumes from it, so a reload never rewinds.
  */
 let extraTime = 0;
+
+/**
+ * Hurricanes of the building game. Declared up here with the rest of the state:
+ * boot can switch into chess, and that path clears them, so they must exist by
+ * then.
+ */
+let storms: ActiveStorm[] = [];
+let nextStormAt = 0;
+let stormCounter = 0;
 /** Last world day the simulation settled, so a fast clock settles per day, not per minute. */
 let lastWorldDay = Number.NEGATIVE_INFINITY;
 let lastLighting = -1;
@@ -342,7 +351,8 @@ function toggleCell(index: number, demolish = false): void {
 
 /** Credits income for the days that passed while the player was away. */
 function settle(): void {
-  if (demo || mp) return;
+  // Only the game on screen settles: chess keeps its own clock and its own state.
+  if (demo || mp || settings.mode === 'chess') return;
   const result = reduce(state, { k: 'tick' }, ctx());
   if (result.state === state) return;
 
@@ -610,6 +620,10 @@ const CHESS_SIZE: MapSize = 800;
 
 function startChess(): void {
   if (mp) return;
+  // A storm left over from the building game has no place on this board.
+  storms = [];
+  nextStormAt = 0;
+  view.setStorms([]);
   // The turn-based mode is played on one board size, so the size is not a choice
   // there: switch to it without touching the building game's saved preference.
   if (map.land !== CHESS_SIZE) switchSize(CHESS_SIZE, false);
@@ -873,10 +887,6 @@ interface ActiveStorm {
   damaged: boolean;
 }
 
-let storms: ActiveStorm[] = [];
-let nextStormAt = 0;
-let stormCounter = 0;
-
 /**
  * Hurricanes are a schedule plus a plan, not a simulation: the plan is fixed at
  * spawn, the damage is resolved once when the funnel is fully formed, and the
@@ -886,6 +896,17 @@ let stormCounter = 0;
 function updateStorms(now: number): void {
   // The room issues its own plans over the wire; the client only animates them.
   if (mp) return;
+  // Hurricanes belong to the building game. In chess they would damage a state
+  // nobody is looking at and then push it into the scene, which is how a storm
+  // could freeze the board completely.
+  if (settings.mode === 'chess') {
+    if (storms.length > 0) {
+      storms = [];
+      view.setStorms([]);
+    }
+    nextStormAt = 0;
+    return;
+  }
   if (!settings.hurricanes || demo) {
     if (storms.length > 0) {
       storms = [];
@@ -978,6 +999,7 @@ export const __eurasia: {
   view: View;
   getState: () => GameState;
   getChess: () => ChessState | null;
+  getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
 } = {
@@ -985,6 +1007,7 @@ export const __eurasia: {
   view,
   getState: () => active(),
   getChess: () => chess,
+  getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,
 };
