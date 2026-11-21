@@ -268,43 +268,57 @@ describe('movement', () => {
     );
   });
 
-  it('marches a pawn east and takes only diagonally', () => {
+  it('walks a pawn in any direction but takes only on the diagonals', () => {
     const s = state([
       piece(1, 0, 'pawn', at(3, 3)),
       piece(2, 1, 'pawn', at(2, 4)),
       piece(3, 1, 'pawn', at(3, 4)),
     ]);
     const cells = targets(s, 1);
-    // Forward is blocked by the enemy pawn, so only the diagonal capture is left.
-    expect(cells).toEqual([at(2, 4)]);
+    // Sideways and back are open; straight ahead is blocked by an enemy it may
+    // not take, and the diagonal enemy is the one capture.
+    expect(cells).toEqual([at(2, 3), at(2, 4), at(3, 2), at(4, 3)]);
   });
 
-  it('marches a side-1 pawn west', () => {
-    const s = state([piece(1, 1, 'pawn', at(3, 3))], { turn: 1 });
-    // One or two squares: this pawn has not moved yet.
-    expect(targets(s, 1)).toEqual([at(3, 1), at(3, 2)]);
+  it('cannot take a piece standing straight ahead', () => {
+    const s = state([piece(1, 0, 'pawn', at(3, 3)), piece(2, 1, 'rook', at(4, 3))]);
+    expect(targets(s, 1)).not.toContain(at(4, 3));
   });
 
-  it('lets a pawn open with two squares', () => {
+  it('opens with two squares toward the enemy, not sideways', () => {
     const s = state([piece(1, 0, 'pawn', at(3, 3))]);
-    expect(targets(s, 1)).toEqual([at(3, 4), at(3, 5)]);
+    const cells = targets(s, 1);
+    expect(cells).toContain(at(3, 5));
+    // Two squares north would be a diagonal jump, not an opening step.
+    expect(cells).not.toContain(at(1, 3));
+  });
+
+  it('marches a side-1 pawn west for its opening step', () => {
+    const s = state([piece(1, 1, 'pawn', at(3, 3))], { turn: 1 });
+    const cells = targets(s, 1);
+    expect(cells).toContain(at(3, 1));
+    expect(cells).toContain(at(3, 2));
   });
 
   it('allows only one square once the pawn has moved', () => {
     const moved: Piece = { ...piece(1, 0, 'pawn', at(3, 3)), moved: true };
     const s = state([moved]);
-    expect(targets(s, 1)).toEqual([at(3, 4)]);
+    const cells = targets(s, 1);
+    expect(cells).toContain(at(3, 4));
+    expect(cells).not.toContain(at(3, 5));
   });
 
   it('will not open two squares over a piece', () => {
     const s = state([piece(1, 0, 'pawn', at(3, 3)), piece(2, 0, 'rook', at(3, 4))]);
-    expect(targets(s, 1)).toEqual([]);
+    expect(targets(s, 1)).not.toContain(at(3, 5));
   });
 
   it('will not open two squares over water', () => {
     const s = state([piece(1, 0, 'pawn', at(3, 3))], { seaLevel: 100 });
     const ctx = ctx8({ [at(3, 5)]: 50 });
-    expect(targets(s, 1, ctx)).toEqual([at(3, 4)]);
+    const cells = targets(s, 1, ctx);
+    expect(cells).toContain(at(3, 4));
+    expect(cells).not.toContain(at(3, 5));
   });
 
   it('marks a pawn as moved after its first step, so no second opening', () => {

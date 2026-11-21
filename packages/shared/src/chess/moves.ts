@@ -123,23 +123,26 @@ export function legalTargets(state: ChessState, piece: Piece, ctx: ChessCtx): nu
       }
       break;
     case 'pawn': {
-      // Pawns march east for side 0 and west for side 1, so the two armies meet.
-      const forward = piece.side === 0 ? 1 : -1;
-      const ahead = cellOf(row, col + forward, ctx);
-      if (ahead !== null && entry(ahead) === 2) {
-        out.push(ahead);
-        // Two squares from the starting square, and only if nothing is in the
-        // way: a pawn may not jump a piece, and it may not jump water either.
-        if (!piece.moved) {
-          const beyond = cellOf(row, col + forward * 2, ctx);
-          if (beyond !== null && entry(beyond) === 2) out.push(beyond);
-        }
+      // A pawn walks in any of the four directions, one square at a time — it is
+      // no longer tied to the march axis, so it can fall back from the water.
+      for (const [dr, dc] of ORTHO) {
+        const next = cellOf(row + dr, col + dc, ctx);
+        if (next !== null && entry(next) === 2) out.push(next);
       }
-      for (const dr of [-1, 1]) {
-        const target = cellOf(row + dr, col + forward, ctx);
-        if (target === null) continue;
-        // A pawn only steps diagonally to take something.
-        if (entry(target) === 1) out.push(target);
+      // But it still fights on the diagonals only: one step, one direction for
+      // walking and another for taking, the way a pawn always has.
+      for (const [dr, dc] of DIAGONAL) {
+        const target = cellOf(row + dr, col + dc, ctx);
+        if (target !== null && entry(target) === 1) out.push(target);
+      }
+      // The opening two-square step stays: forward only, from the starting cell.
+      if (!piece.moved) {
+        const forward = piece.side === 0 ? 1 : -1;
+        const ahead = cellOf(row, col + forward, ctx);
+        const beyond = cellOf(row, col + forward * 2, ctx);
+        if (ahead !== null && beyond !== null && entry(ahead) === 2 && entry(beyond) === 2) {
+          out.push(beyond);
+        }
       }
       break;
     }

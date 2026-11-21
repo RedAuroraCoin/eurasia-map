@@ -39,9 +39,11 @@ ground, back rank behind.
 - Each side fields 16 pieces: king, queen, 2 rooks, 2 bishops, 2 knights, 8 pawns.
 - Every piece moves by chess rules. Additions from the map: water is a wall, the
   map edge is the board edge, and a tower is a capturable obstacle.
-- Pawns march east for the white side and west for the black side. They capture
-  diagonally only, open with **two squares from their starting cell** (if both
-  are free and dry), and promote to queens on reaching the enemy's camp.
+- A pawn **walks one square in any of the four directions** and **captures one
+  square on the diagonals** — it moves one way and fights another, as a pawn
+  always has. Its opening two-square step is forward only (east for white, west
+  for black) and only from its starting cell. It promotes to a queen on reaching
+  the enemy's camp.
 - A turn is **one action**: move a piece, or — with the king — build a tower on a
   dry empty cell next to it (10 coins; 20 to start, +5 per side per round).
 - Towers block movement for both sides and can be taken by landing on them.
