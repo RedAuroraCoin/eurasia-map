@@ -69,8 +69,12 @@ export const BalanceSchema = z.object({
     /** Income per full round, so fortifying stays possible as the sea climbs. */
     coinsPerRound: z.number().int().min(0).max(100),
     towerCost: z.number().int().positive().max(100),
-    /** Metres of sea per full round: the clock the whole mode is built around. */
-    metresPerRound: z.number().min(0).max(500),
+    /**
+     * The round at which the sea covers the last cell. A game cannot outlast it,
+     * and an average game — 40 to 45 moves each — ends on the highlands rather
+     * than in an empty ocean.
+     */
+    fullFloodRound: z.number().int().min(1).max(500),
     /**
      * Ground at or above this counts as high ground when the camp is chosen: the
      * patch inside the band with the most high cells wins. It is a preference,
@@ -158,7 +162,7 @@ const RAW = {
     startCoins: 20,
     coinsPerRound: 5,
     towerCost: 10,
-    metresPerRound: 8,
+    fullFloodRound: 45,
     campMinElevation: 250,
     // White in Europe, moved three files north of its first placement; black back
     // in the north-east, where it stood before the bands existed.

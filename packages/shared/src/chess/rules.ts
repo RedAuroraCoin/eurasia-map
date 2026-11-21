@@ -210,6 +210,33 @@ const reject = (
 });
 
 /**
+ * The sea level for a round.
+ *
+ * The tide is a clock, not a ramp: each round it takes an equal share of the
+ * land, and the last cell goes under on `fullFloodRound`. Raising the level by a
+ * fixed number of metres instead would drown half the board by move four and the
+ * rest by move twelve — the game would end long before the 40-45 moves a chess
+ * game actually takes.
+ */
+export function seaLevelForRound(round: number, ctx: ChessCtx): number {
+  const full = BALANCE.chess.fullFloodRound;
+  if (round <= 0) return BALANCE.flood.startLevel;
+  if (round >= full) return BALANCE.flood.maxLevel;
+
+  const levels: number[] = [];
+  for (let cell = 0; cell < ctx.cellCount; cell++) {
+    if (ctx.isLand(cell)) levels.push(ctx.elev[cell] ?? 0);
+  }
+  if (levels.length === 0) return BALANCE.flood.maxLevel;
+  levels.sort((a, b) => a - b);
+
+  // Cells that stay above water this round; the next one sets the waterline.
+  const keep = Math.max(0, Math.floor((1 - round / full) * levels.length));
+  const drown = Math.min(levels.length - 1, levels.length - keep);
+  return Math.min(BALANCE.flood.maxLevel, Math.round(levels[drown] as number));
+}
+
+/**
  * Ends the turn: swaps sides, and once both have moved, raises the sea and pays
  * the round's coins. Drowning is resolved here, so a piece can never stand in
  * water between turns.
@@ -225,8 +252,8 @@ function endTurn(
 
   let seaLevel = state.seaLevel;
   let coins: [number, number] = [state.coins[0], state.coins[1]];
-  if (turn === 0 && BALANCE.chess.metresPerRound > 0) {
-    seaLevel = Math.min(BALANCE.flood.maxLevel, seaLevel + BALANCE.chess.metresPerRound);
+  if (turn === 0) {
+    seaLevel = seaLevelForRound(round, ctx);
     coins = [coins[0] + BALANCE.chess.coinsPerRound, coins[1] + BALANCE.chess.coinsPerRound];
   }
 

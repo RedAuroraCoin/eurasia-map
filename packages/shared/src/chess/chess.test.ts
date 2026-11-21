@@ -3,7 +3,13 @@ import { BALANCE } from '../balance';
 import { MAP_CONFIG } from '../map';
 import { getMap } from '../map';
 import { buildSpots, legalTargets } from './moves';
-import { CAMP_FLOOR, PIECES_PER_SIDE, chessReduce, createChessGame } from './rules';
+import {
+  CAMP_FLOOR,
+  PIECES_PER_SIDE,
+  chessReduce,
+  createChessGame,
+  seaLevelForRound,
+} from './rules';
 import type { ChessCtx, ChessState, Piece, PieceKind, Side } from './types';
 
 /**
@@ -12,7 +18,8 @@ import type { ChessCtx, ChessState, Piece, PieceKind, Side } from './types';
  */
 const ctx8 = (elev: Record<number, number> = {}): ChessCtx => ({
   isLand: () => true,
-  elev: Array.from({ length: 64 }, (_, cell) => elev[cell] ?? 1000),
+  // A slope, so the tide has something to climb: cell 0 is the lowest ground.
+  elev: Array.from({ length: 64 }, (_, cell) => elev[cell] ?? 150 + cell * 10),
   rows: 8,
   cols: 8,
   cellCount: 64,
@@ -191,8 +198,8 @@ describe('the opening position', () => {
     const game = createChessGame(500, 1, ctx);
     for (const piece of game.pieces) {
       expect(ctx.elev[piece.cell] ?? 0).toBeGreaterThanOrEqual(CAMP_FLOOR);
-      // And no camp may drown before a few rounds have been played.
-      expect(ctx.elev[piece.cell] ?? 0).toBeGreaterThan(BALANCE.chess.metresPerRound * 3);
+      // And no camp may drown in the opening: the sea is still below it.
+      expect(ctx.elev[piece.cell] ?? 0).toBeGreaterThan(BALANCE.flood.startLevel);
     }
   });
 
@@ -330,6 +337,47 @@ describe('movement', () => {
   });
 });
 
+describe('the tide is a clock', () => {
+  const map800 = getMap(800);
+  const big: ChessCtx = {
+    isLand: (cell) => map800.mask[cell] === '#',
+    elev: map800.elev,
+    rows: map800.rows,
+    cols: map800.cols,
+    cellCount: map800.rows * map800.cols,
+  };
+  const land = [...map800.mask].filter((c) => c === '#').length;
+  const above = (level: number): number =>
+    [...map800.mask].filter((c, i) => c === '#' && (map800.elev[i] ?? 0) >= level).length;
+
+  it('starts at the ocean and covers the last cell on the final round', () => {
+    expect(seaLevelForRound(0, big)).toBe(BALANCE.flood.startLevel);
+    expect(seaLevelForRound(BALANCE.chess.fullFloodRound, big)).toBe(BALANCE.flood.maxLevel);
+    expect(seaLevelForRound(BALANCE.chess.fullFloodRound + 10, big)).toBe(BALANCE.flood.maxLevel);
+  });
+
+  it('never goes backwards', () => {
+    let previous = -1;
+    for (let round = 0; round <= BALANCE.chess.fullFloodRound; round++) {
+      const level = seaLevelForRound(round, big);
+      expect(level).toBeGreaterThanOrEqual(previous);
+      previous = level;
+    }
+  });
+
+  it('takes an equal share of the land each round, not an equal height', () => {
+    // Halfway through the game about half the board is still above water. A
+    // fixed metres-per-round ramp would have drowned 80% of it by then.
+    const half = Math.round(BALANCE.chess.fullFloodRound / 2);
+    const share = above(seaLevelForRound(half, big)) / land;
+    expect(share).toBeGreaterThan(0.4);
+    expect(share).toBeLessThan(0.6);
+    // And the opening is untouched: a tenth of the way in, most land remains.
+    const early = above(seaLevelForRound(Math.round(BALANCE.chess.fullFloodRound / 10), big));
+    expect(early / land).toBeGreaterThan(0.8);
+  });
+});
+
 describe('turns and the sea', () => {
   it('alternates sides and raises the sea once per full round', () => {
     const s = state([piece(1, 0, 'rook', at(3, 3)), piece(2, 1, 'rook', at(4, 4))]);
@@ -342,7 +390,8 @@ describe('turns and the sea', () => {
     const second = chessReduce(first.state, { k: 'move', piece: 2, to: at(4, 5) }, ctx8());
     expect(second.state.turn).toBe(0);
     expect(second.state.round).toBe(1);
-    expect(second.state.seaLevel).toBe(BALANCE.flood.startLevel + BALANCE.chess.metresPerRound);
+    expect(second.state.seaLevel).toBe(seaLevelForRound(1, ctx8()));
+    expect(second.state.seaLevel).toBeGreaterThan(BALANCE.flood.startLevel);
   });
 
   it('pays both sides at the end of a round', () => {
@@ -356,21 +405,19 @@ describe('turns and the sea', () => {
   });
 
   it('drowns a piece the sea has reached, and reports it', () => {
-    const s = state([piece(1, 0, 'rook', at(3, 3)), piece(2, 1, 'rook', at(4, 4))]);
-    // The rook walks onto 5 m of ground; the round's rise puts the sea at 10 m.
-    const ctx = ctx8({ [at(3, 4)]: 5 });
-    const first = chessReduce(s, { k: 'move', piece: 1, to: at(3, 4) }, ctx);
-    const second = chessReduce(first.state, { k: 'move', piece: 2, to: at(4, 5) }, ctx);
+    // Cell 0 is the lowest ground on the slope, and the first round takes it.
+    const s = state([piece(1, 0, 'rook', at(0, 1)), piece(2, 1, 'rook', at(4, 4))]);
+    const first = chessReduce(s, { k: 'move', piece: 1, to: at(0, 0) }, ctx8());
+    const second = chessReduce(first.state, { k: 'move', piece: 2, to: at(4, 5) }, ctx8());
 
     expect(second.state.pieces.map((p) => p.id)).toEqual([2]);
     expect(second.events.find((e) => e.t === 'drowned')).toMatchObject({ pieces: 1 });
   });
 
   it('loses the game when the king drowns', () => {
-    const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'rook', at(4, 4))]);
-    const ctx = ctx8({ [at(3, 4)]: 5 });
-    const first = chessReduce(s, { k: 'move', piece: 1, to: at(3, 4) }, ctx);
-    const second = chessReduce(first.state, { k: 'move', piece: 2, to: at(4, 5) }, ctx);
+    const s = state([piece(1, 0, 'king', at(0, 1)), piece(2, 1, 'rook', at(4, 4))]);
+    const first = chessReduce(s, { k: 'move', piece: 1, to: at(0, 0) }, ctx8());
+    const second = chessReduce(first.state, { k: 'move', piece: 2, to: at(4, 5) }, ctx8());
 
     expect(second.state.winner).toBe(1);
     expect(second.events.find((e) => e.t === 'won')).toMatchObject({ side: 1, how: 'drowned' });
