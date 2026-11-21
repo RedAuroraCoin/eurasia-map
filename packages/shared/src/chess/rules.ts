@@ -152,6 +152,7 @@ export function createChessGame(
           kind: index < FILES ? (BACK_RANK[index] as PieceKind) : 'pawn',
           cell,
           promoted: false,
+          moved: false,
         });
       });
       continue;
@@ -174,10 +175,11 @@ export function createChessGame(
         kind: BACK_RANK[index] as PieceKind,
         cell,
         promoted: false,
+        moved: false,
       });
     });
     for (const cell of sorted.slice(FILES)) {
-      pieces.push({ id: id++, side, kind: 'pawn', cell, promoted: false });
+      pieces.push({ id: id++, side, kind: 'pawn', cell, promoted: false, moved: false });
     }
   }
 
@@ -297,8 +299,8 @@ export function chessReduce(
     const homeOfEnemy = new Set(createHomeCells((1 - piece.side) as Side, ctx));
     const promote = piece.kind === 'pawn' && homeOfEnemy.has(cmd.to);
     const movedPiece: Piece = promote
-      ? { ...piece, cell: cmd.to, kind: 'queen', promoted: true }
-      : { ...piece, cell: cmd.to };
+      ? { ...piece, cell: cmd.to, kind: 'queen', promoted: true, moved: true }
+      : { ...piece, cell: cmd.to, moved: true };
     remaining = [...remaining, movedPiece];
 
     const towers = { ...state.towers };

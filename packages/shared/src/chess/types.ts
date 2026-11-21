@@ -23,6 +23,12 @@ export interface Piece {
   readonly cell: number;
   /** A pawn that has reached the far edge becomes a queen once. */
   readonly promoted: boolean;
+  /**
+   * Whether this piece has ever left its starting square. Only a pawn that has
+   * not moved may take its two-square opening step, so the rule needs the fact
+   * rather than a guess from geometry.
+   */
+  readonly moved: boolean;
 }
 
 export interface ChessState {

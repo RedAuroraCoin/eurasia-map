@@ -39,8 +39,9 @@ ground, back rank behind.
 - Each side fields 16 pieces: king, queen, 2 rooks, 2 bishops, 2 knights, 8 pawns.
 - Every piece moves by chess rules. Additions from the map: water is a wall, the
   map edge is the board edge, and a tower is a capturable obstacle.
-- Pawns march east for the west side and west for the east side. They capture
-  diagonally only, and promote to queens on reaching the enemy's camp.
+- Pawns march east for the white side and west for the black side. They capture
+  diagonally only, open with **two squares from their starting cell** (if both
+  are free and dry), and promote to queens on reaching the enemy's camp.
 - A turn is **one action**: move a piece, or — with the king — build a tower on a
   dry empty cell next to it (10 coins; 20 to start, +5 per side per round).
 - Towers block movement for both sides and can be taken by landing on them.
@@ -74,7 +75,8 @@ Tuning knobs, all in `BALANCE.chess`: `metresPerRound`, `campMinElevation`,
 
 - No check, checkmate or stalemate: the king is a piece you can take, like in the
   earliest form of the game.
-- No castling, en passant, or two-step pawn opening.
+- No castling, and no en passant: a pawn that has just opened two squares cannot
+  be taken in passing.
 - No legal-move highlighting: click a piece, then a destination; an illegal one
   is refused with a message.
 - The chess game is not saved yet. A reload starts a fresh game; the mode itself

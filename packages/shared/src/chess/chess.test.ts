@@ -26,6 +26,7 @@ const piece = (id: number, side: Side, kind: PieceKind, cell: number): Piece => 
   kind,
   cell,
   promoted: false,
+  moved: false,
 });
 
 const state = (pieces: Piece[], extra: Partial<ChessState> = {}): ChessState => ({
@@ -273,7 +274,39 @@ describe('movement', () => {
 
   it('marches a side-1 pawn west', () => {
     const s = state([piece(1, 1, 'pawn', at(3, 3))], { turn: 1 });
-    expect(targets(s, 1)).toEqual([at(3, 2)]);
+    // One or two squares: this pawn has not moved yet.
+    expect(targets(s, 1)).toEqual([at(3, 1), at(3, 2)]);
+  });
+
+  it('lets a pawn open with two squares', () => {
+    const s = state([piece(1, 0, 'pawn', at(3, 3))]);
+    expect(targets(s, 1)).toEqual([at(3, 4), at(3, 5)]);
+  });
+
+  it('allows only one square once the pawn has moved', () => {
+    const moved: Piece = { ...piece(1, 0, 'pawn', at(3, 3)), moved: true };
+    const s = state([moved]);
+    expect(targets(s, 1)).toEqual([at(3, 4)]);
+  });
+
+  it('will not open two squares over a piece', () => {
+    const s = state([piece(1, 0, 'pawn', at(3, 3)), piece(2, 0, 'rook', at(3, 4))]);
+    expect(targets(s, 1)).toEqual([]);
+  });
+
+  it('will not open two squares over water', () => {
+    const s = state([piece(1, 0, 'pawn', at(3, 3))], { seaLevel: 100 });
+    const ctx = ctx8({ [at(3, 5)]: 50 });
+    expect(targets(s, 1, ctx)).toEqual([at(3, 4)]);
+  });
+
+  it('marks a pawn as moved after its first step, so no second opening', () => {
+    const s = state([piece(1, 0, 'pawn', at(3, 3)), piece(2, 1, 'king', at(7, 7))]);
+    const first = chessReduce(s, { k: 'move', piece: 1, to: at(3, 5) }, ctx8());
+    expect(first.ok).toBe(true);
+    const after = first.state.pieces.find((p) => p.id === 1);
+    expect(after?.cell).toBe(at(3, 5));
+    expect(after?.moved).toBe(true);
   });
 
   it('treats water as a wall', () => {

@@ -126,7 +126,15 @@ export function legalTargets(state: ChessState, piece: Piece, ctx: ChessCtx): nu
       // Pawns march east for side 0 and west for side 1, so the two armies meet.
       const forward = piece.side === 0 ? 1 : -1;
       const ahead = cellOf(row, col + forward, ctx);
-      if (ahead !== null && entry(ahead) === 2) out.push(ahead);
+      if (ahead !== null && entry(ahead) === 2) {
+        out.push(ahead);
+        // Two squares from the starting square, and only if nothing is in the
+        // way: a pawn may not jump a piece, and it may not jump water either.
+        if (!piece.moved) {
+          const beyond = cellOf(row, col + forward * 2, ctx);
+          if (beyond !== null && entry(beyond) === 2) out.push(beyond);
+        }
+      }
       for (const dr of [-1, 1]) {
         const target = cellOf(row + dr, col + forward, ctx);
         if (target === null) continue;
