@@ -1,5 +1,5 @@
 import { cellColor, cssRgb, type GameState, type MapEntry, type StormPlan } from '@eurasia/shared';
-import { buildBuildings } from './geometry';
+import { buildBuildings, ownerTint } from './geometry';
 import type { View } from './scene3d';
 import type { Lighting } from './palette';
 
@@ -127,6 +127,26 @@ export class Flat2D implements View {
           120 * shade + 40 * night,
         )} ${Math.round(60 * shade)})`;
         ctx.fillRect(ox + col * cell + inset, oy + row * cell + inset, size, size);
+      }
+
+      // No meshes exist in the flat view, so the king — the only piece that can
+      // build — gets a marker of its own side colour.
+      for (const side of [0, 1] as const) {
+        const index = this.state.kings[side];
+        if (index < 0) continue;
+        const col = index % map.cols;
+        const row = Math.floor(index / map.cols);
+        const cx = ox + col * cell + cell / 2;
+        const cy = oy + row * cell + cell / 2;
+        const radius = Math.max(2, cell * 0.32);
+        const tint = ownerTint(side);
+        ctx.fillStyle = `rgb(${tint[0]} ${tint[1]} ${tint[2]})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(6, 10, 16, 0.85)';
+        ctx.lineWidth = Math.max(1, cell * 0.08);
+        ctx.stroke();
       }
     }
 

@@ -367,7 +367,10 @@ export class Scene3D implements View {
         metalness: 0.25,
       });
       const king = new THREE.Mesh(kingGeometry, material);
-      king.scale.set(0.26, 0.44, 0.26);
+      // Nearly double the old 0.26 × 0.44: at map scale the piece was reading as
+      // a finial on the roof, not as the figure that does the building. The
+      // footprint stays inside the 0.66-wide castle, so it never overhangs.
+      king.scale.set(0.46, 0.8, 0.46);
       king.castShadow = this.quality === 'high';
       king.visible = false;
       this.scene.add(king);

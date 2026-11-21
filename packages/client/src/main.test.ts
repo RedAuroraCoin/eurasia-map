@@ -135,11 +135,15 @@ describe('single-player shell', () => {
     const { getState } = await boot();
     const canvas = document.querySelector('canvas');
 
+    // No capital yet, so the flat view draws no king marker.
+    expect(drawCalls).not.toContain('arc');
     expect(getState().coins[0]).toBe(10);
     canvas?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     flushFrames();
 
     const afterClaim = getState();
+    // The first claim places the king, and the flat view marks it with an arc.
+    expect(drawCalls).toContain('arc');
     expect(afterClaim.claimed[0]).toBe(1);
     expect(afterClaim.coins[0]).toBe(5);
     expect(afterClaim.kings[0]).toBeGreaterThanOrEqual(0);
