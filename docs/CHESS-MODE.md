@@ -49,24 +49,25 @@ ground, back rank behind.
 
 ## The tide
 
-The sea rises **10 m per full round** (both sides having moved once).
+The sea rises **8 m per full round** (both sides having moved once).
 
 Measured on the real 800 map:
 
 | round | sea    | land left |
 |-------|--------|-----------|
-| 4     | 40 m   | 97 %      |
-| 10    | 100 m  | 90 %      |
-| 17    | 170 m  | 79 %      |
-| 25    | 250 m  | 69 %      |
-| 40    | 400 m  | 51 %      |
-| 60    | 600 m  | 32 %      |
-| 100   | 1000 m | 17 %      |
+| 5     | 40 m   | 97 %      |
+| 10    | 80 m   | 93 %      |
+| 20    | 160 m  | 80 %      |
+| 30    | 240 m  | 70 %      |
+| 50    | 400 m  | 51 %      |
+| 75    | 600 m  | 32 %      |
+| 125   | 1000 m | 17 %      |
 
-Why 10 m: at 25 m the coast was gone before the opening was over, and at 1 day/s
-in the building game the whole map drowned in a minute and a half. At 10 m a game
-of 20–40 rounds (40–80 moves) spends the tide on the lowlands and still finishes
-with most of the board above water; a long game grinds down to the highlands.
+Why 8 m: at 25 m the coast was gone before the opening was over, and at 1 day/s
+in the building game the whole map drowned in a minute and a half. At 8 m a game
+of 20–40 rounds (40–80 moves) only loses a fifth of the board to the water — the
+tide is a pressure, not a countdown — while a long game still grinds down to the
+highlands.
 
 Tuning knobs, all in `BALANCE.chess`: `metresPerRound`, `campMinElevation`,
 `campLat`, `campLon`, `startCoins`, `coinsPerRound`, `towerCost`.

@@ -158,7 +158,7 @@ const RAW = {
     startCoins: 20,
     coinsPerRound: 5,
     towerCost: 10,
-    metresPerRound: 10,
+    metresPerRound: 8,
     campMinElevation: 250,
     // White in Europe, moved three files north of its first placement; black back
     // in the north-east, where it stood before the bands existed.
