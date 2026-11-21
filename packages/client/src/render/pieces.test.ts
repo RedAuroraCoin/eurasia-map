@@ -22,9 +22,20 @@ describe('chess piece geometry', () => {
       const box = unitGeometry(role).boundingBox;
       expect(box).not.toBeNull();
       const height = (box?.max.y ?? 0) - (box?.min.y ?? 0);
-      // At 1x the tallest piece was 0.44 units against a 1.3-unit castle.
-      expect(height).toBeGreaterThan(0.6);
-      expect(height).toBeLessThan(1.1);
+      // Taller than the 1.3-unit castle: a chess piece has to out-read a building.
+      expect(height).toBeGreaterThan(0.9);
+      expect(height).toBeLessThan(1.7);
+    }
+  });
+
+  it('turns a body: every piece has a wide foot and a narrow waist', () => {
+    for (const role of ROLES) {
+      const box = unitGeometry(role).boundingBox;
+      const width = (box?.max.x ?? 0) - (box?.min.x ?? 0);
+      // A Staunton piece is as wide at the base as it is tall at the foot, and
+      // never wider than the cell it stands on.
+      expect(width).toBeGreaterThan(0.5);
+      expect(width).toBeLessThan(0.95);
     }
   });
 
