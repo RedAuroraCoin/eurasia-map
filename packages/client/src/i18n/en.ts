@@ -102,6 +102,7 @@ export const en = {
         ? `Collected ${amount} coins for one day`
         : `Collected ${amount} coins for ${days} days`,
     reset: 'Progress deleted — a new city',
+    drownedWorld: 'The sea had taken every cell — a new world starts',
     demo: 'Demo: the city grew on its own, no coins are earned',
     demoOff: 'Demo off, your city is intact',
     noWebgl: 'WebGL is unavailable — the flat view is on',

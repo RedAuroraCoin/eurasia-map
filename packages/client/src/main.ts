@@ -449,7 +449,7 @@ async function reset(): Promise<void> {
   const confirmed = await app.askReset();
   if (!confirmed) return;
 
-  clearSave(storage, settings.size);
+  clearSave(storage, map.land);
   state = createInitialState(nextSeed(), Date.now());
   demo = false;
   demoState = null;
@@ -700,7 +700,6 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('beforeunload', saveNow);
 window.setInterval(settle, 60_000);
-if (settings.mode === 'chess') startChess();
 
 // --------------------------------------------------------------------- boot
 
@@ -708,9 +707,22 @@ applyTheme();
 
 const loaded = loadSave(storage, settings.size);
 state = loaded.ok ? loaded.state : createInitialState(nextSeed(), Date.now());
+
+// A save whose whole map is under water is finished, not playable: the player
+// could only stare at the sea and reach for Start over. Start the new world here.
+const landLeft = map.elev.filter(
+  (elevation, index) => map.mask[index] === '#' && elevation >= state.seaLevel,
+).length;
+const drownedWorld = loaded.ok && landLeft === 0;
+if (drownedWorld) {
+  state = createInitialState(nextSeed(), Date.now());
+  clearSave(storage, map.land);
+}
 selected = firstLand();
 
-if (loaded.ok) {
+if (drownedWorld) {
+  app.setMessage(t.messages.drownedWorld, 'error');
+} else if (loaded.ok) {
   app.setMessage(t.messages.loaded(state.claimed[0]), 'info');
 } else if (loaded.reason === 'corrupt') {
   app.setMessage(t.errors.saveCorrupt, 'error');
@@ -726,6 +738,9 @@ view.setState(state, Date.now());
 updateStats();
 applyLighting(true);
 settle();
+// Only now is there a state to switch away from: starting chess earlier crashed
+// on a missing `state` and left the screen with nothing but the sea plane.
+if (settings.mode === 'chess') startChess();
 
 // --------------------------------------------------------------- multiplayer
 

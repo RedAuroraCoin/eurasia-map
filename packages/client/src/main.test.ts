@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { BALANCE, getMap } from '@eurasia/shared';
+import { BALANCE, SAVE_VERSION, createInitialState, getMap } from '@eurasia/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -137,6 +137,33 @@ describe('single-player shell', () => {
     // The sea is the late-game clock: it starts at the level in the balance file.
     expect(document.querySelector('.sea-stat .stat-value')?.textContent).toBe('0 m');
     expect(drawCalls).toContain('fillRect');
+  });
+
+  it('starts a new world when the saved map has drowned completely', async () => {
+    const drowned = {
+      ...createInitialState(1, Date.UTC(2026, 0, 1)),
+      seaLevel: BALANCE.flood.maxLevel,
+    };
+    localStorage.setItem(
+      'eurasia.save.500',
+      JSON.stringify({ v: SAVE_VERSION, savedAt: Date.now(), state: drowned }),
+    );
+
+    const { getState } = await boot();
+
+    // The old save left nothing above the waterline: a dead map, not a game.
+    expect(getState().seaLevel).toBe(BALANCE.flood.startLevel);
+    expect(getState().claimed[0]).toBe(0);
+  });
+
+  it('boots straight into chess when that is the saved mode', async () => {
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 500 }));
+
+    const { getChess } = await boot();
+
+    // The regression: chess used to start before the game state existed.
+    expect(getChess()?.pieces).toHaveLength(32);
+    expect(getChess()?.seaLevel).toBe(BALANCE.flood.startLevel);
   });
 
   it('switches to chess and fields two armies', async () => {
