@@ -50,30 +50,30 @@ ground, back rank behind.
 ## The tide
 
 The sea is a **clock**: it takes an equal share of the land every round and
-covers the last cell on round **45** — the length of an average game, 40 to 45
-moves each. A game cannot outlast it.
+covers the last cell on round **100**. A game cannot outlast it.
 
 Measured on the real 800 map:
 
 | round | sea    | land left |
 |-------|--------|-----------|
 | 0     | 0 m    | 100 %     |
-| 5     | 104 m  | 89 %      |
-| 10    | 172 m  | 78 %      |
-| 15    | 265 m  | 67 %      |
-| 20    | 352 m  | 56 %      |
-| 25    | 460 m  | 45 %      |
-| 30    | 587 m  | 33 %      |
-| 35    | 822 m  | 22 %      |
-| 40    | 1242 m | 11 %      |
-| 45    | 5200 m | 0 %       |
+| 10    | 96 m   | 90 %      |
+| 20    | 161 m  | 80 %      |
+| 30    | 235 m  | 70 %      |
+| 40    | 309 m  | 60 %      |
+| 50    | 402 m  | 50 %      |
+| 60    | 491 m  | 40 %      |
+| 70    | 655 m  | 30 %      |
+| 80    | 884 m  | 20 %      |
+| 90    | 1301 m | 10 %      |
+| 100   | 5200 m | 0 %       |
 
 Why a share of the land and not a fixed number of metres: a linear ramp that
-reaches 5200 m at round 45 rises 115 m a round, which drowns half the board by
-move four and all but the plateau by move twelve. The game would be over long
-before the 40-45 moves it is supposed to last. Taking an equal share instead
-keeps the opening intact and makes the tide a steady pressure that ends exactly
-on time.
+reaches 5200 m at round 100 rises 52 m a round, which drowns half the board by
+move eight and all but the plateau by move twenty-four. The game would be over
+long before the 40-45 moves it is supposed to last. Taking an equal share keeps
+the opening intact and makes the tide a steady pressure that ends exactly on
+time.
 
 Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `campMinElevation`,
 `campLat`, `campLon`, `startCoins`, `coinsPerRound`, `towerCost`.
