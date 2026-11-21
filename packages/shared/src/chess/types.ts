@@ -24,9 +24,9 @@ export interface Piece {
   /** A pawn that has reached the far edge becomes a queen once. */
   readonly promoted: boolean;
   /**
-   * Whether this piece has ever left its starting square. Only a pawn that has
-   * not moved may take its two-square opening step, so the rule needs the fact
-   * rather than a guess from geometry.
+   * Whether this piece has ever left its starting square. It no longer gates the
+   * two-square step — every pawn may take that at any time — but it records the
+   * fact for saves and for any future rule that needs it.
    */
   readonly moved: boolean;
 }

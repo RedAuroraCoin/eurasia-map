@@ -41,11 +41,12 @@ ground, back rank behind.
   map edge is the board edge, and a tower is a capturable obstacle.
 - The long vectors are capped: a rook, a bishop and a queen travel at most **seven
   squares** in one direction. On a 44-cell continent an unlimited rook is a sniper.
-- A pawn **walks one square in any of the four directions** and **captures one
-  square on the diagonals** — it moves one way and fights another, as a pawn
-  always has. Its opening two-square step is forward only (east for white, west
-  for black) and only from its starting cell. It promotes to a queen on reaching
-  the enemy's camp.
+- A pawn **walks one or two squares in a straight line, in any of the four
+  directions, at any time** — the two-square step is not a privilege of the
+  starting square. It never jumps: both squares have to be free and dry. It
+  **captures one square on the diagonals**, so it still moves one way and fights
+  another. It promotes to a queen on reaching the enemy's camp, and a pawn
+  recruited into a tower walks exactly like this from its first turn.
 - A turn is **one action**: move a piece, or spend it on a building instead.
   - *Tower* — 10 coins, on a dry empty cell next to the king. It blocks movement
     for both sides and can be taken by landing on it.

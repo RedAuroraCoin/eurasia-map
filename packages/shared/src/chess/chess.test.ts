@@ -304,9 +304,9 @@ describe('movement', () => {
       piece(3, 1, 'pawn', at(3, 4)),
     ]);
     const cells = targets(s, 1);
-    // Sideways and back are open; straight ahead is blocked by an enemy it may
-    // not take, and the diagonal enemy is the one capture.
-    expect(cells).toEqual([at(2, 3), at(2, 4), at(3, 2), at(4, 3)]);
+    // Every free straight line is open for one and two squares; straight ahead is
+    // blocked by an enemy it may not take, and the diagonal enemy is the capture.
+    expect(cells).toEqual([at(1, 3), at(2, 3), at(2, 4), at(3, 1), at(3, 2), at(4, 3), at(5, 3)]);
   });
 
   it('cannot take a piece standing straight ahead', () => {
@@ -314,35 +314,33 @@ describe('movement', () => {
     expect(targets(s, 1)).not.toContain(at(4, 3));
   });
 
-  it('opens with two squares toward the enemy, not sideways', () => {
-    const s = state([piece(1, 0, 'pawn', at(3, 3))]);
-    const cells = targets(s, 1);
+  it('walks two squares in a straight line, in any of the four directions', () => {
+    const cells = targets(state([piece(1, 0, 'pawn', at(3, 3))]), 1);
     expect(cells).toContain(at(3, 5));
-    // Two squares north would be a diagonal jump, not an opening step.
-    expect(cells).not.toContain(at(1, 3));
-  });
-
-  it('marches a side-1 pawn west for its opening step', () => {
-    const s = state([piece(1, 1, 'pawn', at(3, 3))], { turn: 1 });
-    const cells = targets(s, 1);
     expect(cells).toContain(at(3, 1));
-    expect(cells).toContain(at(3, 2));
+    expect(cells).toContain(at(5, 3));
+    expect(cells).toContain(at(1, 3));
+    // Two squares diagonally is not a straight line, so it is not a walk.
+    expect(cells).not.toContain(at(5, 5));
   });
 
-  it('allows only one square once the pawn has moved', () => {
+  it('walks two squares whether or not it has moved before', () => {
     const moved: Piece = { ...piece(1, 0, 'pawn', at(3, 3)), moved: true };
-    const s = state([moved]);
-    const cells = targets(s, 1);
+    const cells = targets(state([moved]), 1);
     expect(cells).toContain(at(3, 4));
-    expect(cells).not.toContain(at(3, 5));
+    expect(cells).toContain(at(3, 5));
+    expect(cells).toContain(at(3, 1));
   });
 
-  it('will not open two squares over a piece', () => {
+  it('will not jump two squares over a piece', () => {
     const s = state([piece(1, 0, 'pawn', at(3, 3)), piece(2, 0, 'rook', at(3, 4))]);
-    expect(targets(s, 1)).not.toContain(at(3, 5));
+    const cells = targets(s, 1);
+    expect(cells).not.toContain(at(3, 5));
+    // Its own piece blocks the square itself too.
+    expect(cells).not.toContain(at(3, 4));
   });
 
-  it('will not open two squares over water', () => {
+  it('will not walk two squares over water', () => {
     const s = state([piece(1, 0, 'pawn', at(3, 3))], { seaLevel: 100 });
     const ctx = ctx8({ [at(3, 5)]: 50 });
     const cells = targets(s, 1, ctx);
@@ -350,13 +348,16 @@ describe('movement', () => {
     expect(cells).not.toContain(at(3, 5));
   });
 
-  it('marks a pawn as moved after its first step, so no second opening', () => {
+  it('still records that a pawn has moved, though it no longer limits it', () => {
     const s = state([piece(1, 0, 'pawn', at(3, 3)), piece(2, 1, 'king', at(7, 7))]);
     const first = chessReduce(s, { k: 'move', piece: 1, to: at(3, 5) }, ctx8());
     expect(first.ok).toBe(true);
     const after = first.state.pieces.find((p) => p.id === 1);
     expect(after?.cell).toBe(at(3, 5));
     expect(after?.moved).toBe(true);
+    // And the next walk may still be two squares.
+    if (!after) throw new Error('no pawn');
+    expect(targets(first.state, after.id)).toContain(at(3, 7));
   });
 
   it('treats water as a wall', () => {
@@ -599,7 +600,7 @@ describe('recruiting a pawn into a tower', () => {
     if (!result.ok) expect(result.code).toBe('occupied');
   });
 
-  it('gives the pawn one step but no two-square opening', () => {
+  it('lets a recruited pawn walk like any other, two squares included', () => {
     const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
       coins: [40, 40],
       towers: { [String(tower)]: 0 },
@@ -611,7 +612,7 @@ describe('recruiting a pawn into a tower', () => {
     if (!born) throw new Error('no pawn');
     const steps = targets(result.state, born.id);
     expect(steps).toContain(tower + 1);
-    expect(steps).not.toContain(tower + 2);
+    expect(steps).toContain(tower + 2);
   });
 
   it('lets the pawn walk out, and lets the enemy take the tower and the pawn together', () => {

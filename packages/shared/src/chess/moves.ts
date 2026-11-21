@@ -130,26 +130,22 @@ export function legalTargets(state: ChessState, piece: Piece, ctx: ChessCtx): nu
       }
       break;
     case 'pawn': {
-      // A pawn walks in any of the four directions, one square at a time — it is
-      // no longer tied to the march axis, so it can fall back from the water.
+      // A pawn walks in a straight line — one of the four directions — one or two
+      // squares, at any time. The two-square step is no longer a privilege of the
+      // starting square: a pawn is slow enough with the sea rising behind it.
       for (const [dr, dc] of ORTHO) {
-        const next = cellOf(row + dr, col + dc, ctx);
-        if (next !== null && entry(next) === 2) out.push(next);
+        const first = cellOf(row + dr, col + dc, ctx);
+        if (first === null || entry(first) !== 2) continue;
+        out.push(first);
+        // It never jumps: the second square has to be free as well.
+        const second = cellOf(row + dr * 2, col + dc * 2, ctx);
+        if (second !== null && entry(second) === 2) out.push(second);
       }
       // But it still fights on the diagonals only: one step, one direction for
       // walking and another for taking, the way a pawn always has.
       for (const [dr, dc] of DIAGONAL) {
         const target = cellOf(row + dr, col + dc, ctx);
         if (target !== null && entry(target) === 1) out.push(target);
-      }
-      // The opening two-square step stays: forward only, from the starting cell.
-      if (!piece.moved) {
-        const forward = piece.side === 0 ? 1 : -1;
-        const ahead = cellOf(row, col + forward, ctx);
-        const beyond = cellOf(row, col + forward * 2, ctx);
-        if (ahead !== null && beyond !== null && entry(ahead) === 2 && entry(beyond) === 2) {
-          out.push(beyond);
-        }
       }
       break;
     }
