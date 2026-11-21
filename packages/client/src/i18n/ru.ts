@@ -43,7 +43,7 @@ export const ru: Dict = {
     floodOn: 'Вкл',
     floodOff: 'Выкл',
     speed: 'Скорость времени',
-    speedOptions: ['1×', '60×', '600×'],
+    speedOptions: ['1×', '60×', '600×', '1 сут/с'],
     quality: 'Качество',
     qualityAuto: 'Авто',
     qualityHigh: 'Высокое',

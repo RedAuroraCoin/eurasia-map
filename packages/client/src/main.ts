@@ -19,6 +19,7 @@ import { t } from './i18n';
 import { lightingAt, timeOfDayFromDate } from './render/palette';
 import { createView, type View } from './render/view';
 import { browserStorage, clearSave, loadSave, saveState } from './state/save';
+import { advance, clockFor } from './state/clock';
 import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
 import { MultiplayerClient, createInvite, parseRoomFromUrl } from './multiplayer/client';
 import { App, type AppHandlers } from './ui/app';
@@ -38,8 +39,13 @@ let state: GameState;
 let demo = false;
 let demoState: GameState | null = null;
 
-/** The clock the world runs on: accelerated by the speed setting, never used for money. */
-let visualNow = Date.now();
+/**
+ * Time the player has fast-forwarded past the real clock. Not saved: the save
+ * carries `lastDay`, and `clockFor` resumes from it, so a reload never rewinds.
+ */
+let extraTime = 0;
+/** Last world day the simulation settled, so a fast clock settles per day, not per minute. */
+let lastWorldDay = Number.NEGATIVE_INFINITY;
 let lastLighting = -1;
 let selected = 0;
 let saveTimer = 0;
@@ -171,8 +177,15 @@ view.resize();
 
 const active = (): GameState => (demo ? (demoState ?? state) : state);
 
+/**
+ * The clock the world runs on. Speed moves income, growth and the sea together:
+ * `reduce` is handed this, not `Date.now()`, so an accelerated day is a real
+ * settled day and not just faster animation.
+ */
+const clock = (): number => clockFor(Date.now(), extraTime, active().lastDay);
+
 const ctx = () => ({
-  nowMs: Date.now(),
+  nowMs: clock(),
   isLand: (index: number) => map.mask[index] === '#',
   cellCount: map.rows * map.cols,
   cols: map.cols,
@@ -304,7 +317,7 @@ function settle(): void {
   if (result.state === state) return;
 
   state = result.state;
-  view.setState(state, Date.now());
+  view.setState(state, clock());
   updateStats();
   scheduleSave();
 
@@ -385,7 +398,7 @@ function toggleDemo(): void {
   demo = !demo;
   if (demo) {
     demoState = buildDemoState();
-    visualNow = Date.now();
+    extraTime = 0;
     lastLighting = -1;
   }
   app.setSettings(settings, demo);
@@ -425,7 +438,7 @@ function applyLighting(force = false): void {
       ? 0.45
       : settings.dayNight === 'night'
         ? 0.02
-        : timeOfDayFromDate(new Date(visualNow));
+        : timeOfDayFromDate(new Date(clock()));
 
   if (!force && Math.abs(timeOfDay - lastLighting) < 0.0008) return;
   lastLighting = timeOfDay;
@@ -703,12 +716,26 @@ function frame(now: number): void {
   const delta = Math.min(100, Math.max(0, now - previous));
   previous = now;
 
-  const speed = demo ? DEMO_SPEED : speedMultiplier(settings);
-  visualNow += delta * (speed - 1);
+  // A room runs on real time: the server settles the days, so accelerating
+  // here would only desync the animation from the state it is drawing.
+  const speed = mp ? 1 : demo ? DEMO_SPEED : speedMultiplier(settings);
+  extraTime = advance(extraTime, delta, speed);
+  const world = clock();
+
+  // At speed the day boundary can pass many times a minute, so settlement is
+  // driven by the world clock rather than by the one-minute timer: the sea has
+  // to rise while the player watches, not in a lump at the end.
+  if (!demo && !mp) {
+    const day = dayIndex(world);
+    if (day !== lastWorldDay) {
+      lastWorldDay = day;
+      settle();
+    }
+  }
 
   applyLighting();
-  updateStorms(visualNow);
-  view.render(visualNow);
+  updateStorms(world);
+  view.render(world);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

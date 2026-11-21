@@ -109,5 +109,7 @@ describe('speedMultiplier', () => {
     expect(speedMultiplier({ ...DEFAULT_SETTINGS, speed: 0 })).toBe(1);
     expect(speedMultiplier({ ...DEFAULT_SETTINGS, speed: 1 })).toBe(60);
     expect(speedMultiplier({ ...DEFAULT_SETTINGS, speed: 2 })).toBe(600);
+    // The fastest setting is a whole world day per second of watching.
+    expect(speedMultiplier({ ...DEFAULT_SETTINGS, speed: 3 })).toBe(86_400);
   });
 });

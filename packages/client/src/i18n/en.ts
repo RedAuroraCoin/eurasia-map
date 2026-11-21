@@ -41,7 +41,7 @@ export const en = {
     floodOn: 'On',
     floodOff: 'Off',
     speed: 'Time speed',
-    speedOptions: ['1×', '60×', '600×'],
+    speedOptions: ['1×', '60×', '600×', '1 day/s'],
     quality: 'Quality',
     qualityAuto: 'Auto',
     qualityHigh: 'High',

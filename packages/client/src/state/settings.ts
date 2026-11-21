@@ -24,8 +24,11 @@ export interface Settings {
   readonly sides: 'one' | 'both';
 }
 
-/** 1x, 60x (an hour a minute), 600x (a day in 2.4 minutes). */
-export const SPEEDS = [1, 60, 600] as const;
+/**
+ * 1x is the real clock. The last one is a whole world day per second, which is
+ * what makes the sea watchable: at 50 m a day it rises 50 m a second.
+ */
+export const SPEEDS = [1, 60, 600, 86_400] as const;
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto',
