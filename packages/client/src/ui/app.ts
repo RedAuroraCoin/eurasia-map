@@ -156,7 +156,9 @@ export class App {
       ),
       h(
         'div',
-        { class: 'stat' },
+        // Which side it is, is stated once, on the side that has the turn; this
+        // block repeated it as a second "to move" line. Hidden in chess.
+        { class: 'stat turn-stat' },
         h('span', { class: 'stat-label', text: t.panel.cells }),
         this.cellsEl,
       ),
@@ -169,7 +171,7 @@ export class App {
       ),
       h(
         'div',
-        { class: 'stat opponent-stat' },
+        { class: 'stat opponent-stat turn-stat' },
         h('span', { class: 'stat-label', text: '' }),
         this.oppCellsEl,
       ),
@@ -478,8 +480,6 @@ export class App {
     seaLevel: number;
     winner: 0 | 1 | null;
   }): void {
-    const mine = info.turn === 0 ? t.chess.white : t.chess.black;
-    const theirs = info.turn === 0 ? t.chess.black : t.chess.white;
     this.coinsEl.textContent = formatNumber(info.coins[0]);
     this.oppCoinsEl.textContent = formatNumber(info.coins[1]);
     // Both wallets show their own income, not just White's: with towers paying
@@ -488,16 +488,26 @@ export class App {
     this.incomeEl.classList.toggle('muted', info.income[0] === 0);
     this.oppIncomeEl.textContent = t.panel.perTurn(info.income[1]);
     this.oppIncomeEl.classList.toggle('muted', info.income[1] === 0);
-    this.cellsEl.textContent = t.chess.turn(mine);
-    this.oppCellsEl.textContent = t.chess.turn(theirs);
+    // The turn blocks are hidden here: two of them read "White to move" and
+    // "Black to move" at the same time, which answers nothing. The turn is marked
+    // once, on the side that has it.
+    this.cellsEl.textContent = '';
+    this.oppCellsEl.textContent = '';
     this.seaEl.textContent = t.panel.seaLevel(info.seaLevel);
 
     const labels = this.statsEl.querySelectorAll('.stat-label');
     if (labels[0]) labels[0].textContent = t.chess.white;
-    // The value already reads "White to move"; a label above it would repeat it.
     if (labels[1]) labels[1].textContent = '';
     if (labels[2]) labels[2].textContent = t.chess.black;
     if (labels[3]) labels[3].textContent = '';
+
+    const turning = [
+      [labels[0], info.turn === 0],
+      [labels[2], info.turn === 1],
+    ] as const;
+    for (const [label, mine] of turning) {
+      label?.closest('.stat')?.classList.toggle('to-move', mine);
+    }
   }
 
   /** The sea is the clock of the late game: it has to be readable at a glance. */

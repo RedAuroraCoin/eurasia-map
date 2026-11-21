@@ -661,6 +661,24 @@ body {
   color: var(--fg);
 }
 
+/* Two blocks used to read "White to move" and "Black to move" at once. The turn
+   now lives on the side that has it, so the duplicate blocks go. */
+.app.chess .turn-stat {
+  display: none;
+}
+
+.app.chess .stat.to-move .stat-label {
+  color: var(--accent);
+}
+
+.app.chess .stat.to-move .stat-label::before {
+  content: '▸ ';
+}
+
+.app.chess .stat.to-move .stat-value {
+  color: var(--fg);
+}
+
 @media (max-width: 720px) {
   /* A room opponent's figures are noise on a phone. In chess the second block is
      Black — one of the two players — so it stays, in a compact two-column grid. */

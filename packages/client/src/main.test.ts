@@ -343,6 +343,41 @@ describe('single-player shell', () => {
     expect(getHints()).toHaveLength(0);
   });
 
+  it('says whose turn it is exactly once', async () => {
+    const { getChess } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    const marked = (): (string | null | undefined)[] =>
+      [...document.querySelectorAll('.stat.to-move')].map(
+        (node) => node.querySelector('.stat-label')?.textContent,
+      );
+
+    expect(marked()).toEqual(['White']);
+    // The duplicate turn lines are gone: nothing claims both sides are to move.
+    const body = document.body.textContent ?? '';
+    expect(body).not.toContain('to move');
+
+    // Play a pawn two squares, and the marker moves to the other side.
+    const map = getMap(800);
+    const game = getChess();
+    if (!game) throw new Error('chess mode did not start');
+    const pawn = game.pieces.find(
+      (piece) => piece.side === 0 && piece.kind === 'pawn' && map.mask[piece.cell + 2] === '#',
+    );
+    if (!pawn) throw new Error('no pawn with two free squares');
+    const from = cellCentre(map.cols, map.rows, pawn.cell);
+    const to = cellCentre(map.cols, map.rows, pawn.cell + 2);
+    clickCell(from.x, from.y);
+    clickCell(to.x, to.y);
+
+    expect(getChess()?.turn).toBe(1);
+    expect(marked()).toEqual(['Black']);
+  });
+
   it('shows where the king could build when the build action is armed', async () => {
     const { getHints } = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(
