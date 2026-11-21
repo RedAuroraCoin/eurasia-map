@@ -230,8 +230,10 @@ export function seaLevelForRound(round: number, ctx: ChessCtx): number {
   if (levels.length === 0) return BALANCE.flood.maxLevel;
   levels.sort((a, b) => a - b);
 
-  // Cells that stay above water this round; the next one sets the waterline.
-  const keep = Math.max(0, Math.floor((1 - round / full) * levels.length));
+  // The share taken grows as the game goes on: the sea dawdles through the
+  // opening and hurries once the board has been fought over.
+  const taken = Math.pow(round / full, BALANCE.chess.floodExponent);
+  const keep = Math.max(0, Math.floor((1 - taken) * levels.length));
   const drown = Math.min(levels.length - 1, levels.length - keep);
   return Math.min(BALANCE.flood.maxLevel, Math.round(levels[drown] as number));
 }

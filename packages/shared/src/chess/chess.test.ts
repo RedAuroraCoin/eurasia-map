@@ -212,6 +212,35 @@ describe('the opening position', () => {
   });
 });
 
+describe('the long vectors', () => {
+  /** A big empty board, so the range limit is what decides, not the edge. */
+  const empty20: ChessCtx = {
+    isLand: () => true,
+    elev: Array.from({ length: 400 }, () => 1000),
+    rows: 20,
+    cols: 20,
+    cellCount: 400,
+  };
+
+  it('caps a rook, a bishop and a queen at seven squares a direction', () => {
+    const centre = 10 * 20 + 10;
+    const rook = piece(1, 0, 'rook', centre);
+    const bishop = piece(2, 0, 'bishop', centre);
+    const queen = piece(3, 0, 'queen', centre);
+    const s = state([rook, bishop, queen]);
+
+    // 4 directions x 7, 4 diagonals x 7, and 8 x 7.
+    expect(legalTargets(s, rook, empty20)).toHaveLength(28);
+    expect(legalTargets(s, bishop, empty20)).toHaveLength(28);
+    expect(legalTargets(s, queen, empty20)).toHaveLength(56);
+  });
+
+  it('still stops at the edge of a small board before its limit', () => {
+    const rook = piece(1, 0, 'rook', at(0, 0));
+    expect(legalTargets(state([rook]), rook, ctx8())).toHaveLength(14);
+  });
+});
+
 describe('movement', () => {
   it('slides a rook along its row and column, and no further', () => {
     const s = state([piece(1, 0, 'rook', at(3, 3))]);
@@ -379,16 +408,21 @@ describe('the tide is a clock', () => {
     }
   });
 
-  it('takes an equal share of the land each round, not an equal height', () => {
-    // Halfway through the game about half the board is still above water. A
-    // fixed metres-per-round ramp would have drowned 80% of it by then.
-    const half = Math.round(BALANCE.chess.fullFloodRound / 2);
-    const share = above(seaLevelForRound(half, big)) / land;
-    expect(share).toBeGreaterThan(0.4);
-    expect(share).toBeLessThan(0.6);
-    // And the opening is untouched: a tenth of the way in, most land remains.
-    const early = above(seaLevelForRound(Math.round(BALANCE.chess.fullFloodRound / 10), big));
-    expect(early / land).toBeGreaterThan(0.8);
+  it('holds the water back early and hurries it in late', () => {
+    const share = (fraction: number): number => {
+      const round = Math.round(BALANCE.chess.fullFloodRound * fraction);
+      return above(seaLevelForRound(round, big)) / land;
+    };
+
+    // A tenth of the way in the sea has barely moved: 1% of the land.
+    expect(share(0.1)).toBeGreaterThan(0.95);
+    // Halfway, three quarters of the board is still dry — the opening and the
+    // middlegame are not a countdown.
+    expect(share(0.5)).toBeGreaterThan(0.65);
+    expect(share(0.5)).toBeLessThan(0.85);
+    // The last stretch is where it bites.
+    expect(share(0.9)).toBeLessThan(0.25);
+    expect(share(0.98)).toBeLessThan(0.05);
   });
 });
 

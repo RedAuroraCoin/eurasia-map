@@ -39,6 +39,8 @@ ground, back rank behind.
 - Each side fields 16 pieces: king, queen, 2 rooks, 2 bishops, 2 knights, 8 pawns.
 - Every piece moves by chess rules. Additions from the map: water is a wall, the
   map edge is the board edge, and a tower is a capturable obstacle.
+- The long vectors are capped: a rook, a bishop and a queen travel at most **seven
+  squares** in one direction. On a 44-cell continent an unlimited rook is a sniper.
 - A pawn **walks one square in any of the four directions** and **captures one
   square on the diagonals** — it moves one way and fights another, as a pawn
   always has. Its opening two-square step is forward only (east for white, west
@@ -51,33 +53,35 @@ ground, back rank behind.
 
 ## The tide
 
-The sea is a **clock**: it takes an equal share of the land every round and
-covers the last cell on round **200**. A game cannot outlast it.
+The sea is a **clock with a curve**: it takes a growing share of the land each
+round and covers the last cell on round **200**. The share starts at nothing and
+accelerates (`floodExponent = 2`), so the opening and the middlegame are not a
+countdown and the last fifty rounds are a race.
 
 Measured on the real 800 map:
 
 | round | sea    | land left |
 |-------|--------|-----------|
 | 0     | 0 m    | 100 %     |
-| 20    | 96 m   | 90 %      |
-| 40    | 161 m  | 80 %      |
-| 60    | 235 m  | 70 %      |
-| 80    | 309 m  | 60 %      |
-| 100   | 402 m  | 50 %      |
-| 120   | 491 m  | 40 %      |
-| 140   | 655 m  | 30 %      |
-| 160   | 884 m  | 20 %      |
-| 180   | 1301 m | 10 %      |
+| 20    | 20 m   | 99 %      |
+| 50    | 71 m   | 94 %      |
+| 100   | 199 m  | 75 %      |
+| 140   | 398 m  | 51 %      |
+| 160   | 552 m  | 36 %      |
+| 180   | 925 m  | 19 %      |
+| 190   | 1306 m | 10 %      |
+| 195   | 1922 m | 5 %       |
 | 200   | 5200 m | 0 %       |
 
 Why a share of the land and not a fixed number of metres: a linear ramp that
-reaches 5200 m at round 200 rises 26 m a round, which still drowns half the board
-by move sixteen and all but the plateau by move forty-eight. Taking an equal
-share keeps the opening intact and makes the tide a steady pressure that ends
-exactly on time.
+reaches 5200 m at round 200 still drowns half the board by move sixteen, because
+the terrain is not evenly distributed — most of it sits below 600 m. Taking a
+share of the land keeps the clock honest: the water is where the land is, not
+where the metres are.
 
-Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `campMinElevation`,
-`campLat`, `campLon`, `startCoins`, `coinsPerRound`, `towerCost`.
+Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `floodExponent`,
+`campMinElevation`, `campLat`, `campLon`, `startCoins`, `coinsPerRound`,
+`towerCost`, and `SLIDE_LIMIT` in `chess/moves.ts` for the long vectors.
 
 ## What this version does not do
 

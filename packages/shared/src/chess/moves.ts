@@ -21,6 +21,13 @@ export const spotOf = (cell: number, cols: number): Spot => ({
 export const cellOf = (row: number, col: number, ctx: ChessCtx): number | null =>
   row < 0 || col < 0 || row >= ctx.rows || col >= ctx.cols ? null : row * ctx.cols + col;
 
+/**
+ * How far a sliding piece may travel in one direction. The map is 44 cells wide,
+ * and an unlimited rook on an open continent is a sniper: seven squares keeps
+ * the long vectors long without letting one piece command half the board.
+ */
+export const SLIDE_LIMIT = 7;
+
 const ORTHO: readonly [number, number][] = [
   [0, 1],
   [0, -1],
@@ -103,13 +110,13 @@ export function legalTargets(state: ChessState, piece: Piece, ctx: ChessCtx): nu
 
   switch (piece.kind) {
     case 'rook':
-      slide(ORTHO, Math.max(ctx.rows, ctx.cols));
+      slide(ORTHO, SLIDE_LIMIT);
       break;
     case 'bishop':
-      slide(DIAGONAL, Math.max(ctx.rows, ctx.cols));
+      slide(DIAGONAL, SLIDE_LIMIT);
       break;
     case 'queen':
-      slide(ALL8, Math.max(ctx.rows, ctx.cols));
+      slide(ALL8, SLIDE_LIMIT);
       break;
     case 'king':
       slide(ALL8, 1);

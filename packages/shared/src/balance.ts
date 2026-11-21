@@ -76,6 +76,12 @@ export const BalanceSchema = z.object({
      */
     fullFloodRound: z.number().int().min(1).max(500),
     /**
+     * Shape of the tide. 1 is an even share every round; above 1 holds the water
+     * back early and hurries it in late, which is what a long game wants: the
+     * opening should not be about drowning.
+     */
+    floodExponent: z.number().min(0.25).max(6),
+    /**
      * Ground at or above this counts as high ground when the camp is chosen: the
      * patch inside the band with the most high cells wins. It is a preference,
      * not a floor — a 2x8 patch of nothing but hills does not exist in Europe.
@@ -163,6 +169,7 @@ const RAW = {
     coinsPerRound: 5,
     towerCost: 10,
     fullFloodRound: 200,
+    floodExponent: 2,
     campMinElevation: 250,
     // White in Europe, moved three files north of its first placement; black back
     // in the north-east, where it stood before the bands existed.
