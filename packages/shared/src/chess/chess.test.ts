@@ -542,3 +542,112 @@ describe('winning and refusing', () => {
     if (!result.ok) expect(result.code).toBe('over');
   });
 });
+
+describe('recruiting a pawn into a tower', () => {
+  const tower = at(3, 4);
+
+  it('costs 30 coins, uses the turn and puts a pawn in the tower', () => {
+    const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
+      coins: [40, 40],
+      towers: { [String(tower)]: 0 },
+    });
+
+    const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.state.coins).toEqual([10, 40]);
+    expect(result.state.turn).toBe(1);
+    const born = result.state.pieces.find((p) => p.cell === tower);
+    expect(born?.kind).toBe('pawn');
+    expect(born?.side).toBe(0);
+    expect(born?.moved).toBe(true);
+    expect(result.events).toContainEqual({
+      t: 'recruited',
+      piece: born?.id,
+      cell: tower,
+      side: 0,
+      cost: 30,
+    });
+  });
+
+  it('refuses when the side cannot pay', () => {
+    // 20 coins at the start, a pawn costs 30.
+    const s = state([piece(1, 0, 'king', at(3, 3))], { towers: { [String(tower)]: 0 } });
+    const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('no_coins');
+  });
+
+  it('refuses a cell that holds no tower of yours', () => {
+    const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
+      coins: [40, 40],
+      towers: { [String(tower)]: 1 },
+    });
+    const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('no_tower');
+  });
+
+  it('refuses a tower that already has somebody in it', () => {
+    const s = state(
+      [piece(1, 0, 'king', at(3, 3)), piece(9, 0, 'rook', tower), piece(2, 1, 'king', at(7, 7))],
+      { coins: [40, 40], towers: { [String(tower)]: 0 } },
+    );
+    const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('occupied');
+  });
+
+  it('gives the pawn one step but no two-square opening', () => {
+    const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
+      coins: [40, 40],
+      towers: { [String(tower)]: 0 },
+    });
+    const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
+    if (!result.ok) throw new Error('recruit refused');
+
+    const born = result.state.pieces.find((p) => p.cell === tower);
+    if (!born) throw new Error('no pawn');
+    const steps = targets(result.state, born.id);
+    expect(steps).toContain(tower + 1);
+    expect(steps).not.toContain(tower + 2);
+  });
+
+  it('lets the pawn walk out, and lets the enemy take the tower and the pawn together', () => {
+    const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
+      coins: [40, 40],
+      towers: { [String(tower)]: 0 },
+    });
+    void s;
+
+    // Out of the garrison and onto the next cell: the tower does not trap it.
+    const garrison = state(
+      [
+        piece(1, 0, 'king', at(3, 3)),
+        { ...piece(9, 0, 'pawn', tower), moved: true },
+        piece(2, 1, 'king', at(7, 7)),
+      ],
+      { coins: [40, 40], towers: { [String(tower)]: 0 } },
+    );
+    const out = chessReduce(garrison, { k: 'move', piece: 9, to: tower + 1 }, ctx8());
+    expect(out.ok).toBe(true);
+
+    // And with the pawn back inside, a black rook takes the square and the pawn.
+    const guarded = state(
+      [
+        piece(1, 0, 'king', at(3, 3)),
+        { ...piece(9, 0, 'pawn', tower), moved: true },
+        piece(3, 1, 'rook', at(3, 7)),
+        piece(2, 1, 'king', at(7, 7)),
+      ],
+      { turn: 1, coins: [40, 40], towers: { [String(tower)]: 0 } },
+    );
+    const take = chessReduce(guarded, { k: 'move', piece: 3, to: tower }, ctx8());
+    expect(take.ok).toBe(true);
+    if (!take.ok) return;
+    expect(take.state.pieces.some((p) => p.cell === tower)).toBe(true);
+    expect(take.state.pieces.find((p) => p.cell === tower)?.kind).toBe('rook');
+    expect(take.state.towers[String(tower)]).toBeUndefined();
+  });
+});

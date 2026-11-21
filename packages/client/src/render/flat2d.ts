@@ -179,14 +179,16 @@ export class Flat2D implements View {
         ctx.beginPath();
         if (hint.kind === 'build') {
           ctx.rect(cx - radius, cy - radius, radius * 2, radius * 2);
-        } else if (hint.kind === 'capture') {
-          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        } else {
+        } else if (hint.kind === 'move') {
           ctx.arc(cx, cy, Math.max(1.5, radius * 0.55), 0, Math.PI * 2);
           ctx.fillStyle = HINT_COLOURS[hint.kind];
           ctx.fill();
           ctx.stroke();
           continue;
+        } else {
+          // Captures and recruitments are rings: the wider one takes, the
+          // narrower one is a tower of yours.
+          ctx.arc(cx, cy, hint.kind === 'recruit' ? radius * 0.66 : radius, 0, Math.PI * 2);
         }
         ctx.stroke();
       }

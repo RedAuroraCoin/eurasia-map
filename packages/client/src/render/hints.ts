@@ -3,12 +3,13 @@ import * as THREE from 'three';
 /**
  * Move hints: the cells the selected piece may go to, drawn flat on the ground.
  *
- * Three kinds, three shapes, three colours — a dot for a step, a ring for a
- * capture, a square for a tower the king could build. Shape carries the meaning
- * as well as colour does, so the hints still read for a colour-blind player.
+ * Four kinds, and shape carries the meaning as well as colour does, so the hints
+ * still read for a colour-blind player: a dot for a step, a wide ring for a
+ * capture, a square for a tower the king could build, a narrow green ring for a
+ * tower a pawn could be recruited into.
  */
 
-export type HintKind = 'move' | 'capture' | 'build';
+export type HintKind = 'move' | 'capture' | 'build' | 'recruit';
 
 export interface MoveHint {
   readonly cell: number;
@@ -19,6 +20,7 @@ export const HINT_COLOURS: Record<HintKind, string> = {
   move: '#f4d06f',
   capture: '#e2564b',
   build: '#63a4f0',
+  recruit: '#6cc46a',
 };
 
 const cache = new Map<HintKind, THREE.BufferGeometry>();
@@ -31,6 +33,8 @@ export function hintGeometry(kind: HintKind): THREE.BufferGeometry {
   let made: THREE.BufferGeometry;
   if (kind === 'capture') {
     made = new THREE.RingGeometry(0.16, 0.23, 24);
+  } else if (kind === 'recruit') {
+    made = new THREE.RingGeometry(0.1, 0.15, 20);
   } else if (kind === 'build') {
     made = new THREE.PlaneGeometry(0.34, 0.34);
   } else {

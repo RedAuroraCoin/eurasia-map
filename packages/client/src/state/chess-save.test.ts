@@ -124,6 +124,32 @@ describe('saving the chess game', () => {
     expect(parsed?.seaLevel).not.toBe(9999);
   });
 
+  it('keeps a pawn recruited beyond the opening thirty-two', () => {
+    const storage = new MemoryStorage();
+    const game = fresh();
+    // Two dry cells nobody stands on, for the recruited pawns.
+    const taken = new Set(game.pieces.map((p) => p.cell));
+    const free: number[] = [];
+    for (let cell = 0; cell < map.mask.length && free.length < 2; cell++) {
+      if (map.mask[cell] === '#' && !taken.has(cell)) free.push(cell);
+    }
+    const [a, b] = free as [number, number];
+    const extra = [
+      ...game.pieces,
+      { id: 40, side: 0 as const, kind: 'pawn' as const, cell: a, promoted: false, moved: true },
+      { id: 41, side: 0 as const, kind: 'pawn' as const, cell: b, promoted: false, moved: true },
+    ];
+    saveChessGame(storage, {
+      ...game,
+      pieces: extra,
+      towers: { [String(a)]: 0, [String(b)]: 0 },
+    });
+
+    const loaded = loadChessGame(storage, ctx);
+    expect(loaded.ok).toBe(true);
+    if (loaded.ok) expect(loaded.state.pieces).toHaveLength(34);
+  });
+
   it('copies a refused file aside instead of losing it', () => {
     const storage = new MemoryStorage();
     const raw = JSON.stringify({ v: CHESS_VERSION + 1, savedAt: 1, state: fresh() });

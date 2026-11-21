@@ -345,13 +345,71 @@ describe('single-player shell', () => {
     flushFrames();
 
     const build = document.querySelector('.panel-actions .button') as HTMLButtonElement;
-    expect(build?.textContent).toBe('Build tower');
+    expect(build?.textContent).toBe('Tower · 10');
     build.click();
     flushFrames();
 
     const hints = getHints();
     expect(hints.length).toBeGreaterThan(0);
     expect(hints.every((hint) => hint.kind === 'build')).toBe(true);
+  });
+
+  it('arms the pawn recruit on your own tower', async () => {
+    const { getChess, getHints } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    const buttons = [...document.querySelectorAll('.panel-actions .button')] as HTMLButtonElement[];
+    const [build, recruit] = buttons;
+    if (!build || !recruit) throw new Error('chess actions are missing');
+    expect(recruit.textContent).toBe('Pawn · 30');
+
+    const map = getMap(800);
+    const kingCell = (side: 0 | 1): number => {
+      const game = getChess();
+      const king = game?.pieces.find((piece) => piece.side === side && piece.kind === 'king');
+      if (!king) throw new Error('no king');
+      return king.cell;
+    };
+    const emptyNeighbour = (cell: number): number => {
+      const game = getChess();
+      const taken = new Set(game?.pieces.map((piece) => piece.cell));
+      const col = cell % map.cols;
+      const row = Math.floor(cell / map.cols);
+      for (const [dr, dc] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const next = (row + dr) * map.cols + (col + dc);
+        if (map.mask[next] === '#' && !taken.has(next)) return next;
+      }
+      throw new Error('the king is boxed in');
+    };
+
+    // White fortifies, black fortifies, and then it is White's turn again.
+    build.click();
+    const whiteTower = emptyNeighbour(kingCell(0));
+    const whiteAt = cellCentre(map.cols, map.rows, whiteTower);
+    clickCell(whiteAt.x, whiteAt.y);
+    build.click();
+    const blackTower = emptyNeighbour(kingCell(1));
+    const blackAt = cellCentre(map.cols, map.rows, blackTower);
+    clickCell(blackAt.x, blackAt.y);
+
+    expect(getChess()?.towers[String(whiteTower)]).toBe(0);
+    expect(getChess()?.towers[String(blackTower)]).toBe(1);
+
+    recruit.click();
+    flushFrames();
+
+    const hints = getHints();
+    // Only your own tower, and only the one of them: the enemy's is not yours.
+    expect(hints).toEqual([{ cell: whiteTower, kind: 'recruit' }]);
   });
 
   it('does not claim a building cell when Enter is pressed in chess', async () => {

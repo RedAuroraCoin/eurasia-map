@@ -46,9 +46,16 @@ ground, back rank behind.
   always has. Its opening two-square step is forward only (east for white, west
   for black) and only from its starting cell. It promotes to a queen on reaching
   the enemy's camp.
-- A turn is **one action**: move a piece, or — with the king — build a tower on a
-  dry empty cell next to it (10 coins; 20 to start, +5 per side per round).
-- Towers block movement for both sides and can be taken by landing on them.
+- A turn is **one action**: move a piece, or spend it on a building instead.
+  - *Tower* — 10 coins, on a dry empty cell next to the king. It blocks movement
+    for both sides and can be taken by landing on it.
+  - *Pawn* — 30 coins, recruited **into one of your own towers**. It arrives with
+    `moved: true`, so no two-square opening, and it steps out on later turns.
+    Your own pieces cannot enter your tower, but an enemy landing on the tower
+    takes the tower and the pawn inside it together: a garrison is sheltered, not
+    safe.
+- Coins: 20 to start, +5 per side per round, so a pawn costs six rounds of income
+  and a tower two.
 - Taking the enemy king wins. So does the enemy king drowning.
 
 ## The tide
@@ -81,7 +88,8 @@ where the metres are.
 
 Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `floodExponent`,
 `campMinElevation`, `campLat`, `campLon`, `startCoins`, `coinsPerRound`,
-`towerCost`, and `SLIDE_LIMIT` in `chess/moves.ts` for the long vectors.
+`towerCost`, `pawnCost`, and `SLIDE_LIMIT` in `chess/moves.ts` for the long
+vectors.
 
 ## Saving
 
@@ -93,6 +101,8 @@ version inside the file, structural validation on the way in, and no guessing.
   refused rather than half-read
 - pieces off the board, two pieces on one cell, or a side without a king are
   treated as corruption, not repaired
+- a tower with a pawn inside it is legal, because that is what recruiting does;
+  the piece count is capped at 64 rather than at the opening 32
 - a decided game is a result, not something to resume: it starts fresh
 - the sea level is **not** trusted from the file. It is derived from the round,
   so a save made before a balance change still loads onto a board whose water is

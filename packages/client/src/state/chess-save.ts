@@ -63,7 +63,9 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
   if (!isSide(turn)) return null;
   if (!isNumber(round) || !Number.isInteger(round) || round < 0) return null;
   if (winner !== null && !isSide(winner)) return null;
-  if (!Array.isArray(pieces) || pieces.length > 32) return null;
+  // 32 is the opening; recruiting pawns into towers adds more, so the guard is a
+  // sanity limit rather than the number of starting pieces.
+  if (!Array.isArray(pieces) || pieces.length > 64) return null;
   if (!Array.isArray(coins) || coins.length !== 2 || !coins.every((c) => isNumber(c) && c >= 0)) {
     return null;
   }
@@ -90,7 +92,7 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
       const cell = Number(key);
       if (!Number.isInteger(cell) || cell < 0 || cell >= ctx.cellCount) return null;
       if (!ctx.isLand(cell) || !isSide(value)) return null;
-      if (occupied.has(cell)) return null;
+      // A tower may hold a pawn: that is what recruiting one does.
       towerMap[key] = value;
     }
   }

@@ -69,6 +69,7 @@ export const BalanceSchema = z.object({
     /** Income per full round, so fortifying stays possible as the sea climbs. */
     coinsPerRound: z.number().int().min(0).max(100),
     towerCost: z.number().int().positive().max(100),
+    pawnCost: z.number().int().positive().max(1000),
     /**
      * The round at which the sea covers the last cell. A game cannot outlast it,
      * and an average game — 40 to 45 moves each — ends on the highlands rather
@@ -168,6 +169,9 @@ const RAW = {
     startCoins: 20,
     coinsPerRound: 5,
     towerCost: 10,
+    // A pawn from a garrison costs more than a tower: it is a piece on the
+    // board, and the board is what the mode is about.
+    pawnCost: 30,
     fullFloodRound: 200,
     floodExponent: 2,
     campMinElevation: 250,

@@ -29,6 +29,7 @@ import {
   chessReduce,
   createChessGame,
   legalTargets,
+  recruitSpots,
   type ChessErrorCode,
   type ChessState,
 } from '@eurasia/shared';
@@ -72,7 +73,8 @@ let lastLighting = -1;
 // ---------------------------------------------------------------- chess mode
 let chess: ChessState | null = null;
 let chessSelected: number | null = null;
-let chessBuild = false;
+/** Both are a turn instead of a move, so only one can be armed at a time. */
+let chessAction: 'none' | 'tower' | 'pawn' = 'none';
 /** What the last refresh told the view to draw, kept for the tests. */
 let hints: MoveHint[] = [];
 let selected = 0;
@@ -157,10 +159,18 @@ const handlers: AppHandlers = {
   },
   onBuild: () => {
     if (!chess) return;
-    chessBuild = !chessBuild;
+    chessAction = chessAction === 'tower' ? 'none' : 'tower';
     chessSelected = null;
-    app.setBuildActive(chessBuild);
-    app.setMessage(chessBuild ? t.chess.building : t.chess.build, 'info');
+    app.setAction(chessAction);
+    app.setMessage(chessAction === 'tower' ? t.chess.building : t.chess.build, 'info');
+    refreshHints();
+  },
+  onRecruit: () => {
+    if (!chess) return;
+    chessAction = chessAction === 'pawn' ? 'none' : 'pawn';
+    chessSelected = null;
+    app.setAction(chessAction);
+    app.setMessage(chessAction === 'pawn' ? t.chess.recruiting : t.chess.recruit, 'info');
     refreshHints();
   },
   onSides: (both) => {
@@ -590,10 +600,14 @@ function syncChess(): void {
   });
 }
 
-function describeChessError(code: ChessErrorCode): string {
+function describeChessError(code: ChessErrorCode, cost = BALANCE.chess.towerCost): string {
   switch (code) {
     case 'no_coins':
-      return t.chess.noCoins(BALANCE.chess.towerCost);
+      return t.chess.noCoins(cost);
+    case 'no_tower':
+      return t.chess.noTower;
+    case 'occupied':
+      return t.chess.illegal;
     case 'not_yours':
       return t.chess.notYours;
     case 'over':
@@ -603,15 +617,16 @@ function describeChessError(code: ChessErrorCode): string {
   }
 }
 
-function applyChess(result: ReturnType<typeof chessReduce>): void {
+function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess.towerCost): void {
   if (!result.ok) {
-    app.setMessage(describeChessError(result.code), 'error');
+    app.setMessage(describeChessError(result.code, cost), 'error');
     return;
   }
   chess = result.state;
   for (const event of result.events) {
     if (event.t === 'captured') app.setMessage(t.messages.taken, 'info');
     if (event.t === 'built') app.setMessage(t.chess.built, 'good');
+    if (event.t === 'recruited') app.setMessage(t.chess.recruited, 'good');
     if (event.t === 'drowned') app.setMessage(t.chess.drowned(event.pieces), 'error');
     if (event.t === 'won') {
       app.setMessage(
@@ -620,8 +635,8 @@ function applyChess(result: ReturnType<typeof chessReduce>): void {
       );
     }
   }
-  chessBuild = false;
-  app.setBuildActive(false);
+  chessAction = 'none';
+  app.setAction('none');
   syncChess();
   refreshHints();
   // Every applied action is a save point: a reload resumes on this position.
@@ -635,10 +650,10 @@ const CHESS_SIZE: MapSize = 800;
 function newChessGame(): void {
   chess = createChessGame(CHESS_SIZE, nextSeed(), chessCtx());
   chessSelected = null;
-  chessBuild = false;
+  chessAction = 'none';
   saveChessGame(storage, chess);
   app.setChessMode(true);
-  app.setBuildActive(false);
+  app.setAction('none');
   view.setUnits(unitsOf(chess));
   syncChess();
   refreshHints();
@@ -659,9 +674,9 @@ function startChess(): void {
   if (saved.ok) {
     chess = saved.state;
     chessSelected = null;
-    chessBuild = false;
+    chessAction = 'none';
     app.setChessMode(true);
-    app.setBuildActive(false);
+    app.setAction('none');
     view.setUnits(unitsOf(chess));
     syncChess();
     app.setMessage(t.chess.resumed(chess.round), 'info');
@@ -677,9 +692,9 @@ function startChess(): void {
 function leaveChess(): void {
   chess = null;
   chessSelected = null;
-  chessBuild = false;
+  chessAction = 'none';
   app.setChessMode(false);
-  app.setBuildActive(false);
+  app.setAction('none');
   view.setUnits([]);
   hints = [];
   view.setHints([]);
@@ -699,8 +714,14 @@ function refreshHints(): void {
     return;
   }
 
-  if (chessBuild) {
+  if (chessAction === 'tower') {
     hints = buildSpots(chess, chessCtx()).map((cell) => ({ cell, kind: 'build' as const }));
+    view.setHints(hints);
+    return;
+  }
+
+  if (chessAction === 'pawn') {
+    hints = recruitSpots(chess, chessCtx()).map((cell) => ({ cell, kind: 'recruit' as const }));
     view.setHints(hints);
     return;
   }
@@ -736,8 +757,13 @@ function chessClick(cell: number): void {
   // went so both input methods act on the same cell.
   selected = cell;
 
-  if (chessBuild) {
-    applyChess(chessReduce(chess, { k: 'build', cell }, chessCtx()));
+  if (chessAction === 'tower') {
+    applyChess(chessReduce(chess, { k: 'build', cell }, chessCtx()), BALANCE.chess.towerCost);
+    return;
+  }
+
+  if (chessAction === 'pawn') {
+    applyChess(chessReduce(chess, { k: 'recruit', cell }, chessCtx()), BALANCE.chess.pawnCost);
     return;
   }
 

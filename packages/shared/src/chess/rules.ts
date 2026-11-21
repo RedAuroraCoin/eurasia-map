@@ -1,5 +1,5 @@
 import { BALANCE } from '../balance';
-import { buildSpots, legalTargets, neighbours, spotOf } from './moves';
+import { buildSpots, legalTargets, neighbours, recruitSpots, spotOf } from './moves';
 import type {
   ChessCommand,
   ChessCtx,
@@ -371,6 +371,30 @@ export function chessReduce(
     return { ok: true, state: next, events };
   }
 
+  if (cmd.k === 'recruit') {
+    const cost = BALANCE.chess.pawnCost;
+    if (state.coins[state.turn] < cost) return reject(state, 'no_coins');
+    if (state.towers[String(cmd.cell)] !== state.turn) return reject(state, 'no_tower');
+    if (state.pieces.some((p) => p.cell === cmd.cell)) return reject(state, 'occupied');
+
+    const pawn: Piece = {
+      id: state.pieces.reduce((id, p) => Math.max(id, p.id), -1) + 1,
+      side: state.turn,
+      kind: 'pawn',
+      cell: cmd.cell,
+      promoted: false,
+      // It did not walk here, so it gets no two-square opening.
+      moved: true,
+    };
+
+    const coins: [number, number] = [state.coins[0], state.coins[1]];
+    coins[state.turn] -= cost;
+    events.push({ t: 'recruited', piece: pawn.id, cell: cmd.cell, side: state.turn, cost });
+
+    const next = endTurn({ ...state, pieces: [...state.pieces, pawn], coins }, ctx, events, null);
+    return { ok: true, state: next, events };
+  }
+
   return reject(state, 'unknown');
 }
 
@@ -411,7 +435,7 @@ function homeCells(side: Side, ctx: ChessCtx): number[] {
 export function availableMoves(state: ChessState, ctx: ChessCtx): number[][] {
   const mine = state.pieces.filter((p) => p.side === state.turn);
   const moves = mine.map((piece) => legalTargets(state, piece, ctx));
-  return [...moves, buildSpots(state, ctx)];
+  return [...moves, buildSpots(state, ctx), recruitSpots(state, ctx)];
 }
 
 export { neighbours };

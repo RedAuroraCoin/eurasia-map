@@ -170,3 +170,19 @@ export function buildSpots(state: ChessState, ctx: ChessCtx): number[] {
       isDryLand(cell, state, ctx) && !taken.has(cell) && state.towers[String(cell)] === undefined,
   );
 }
+
+/**
+ * Towers the side to move could recruit a pawn into.
+ *
+ * A tower is a garrison as well as an obstacle: its own pawn cannot be reached by
+ * the owner, but an enemy that takes the tower takes the pawn with it. So a
+ * garrison is a sheltered square, not a safe one.
+ */
+export function recruitSpots(state: ChessState, ctx: ChessCtx): number[] {
+  const taken = new Set(state.pieces.map((p) => p.cell));
+  return Object.entries(state.towers)
+    .filter(([, side]) => side === state.turn)
+    .map(([cell]) => Number(cell))
+    .filter((cell) => !taken.has(cell) && isDryLand(cell, state, ctx))
+    .sort((a, b) => a - b);
+}

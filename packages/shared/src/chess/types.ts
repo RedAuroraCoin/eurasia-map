@@ -51,7 +51,9 @@ export interface ChessState {
 
 export type ChessCommand =
   | { readonly k: 'move'; readonly piece: number; readonly to: number }
-  | { readonly k: 'build'; readonly cell: number };
+  | { readonly k: 'build'; readonly cell: number }
+  /** Recruit a pawn into one of your own towers, instead of moving a piece. */
+  | { readonly k: 'recruit'; readonly cell: number };
 
 /** Terrain, not state: the same context the building game uses. */
 export interface ChessCtx {
@@ -79,6 +81,13 @@ export type ChessEvent =
     }
   | { readonly t: 'towerTaken'; readonly cell: number; readonly side: Side }
   | { readonly t: 'built'; readonly cell: number; readonly side: Side; readonly cost: number }
+  | {
+      readonly t: 'recruited';
+      readonly piece: number;
+      readonly cell: number;
+      readonly side: Side;
+      readonly cost: number;
+    }
   | { readonly t: 'promoted'; readonly piece: number; readonly cell: number }
   | { readonly t: 'drowned'; readonly pieces: number; readonly towers: number }
   | { readonly t: 'sea'; readonly level: number }
@@ -94,6 +103,7 @@ export type ChessErrorCode =
   | 'occupied'
   | 'not_adjacent'
   | 'no_coins'
+  | 'no_tower'
   | 'flooded'
   | 'unknown';
 

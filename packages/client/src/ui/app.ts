@@ -20,6 +20,8 @@ export interface AppHandlers {
   onMode: (mode: GameMode) => void;
   /** Chess only: arm the king's build action for the next click. */
   onBuild: () => void;
+  /** Recruit a pawn into one of your towers, instead of moving a piece. */
+  onRecruit: () => void;
   /** Single-player only: create a room and go there. */
   onInvite: () => void;
   onConnectionStatus?: (
@@ -72,7 +74,9 @@ export class App {
   private roomCode = '';
   private readonly invite: (() => void) | undefined;
   private readonly onBuild: () => void;
+  private readonly onRecruit: () => void;
   private buildButton!: HTMLButtonElement;
+  private recruitButton!: HTMLButtonElement;
   /** Hidden in chess mode: a turn-based game has no world clock to speed up. */
   private speedRow!: HTMLElement;
   /** Hidden in chess mode: that mode is played on the 800-cell board only. */
@@ -81,6 +85,7 @@ export class App {
   constructor(settings: Settings, handlers: AppHandlers) {
     this.invite = handlers.onInvite;
     this.onBuild = handlers.onBuild;
+    this.onRecruit = handlers.onRecruit;
     // --- canvas + stage -------------------------------------------------
     this.canvas = h('canvas', {
       attrs: {
@@ -286,8 +291,15 @@ export class App {
     this.buildButton = h('button', {
       class: 'button hidden',
       text: t.chess.build,
-      attrs: { type: 'button' },
+      attrs: { type: 'button', title: t.chess.buildTitle },
       on: { click: () => this.onBuild() },
+    }) as HTMLButtonElement;
+
+    this.recruitButton = h('button', {
+      class: 'button hidden',
+      text: t.chess.recruit,
+      attrs: { type: 'button', title: t.chess.recruitTitle },
+      on: { click: () => this.onRecruit() },
     }) as HTMLButtonElement;
 
     this.demoButton = h('button', {
@@ -341,6 +353,7 @@ export class App {
         'div',
         { class: 'panel-actions' },
         this.buildButton,
+        this.recruitButton,
         this.demoButton,
         h('button', {
           class: 'button panel-invite',
@@ -439,12 +452,18 @@ export class App {
     this.speedRow.classList.toggle('hidden', on);
     this.sizeRow.classList.toggle('hidden', on);
     this.buildButton.classList.toggle('hidden', !on);
+    this.recruitButton.classList.toggle('hidden', !on);
     this.demoButton.classList.toggle('hidden', on);
     this.statsEl.classList.toggle('multi', on);
   }
 
-  setBuildActive(on: boolean): void {
-    this.buildButton.classList.toggle('armed', on);
+  /**
+   * Which "instead of a move" action is armed, if any: building a tower and
+   * recruiting a pawn are both turns, so only one can be picked at a time.
+   */
+  setAction(action: 'none' | 'tower' | 'pawn'): void {
+    this.buildButton.classList.toggle('armed', action === 'tower');
+    this.recruitButton.classList.toggle('armed', action === 'pawn');
   }
 
   /** Turn, round, both wallets and the sea: everything the mode needs at a glance. */
