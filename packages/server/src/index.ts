@@ -30,7 +30,11 @@ export default {
         return json({ ok: false, error: 'bad_code' }, { status: 400 });
       }
       const stub = env.ROOM.get(env.ROOM.idFromName(code));
-      return stub.fetch(new Request(new URL('/ping', url), request));
+      // Keep the query string: `?proto=` is how the room gates client versions,
+      // and rewriting to a bare `/ping` would drop it and reject every client.
+      const target = new URL(request.url);
+      target.pathname = '/ping';
+      return stub.fetch(new Request(target, request));
     }
 
     return env.ASSETS.fetch(request);

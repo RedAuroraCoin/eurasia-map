@@ -60,6 +60,15 @@ interface StoredState {
 }
 
 export class Room {
+  /**
+   * Live sockets, keyed by our own connection id.
+   *
+   * `state.getWebSockets()` returns fresh wrapper objects in workerd, so a
+   * property attached to the accepted socket is gone by the time a later
+   * request looks it up. This map is the only reliable handle.
+   */
+  private readonly sockets = new Map<string, WebSocket>();
+
   constructor(private readonly state: DurableObjectState) {
     this.state.blockConcurrencyWhile(async () => {
       const stored = (await this.state.storage.get<StoredState>('room')) ?? null;
@@ -117,8 +126,7 @@ export class Room {
 
     const connectionId = crypto.randomUUID();
     server.accept();
-    // Attach connectionId to the WebSocket for later lookup
-    (server as any).connectionId = connectionId;
+    this.sockets.set(connectionId, server);
     server.addEventListener('message', (event) => this.onMessage(connectionId, event.data));
     server.addEventListener('close', () => this.onClose(connectionId));
     server.addEventListener('error', () => this.onClose(connectionId));
@@ -174,7 +182,8 @@ export class Room {
   }
 
   private async onMessage(connectionId: string, data: unknown): Promise<void> {
-    if (!this.checkRateLimit(connectionId)) {
+    // The check is async: forgetting the await made the limit a no-op.
+    if (!(await this.checkRateLimit(connectionId))) {
       this.send(connectionId, { t: 'error', code: 'rate_limited' });
       return;
     }
@@ -255,9 +264,8 @@ export class Room {
 
     for (const [cid, s] of Object.entries(stored.connections) as [string, -1 | 0 | 1][]) {
       if (cid !== connectionId && s === seat) {
-        const websockets = this.state.getWebSockets();
-        const ws = websockets.find((ws) => (ws as any).connectionId === cid);
-        if (ws) ws.close(1000, 'replaced');
+        this.sockets.get(cid)?.close(1000, 'replaced');
+        this.sockets.delete(cid);
         delete stored.connections[cid];
       }
     }
@@ -535,9 +543,8 @@ export class Room {
   }
 
   private send(connectionId: string, message: unknown): void {
-    const websockets = this.state.getWebSockets();
-    const ws = websockets.find((w) => (w as any).connectionId === connectionId);
-    if (ws) ws.send(JSON.stringify(message));
+    const ws = this.sockets.get(connectionId);
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(message));
   }
 
   private close(connectionId: string, code: number, reason?: string): void {
@@ -547,6 +554,7 @@ export class Room {
   }
 
   private onClose(connectionId: string): void {
+    this.sockets.delete(connectionId);
     this.state.blockConcurrencyWhile(async () => {
       const stored = await this.getStored();
       const seat = stored.connections[connectionId];
