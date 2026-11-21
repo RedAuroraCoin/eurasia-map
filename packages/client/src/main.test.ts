@@ -282,6 +282,58 @@ describe('single-player shell', () => {
     expect(fresh?.pieces.find((p) => p.id === pawn.id)?.cell).toBe(pawn.cell);
   });
 
+  it('shows where the selected piece may go', async () => {
+    const { getChess, getHints } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+    expect(getHints()).toHaveLength(0);
+
+    const map = getMap(800);
+    const game = getChess();
+    if (!game) throw new Error('chess mode did not start');
+    const pawn = game.pieces.find(
+      (piece) =>
+        piece.side === 0 &&
+        piece.kind === 'pawn' &&
+        map.mask[piece.cell + 1] === '#' &&
+        !game.pieces.some((other) => other.cell === piece.cell + 1),
+    );
+    if (!pawn) throw new Error('no pawn with a free cell ahead');
+
+    const at = cellCentre(map.cols, map.rows, pawn.cell);
+    clickCell(at.x, at.y);
+
+    const hints = getHints();
+    expect(hints.length).toBeGreaterThan(0);
+    expect(hints.map((hint) => hint.cell)).toContain(pawn.cell + 1);
+    expect(hints.every((hint) => hint.kind === 'move' || hint.kind === 'capture')).toBe(true);
+
+    // Clicking the same piece again lets it go, and the hints with it.
+    clickCell(at.x, at.y);
+    expect(getHints()).toHaveLength(0);
+  });
+
+  it('shows where the king could build when the build action is armed', async () => {
+    const { getHints } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    const build = document.querySelector('.panel-actions .button') as HTMLButtonElement;
+    expect(build?.textContent).toBe('Build tower');
+    build.click();
+    flushFrames();
+
+    const hints = getHints();
+    expect(hints.length).toBeGreaterThan(0);
+    expect(hints.every((hint) => hint.kind === 'build')).toBe(true);
+  });
+
   it('does not claim a building cell when Enter is pressed in chess', async () => {
     const { getChess, getState } = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(

@@ -25,12 +25,15 @@ import { advance, clockFor } from './state/clock';
 import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
 import { MultiplayerClient, createInvite, parseRoomFromUrl } from './multiplayer/client';
 import {
+  buildSpots,
   chessReduce,
   createChessGame,
+  legalTargets,
   type ChessErrorCode,
   type ChessState,
 } from '@eurasia/shared';
 import type { UnitInstance } from './render/pieces';
+import type { MoveHint } from './render/hints';
 import { App, type AppHandlers } from './ui/app';
 
 /**
@@ -70,6 +73,8 @@ let lastLighting = -1;
 let chess: ChessState | null = null;
 let chessSelected: number | null = null;
 let chessBuild = false;
+/** What the last refresh told the view to draw, kept for the tests. */
+let hints: MoveHint[] = [];
 let selected = 0;
 let saveTimer = 0;
 
@@ -153,8 +158,10 @@ const handlers: AppHandlers = {
   onBuild: () => {
     if (!chess) return;
     chessBuild = !chessBuild;
+    chessSelected = null;
     app.setBuildActive(chessBuild);
     app.setMessage(chessBuild ? t.chess.building : t.chess.build, 'info');
+    refreshHints();
   },
   onSides: (both) => {
     settings = { ...settings, sides: both ? 'both' : 'one' };
@@ -616,6 +623,7 @@ function applyChess(result: ReturnType<typeof chessReduce>): void {
   chessBuild = false;
   app.setBuildActive(false);
   syncChess();
+  refreshHints();
   // Every applied action is a save point: a reload resumes on this position.
   if (chess.winner === null) saveChessGame(storage, chess);
   else clearChessGame(storage);
@@ -633,6 +641,7 @@ function newChessGame(): void {
   app.setBuildActive(false);
   view.setUnits(unitsOf(chess));
   syncChess();
+  refreshHints();
 }
 
 /** Enters the mode: the saved game if there is one, otherwise a new one. */
@@ -671,10 +680,50 @@ function leaveChess(): void {
   app.setChessMode(false);
   app.setBuildActive(false);
   view.setUnits([]);
+  hints = [];
+  view.setHints([]);
   // Back to whatever map the building game was playing before chess.
   if (map.land !== settings.size) switchSize(settings.size, false);
   view.setState(state, clock());
   updateStats();
+}
+
+/** Recomputes the move hints for whatever is selected right now. */
+function refreshHints(): void {
+  if (!chess || mp || settings.mode !== 'chess') {
+    if (hints.length > 0) {
+      hints = [];
+      view.setHints([]);
+    }
+    return;
+  }
+
+  if (chessBuild) {
+    hints = buildSpots(chess, chessCtx()).map((cell) => ({ cell, kind: 'build' as const }));
+    view.setHints(hints);
+    return;
+  }
+
+  const piece =
+    chessSelected === null ? undefined : chess.pieces.find((p) => p.id === chessSelected);
+  if (!piece) {
+    hints = [];
+    view.setHints([]);
+    return;
+  }
+
+  // A destination with something on it is a capture, and shows as a ring.
+  const enemies = new Set(chess.pieces.filter((p) => p.side !== piece.side).map((p) => p.cell));
+  const enemyTowers = new Set(
+    Object.entries(chess.towers)
+      .filter(([, side]) => side !== piece.side)
+      .map(([cell]) => Number(cell)),
+  );
+  hints = legalTargets(chess, piece, chessCtx()).map((cell) => ({
+    cell,
+    kind: enemies.has(cell) || enemyTowers.has(cell) ? ('capture' as const) : ('move' as const),
+  }));
+  view.setHints(hints);
 }
 
 /** One click: pick a piece, then a destination — or place a tower when armed. */
@@ -693,7 +742,9 @@ function chessClick(cell: number): void {
 
   const piece = chess.pieces.find((p) => p.cell === cell);
   if (piece && piece.side === chess.turn) {
-    chessSelected = piece.id;
+    // Clicking the selected piece again lets it go.
+    chessSelected = chessSelected === piece.id ? null : piece.id;
+    refreshHints();
     return;
   }
 
@@ -1039,6 +1090,7 @@ export const __eurasia: {
   view: View;
   getState: () => GameState;
   getChess: () => ChessState | null;
+  getHints: () => readonly MoveHint[];
   getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
@@ -1047,6 +1099,7 @@ export const __eurasia: {
   view,
   getState: () => active(),
   getChess: () => chess,
+  getHints: () => hints,
   getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,

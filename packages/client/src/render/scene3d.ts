@@ -16,6 +16,7 @@ import {
   unitColor,
 } from './geometry';
 import { unitColour, unitGeometry, type UnitInstance } from './pieces';
+import { hintGeometry, hintMaterial, type MoveHint } from './hints';
 import {
   boardSize,
   CELL,
@@ -51,6 +52,8 @@ export interface View {
   setStorms(plans: readonly StormPlan[]): void;
   /** Chess mode: pieces and fortifications, in place of claimed cells. */
   setUnits(units: readonly UnitInstance[]): void;
+  /** Chess mode: where the selected piece may go. Empty clears them. */
+  setHints(hints: readonly MoveHint[]): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -104,6 +107,7 @@ export class Scene3D implements View {
   private water: THREE.Mesh | null = null;
   private seaLevel = 0;
   private unitMeshes: THREE.InstancedMesh[] = [];
+  private hintMeshes: THREE.Mesh[] = [];
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
   private hoverRing: THREE.LineSegments | null = null;
@@ -526,6 +530,39 @@ export class Scene3D implements View {
     }
   }
 
+  /** Rebuilds the move hints. There are at most a few dozen, once per click. */
+  setHints(hints: readonly MoveHint[]): void {
+    for (const mesh of this.hintMeshes) {
+      this.scene.remove(mesh);
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.hintMeshes = [];
+    if (hints.length === 0) return;
+
+    const groups = new Map<MoveHint['kind'], number[]>();
+    for (const hint of hints) {
+      const list = groups.get(hint.kind);
+      if (list) list.push(hint.cell);
+      else groups.set(hint.kind, [hint.cell]);
+    }
+
+    const matrix = new THREE.Matrix4();
+    for (const [kind, cells] of groups) {
+      const mesh = new THREE.InstancedMesh(hintGeometry(kind), hintMaterial(kind), cells.length);
+      mesh.renderOrder = 5;
+      cells.forEach((cell, index) => {
+        const { x, z } = cellToWorld(this.map, cell);
+        const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
+        // A hair above the terrain so the marker is not buried by its own cell.
+        matrix.makeTranslation(x, ground + 0.02, z);
+        mesh.setMatrixAt(index, matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      this.scene.add(mesh);
+      this.hintMeshes.push(mesh);
+    }
+  }
+
   setSidePreview(preview: boolean): void {
     if (preview === this.sidePreview) return;
     this.sidePreview = preview;
@@ -888,6 +925,11 @@ export class Scene3D implements View {
       mesh.dispose();
     }
     this.unitMeshes = [];
+    for (const mesh of this.hintMeshes) {
+      this.scene.remove(mesh);
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.hintMeshes = [];
     this.controls.dispose();
     this.renderer.dispose();
     this.depthTexture.dispose();
