@@ -67,7 +67,7 @@ describe.each(VARIANTS)('castle geometry (%s)', (variant) => {
  * same geometry at full size, so the tower has to be a copy.
  */
 describe('chess towers', () => {
-  it('shrinks a castle to a cell and leaves the original alone', () => {
+  it('sizes a castle to a cell and leaves the original alone', () => {
     const keep = createCastleGeometry('keep');
     keep.computeBoundingBox();
     const original = keep.boundingBox?.clone();
@@ -83,9 +83,10 @@ describe('chess towers', () => {
     expect(box.max.y).toBeLessThanOrEqual(TOWER_SCALE + 0.02);
     expect(box.min.y).toBeCloseTo(0, 5);
 
+    // The source is untouched: the tower is exactly the source at TOWER_SCALE.
     keep.computeBoundingBox();
     expect(keep.boundingBox?.max.y).toBeCloseTo(original.max.y, 5);
-    expect(keep.boundingBox?.max.y).toBeGreaterThan(TOWER_SCALE);
+    expect(box.max.y).toBeCloseTo(original.max.y * TOWER_SCALE, 5);
   });
 
   it('gives each side its own model, and both fit inside a cell', async () => {

@@ -213,10 +213,10 @@ function buildBastion(palette: Palette): THREE.BufferGeometry[] {
 }
 
 /**
- * A chess tower is the same castle, shrunk to sit inside one cell. Copied rather
- * than scaled in place, because the building game draws the original at full size.
+ * A chess tower is the same castle, sized to fill one cell. Copied rather than
+ * scaled in place, because the building game draws the original at its own scale.
  */
-export const TOWER_SCALE = 0.85;
+export const TOWER_SCALE = 1.0;
 
 export function towerFromCastle(model: THREE.BufferGeometry): THREE.BufferGeometry {
   const copy = model.clone();
