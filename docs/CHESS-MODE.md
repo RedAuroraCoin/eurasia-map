@@ -83,6 +83,22 @@ Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `floodExponent`,
 `campMinElevation`, `campLat`, `campLon`, `startCoins`, `coinsPerRound`,
 `towerCost`, and `SLIDE_LIMIT` in `chess/moves.ts` for the long vectors.
 
+## Saving
+
+The game is saved after every applied action, on tab hide and on unload, under
+`eurasia.chess` in `localStorage` — the same envelope discipline as the city: a
+version inside the file, structural validation on the way in, and no guessing.
+
+- a corrupt file starts a new game and says so; a file from a newer version is
+  refused rather than half-read
+- pieces off the board, two pieces on one cell, or a side without a king are
+  treated as corruption, not repaired
+- a decided game is a result, not something to resume: it starts fresh
+- the sea level is **not** trusted from the file. It is derived from the round,
+  so a save made before a balance change still loads onto a board whose water is
+  where the rules now put it
+- Start over clears the save and deals a new game
+
 ## What this version does not do
 
 - No check, checkmate or stalemate: the king is a piece you can take, like in the
@@ -91,6 +107,5 @@ Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `floodExponent`,
   be taken in passing.
 - No legal-move highlighting: click a piece, then a destination; an illegal one
   is refused with a message.
-- The chess game is not saved yet. A reload starts a fresh game; the mode itself
-  is remembered in the settings.
+- No cross-device resume: the save is local to the browser.
 - Hot-seat only. Rooms run the building game.

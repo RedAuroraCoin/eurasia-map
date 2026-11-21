@@ -224,6 +224,44 @@ describe('single-player shell', () => {
     expect(visibleSegments).toHaveLength(8);
   });
 
+  it('resumes the chess game after a reload', async () => {
+    const first = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    const map = getMap(800);
+    const game = first.getChess();
+    if (!game) throw new Error('chess mode did not start');
+    const pawn = game.pieces.find(
+      (piece) =>
+        piece.side === 0 &&
+        piece.kind === 'pawn' &&
+        map.mask[piece.cell + 1] === '#' &&
+        !game.pieces.some((other) => other.cell === piece.cell + 1),
+    );
+    if (!pawn) throw new Error('no pawn with a free cell ahead');
+    const from = cellCentre(map.cols, map.rows, pawn.cell);
+    const to = cellCentre(map.cols, map.rows, pawn.cell + 1);
+    clickCell(from.x, from.y);
+    clickCell(to.x, to.y);
+
+    const played = first.getChess();
+    expect(played?.turn).toBe(1);
+
+    // A reload is a fresh module with the same storage.
+    const second = await boot();
+    const resumed = second.getChess();
+    expect(resumed).not.toBeNull();
+    expect(resumed?.turn).toBe(1);
+    expect(resumed?.round).toBe(played?.round);
+    expect(resumed?.pieces.map((p) => [p.id, p.cell])).toEqual(
+      played?.pieces.map((p) => [p.id, p.cell]),
+    );
+  });
+
   it('moves a chess piece by clicking it and then its destination', async () => {
     const { getChess } = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(

@@ -38,6 +38,9 @@ export const en = {
     illegal: 'That piece cannot go there',
     notYours: 'That is not the piece to move',
     newGame: 'Restart the game',
+    resumed: (round: number) => `Game resumed — round ${round}`,
+    saveCorrupt: 'The saved game could not be read — a new one starts',
+    saveNewer: 'The saved game is from a newer version — a new one starts',
   },
   settings: {
     mode: 'Game',

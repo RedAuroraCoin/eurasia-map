@@ -20,6 +20,7 @@ import { t } from './i18n';
 import { lightingAt, timeOfDayFromDate } from './render/palette';
 import { createView, type View } from './render/view';
 import { browserStorage, clearSave, loadSave, saveState } from './state/save';
+import { clearChessGame, loadChessGame, saveChessGame } from './state/chess-save';
 import { advance, clockFor } from './state/clock';
 import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
 import { MultiplayerClient, createInvite, parseRoomFromUrl } from './multiplayer/client';
@@ -183,7 +184,8 @@ const handlers: AppHandlers = {
       return;
     }
     if (settings.mode === 'chess') {
-      startChess();
+      // Start over means a new game here, not the saved one.
+      newChessGame();
       return;
     }
     void reset();
@@ -614,10 +616,26 @@ function applyChess(result: ReturnType<typeof chessReduce>): void {
   chessBuild = false;
   app.setBuildActive(false);
   syncChess();
+  // Every applied action is a save point: a reload resumes on this position.
+  if (chess.winner === null) saveChessGame(storage, chess);
+  else clearChessGame(storage);
 }
 
 const CHESS_SIZE: MapSize = 800;
 
+/** Starts over, discarding the saved game. */
+function newChessGame(): void {
+  chess = createChessGame(CHESS_SIZE, nextSeed(), chessCtx());
+  chessSelected = null;
+  chessBuild = false;
+  saveChessGame(storage, chess);
+  app.setChessMode(true);
+  app.setBuildActive(false);
+  view.setUnits(unitsOf(chess));
+  syncChess();
+}
+
+/** Enters the mode: the saved game if there is one, otherwise a new one. */
 function startChess(): void {
   if (mp) return;
   // A storm left over from the building game has no place on this board.
@@ -627,13 +645,23 @@ function startChess(): void {
   // The turn-based mode is played on one board size, so the size is not a choice
   // there: switch to it without touching the building game's saved preference.
   if (map.land !== CHESS_SIZE) switchSize(CHESS_SIZE, false);
-  chess = createChessGame(CHESS_SIZE, nextSeed(), chessCtx());
-  chessSelected = null;
-  chessBuild = false;
-  app.setChessMode(true);
-  app.setBuildActive(false);
-  view.setUnits(unitsOf(chess));
-  syncChess();
+
+  const saved = loadChessGame(storage, chessCtx());
+  if (saved.ok) {
+    chess = saved.state;
+    chessSelected = null;
+    chessBuild = false;
+    app.setChessMode(true);
+    app.setBuildActive(false);
+    view.setUnits(unitsOf(chess));
+    syncChess();
+    app.setMessage(t.chess.resumed(chess.round), 'info');
+    return;
+  }
+
+  newChessGame();
+  if (saved.reason === 'corrupt') app.setMessage(t.chess.saveCorrupt, 'error');
+  else if (saved.reason === 'newer') app.setMessage(t.chess.saveNewer, 'error');
 }
 
 function leaveChess(): void {
@@ -746,9 +774,15 @@ motionQuery.addEventListener?.('change', (event) => view.setReducedMotion(event.
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') settle();
-  else saveNow();
+  else {
+    saveNow();
+    if (chess) saveChessGame(storage, chess);
+  }
 });
-window.addEventListener('beforeunload', saveNow);
+window.addEventListener('beforeunload', () => {
+  saveNow();
+  if (chess) saveChessGame(storage, chess);
+});
 window.setInterval(settle, 60_000);
 
 // --------------------------------------------------------------------- boot
