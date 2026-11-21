@@ -88,7 +88,7 @@ export function applyFlood(
 ): { state: GameState; events: GameEvent[] } {
   const rules = BALANCE.flood;
   const rise = rules.baseRisePerDay * days;
-  if (days <= 0 || rise <= 0) return { state, events: [] };
+  if (ctx.flood === false || days <= 0 || rise <= 0) return { state, events: [] };
 
   const cells: Record<string, CellState> = { ...state.cells };
   const claimed: [number, number] = [state.claimed[0], state.claimed[1]];

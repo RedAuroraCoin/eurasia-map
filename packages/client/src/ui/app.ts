@@ -11,6 +11,7 @@ export interface AppHandlers {
   onSides(both: boolean): void;
   onDayNight(mode: DayNight): void;
   onHurricanes(on: boolean): void;
+  onFlood(on: boolean): void;
   onSpeed(index: number): void;
   onDemo(): void;
   onReset(): void;
@@ -54,6 +55,7 @@ export class App {
     dayNight: ReturnType<typeof segmented<DayNight>>;
     relief: ReturnType<typeof segmented<string>>;
     hurricanes: ReturnType<typeof segmented<string>>;
+    flood: ReturnType<typeof segmented<string>>;
     speed: ReturnType<typeof segmented<number>>;
     sides: ReturnType<typeof segmented<string>>;
   };
@@ -191,6 +193,15 @@ export class App {
       (value) => handlers.onHurricanes(value === 'on'),
       t.settings.hurricanes,
     );
+    const flood = segmented<string>(
+      [
+        { value: 'on', label: t.settings.floodOn },
+        { value: 'off', label: t.settings.floodOff },
+      ],
+      settings.flood ? 'on' : 'off',
+      (value) => handlers.onFlood(value === 'on'),
+      t.settings.flood,
+    );
     const speed = segmented<number>(
       t.settings.speedOptions.map((label, index) => ({ value: index, label })),
       settings.speed,
@@ -218,7 +229,7 @@ export class App {
       t.settings.theme,
     );
 
-    this.segments = { size, theme, quality, dayNight, relief, hurricanes, speed, sides };
+    this.segments = { size, theme, quality, dayNight, relief, hurricanes, flood, speed, sides };
 
     this.demoButton = h('button', {
       class: 'button',
@@ -252,6 +263,7 @@ export class App {
       row(t.settings.relief, relief.root),
       row(t.settings.sides, sides.root),
       row(t.settings.hurricanes, hurricanes.root),
+      row(t.settings.flood, flood.root),
       row(t.settings.speed, speed.root),
       row(t.settings.quality, quality.root),
       row(t.settings.theme, theme.root),
@@ -431,6 +443,7 @@ export class App {
     this.segments.dayNight.set(settings.dayNight);
     this.segments.relief.set(settings.relief ? 'on' : 'off');
     this.segments.hurricanes.set(settings.hurricanes ? 'on' : 'off');
+    this.segments.flood.set(settings.flood ? 'on' : 'off');
     this.segments.speed.set(settings.speed);
     this.demoButton.textContent = demo ? t.settings.demoOff : t.settings.demoOn;
     this.demoButton.classList.toggle('is-active', demo);

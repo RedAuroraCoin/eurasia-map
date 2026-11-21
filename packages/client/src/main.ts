@@ -91,6 +91,11 @@ const handlers: AppHandlers = {
     saveSettings(storage, settings);
     app.setSettings(settings, demo);
   },
+  onFlood: (flood) => {
+    settings = { ...settings, flood };
+    saveSettings(storage, settings);
+    app.setSettings(settings, demo);
+  },
   onSpeed: (speed) => {
     settings = { ...settings, speed };
     saveSettings(storage, settings);
@@ -149,6 +154,7 @@ const ctx = () => ({
   isLand: (index: number) => map.mask[index] === '#',
   cellCount: map.rows * map.cols,
   cols: map.cols,
+  flood: settings.flood,
 });
 
 function nextSeed(): number {

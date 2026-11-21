@@ -1,4 +1,4 @@
-import { MAP_SIZES, type MapSize } from '@eurasia/shared';
+import { BALANCE, MAP_SIZES, type MapSize } from '@eurasia/shared';
 import { SETTINGS_KEY, type StorageLike } from './save';
 
 export type Theme = 'auto' | 'light' | 'dark';
@@ -11,6 +11,8 @@ export interface Settings {
   readonly relief: boolean;
   readonly dayNight: DayNight;
   readonly hurricanes: boolean;
+  /** The daily water rise. A rule, so a room ignores this and always floods. */
+  readonly flood: boolean;
   /** Index into SPEEDS. */
   readonly speed: number;
   readonly size: MapSize;
@@ -31,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   relief: true,
   dayNight: 'auto',
   hurricanes: true,
+  flood: BALANCE.flood.enabledByDefault,
   speed: 0,
   size: 500,
   sides: 'one',
@@ -59,6 +62,7 @@ export function parseSettings(raw: unknown): Settings {
     dayNight: pick<DayNight>(source.dayNight, ['auto', 'day', 'night'], DEFAULT_SETTINGS.dayNight),
     hurricanes:
       typeof source.hurricanes === 'boolean' ? source.hurricanes : DEFAULT_SETTINGS.hurricanes,
+    flood: typeof source.flood === 'boolean' ? source.flood : DEFAULT_SETTINGS.flood,
     speed: Number.isInteger(speed) && speed >= 0 && speed < SPEEDS.length ? speed : 0,
     size: (MAP_SIZES as readonly number[]).includes(size)
       ? (size as MapSize)

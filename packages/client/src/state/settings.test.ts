@@ -23,6 +23,13 @@ class MemoryStorage implements StorageLike {
 }
 
 describe('parseSettings', () => {
+  it('turns flooding on by default and accepts an explicit off', () => {
+    expect(DEFAULT_SETTINGS.flood).toBe(true);
+    expect(parseSettings({}).flood).toBe(true);
+    expect(parseSettings({ flood: false }).flood).toBe(false);
+    expect(parseSettings({ flood: 'no' }).flood).toBe(true);
+  });
+
   it('reads the two-sides switch and rejects anything else', () => {
     expect(parseSettings({ sides: 'both' }).sides).toBe('both');
     expect(parseSettings({ sides: 'one' }).sides).toBe('one');

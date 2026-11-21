@@ -129,4 +129,9 @@ export interface Ctx {
   readonly cellCount: number;
   /** Grid width, needed to know which cells are neighbours without wrapping rows. */
   readonly cols: number;
+  /**
+   * Whether the daily water rise applies. Undefined means yes: the rules are on
+   * unless a caller (the single-player settings) explicitly turns them off.
+   */
+  readonly flood?: boolean;
 }

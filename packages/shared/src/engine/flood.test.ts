@@ -153,6 +153,30 @@ describe('storm surge', () => {
   });
 });
 
+describe('the flood switch', () => {
+  it('does nothing at all when the caller turns it off', () => {
+    const before = city([4]);
+    const settings = { ...ctx(T0 + DAY), flood: false };
+    const after = reduce(before, { k: 'tick' }, settings);
+
+    expect(after.state.cells['4']?.water ?? 0).toBe(0);
+    expect(after.events.find((e) => e.t === 'flood')).toBeUndefined();
+  });
+
+  it('still pays income while the water is off', () => {
+    const before = city([4]);
+    const settings = { ...ctx(T0 + DAY), flood: false };
+    const after = reduce(before, { k: 'tick' }, settings);
+
+    expect(after.state.coins[0]).toBeGreaterThan(before.coins[0]);
+  });
+
+  it('defaults to on when the caller says nothing', () => {
+    const after = reduce(city([4]), { k: 'tick' }, ctx(T0 + DAY));
+    expect(after.state.cells['4']?.water).toBeCloseTo(FLOOD.baseRisePerDay, 6);
+  });
+});
+
 describe('flood and the save clock', () => {
   it('is keyed on lastDay, so a clock moved backwards adds no water', () => {
     const before = city([4]);
