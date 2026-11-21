@@ -33,7 +33,9 @@ export const SPEEDS = [1, 60, 600, 86_400] as const;
 export type GameMode = 'build' | 'chess';
 
 export const DEFAULT_SETTINGS: Settings = {
-  mode: 'build',
+  // Chess is the game the link opens: it needs no save and shows the board at
+  // once. The city game is one click away in the panel, and a room link forces it.
+  mode: 'chess',
   theme: 'auto',
   quality: 'auto',
   relief: true,
@@ -58,7 +60,10 @@ export function parseSettings(raw: unknown): Settings {
   const source = raw as Record<string, unknown>;
 
   const size = Number(source.size);
-  const mode = source.mode === 'chess' ? 'chess' : 'build';
+  // An unknown or missing mode means "whatever the build ships as default", not a
+  // second hard-coded answer that can drift from DEFAULT_SETTINGS.
+  const mode: GameMode =
+    source.mode === 'chess' || source.mode === 'build' ? source.mode : DEFAULT_SETTINGS.mode;
   const speed = Number(source.speed);
 
   return {

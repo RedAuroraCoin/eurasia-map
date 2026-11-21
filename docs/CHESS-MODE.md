@@ -4,6 +4,14 @@ A second game on the same map: two sides, chess pieces, one device. Built as a
 separate engine (`packages/shared/src/chess`) so the rules of the building game
 and the rules of chess never share a branch.
 
+**This is the mode the link opens** (`DEFAULT_SETTINGS.mode = 'chess'`): a new
+visitor lands on the board, not on an empty city. The building game is one click
+away in the panel, and a room invite (`?room=CODE`) still forces the city game,
+because rooms are built for it.
+
+Tests: `parseSettings` takes the mode default from `DEFAULT_SETTINGS` rather than
+hard-coding a second answer that could drift from it.
+
 ## The board
 
 One size only: the **800-cell map**. The size control is hidden in this mode, and

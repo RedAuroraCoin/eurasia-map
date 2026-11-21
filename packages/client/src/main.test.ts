@@ -98,10 +98,26 @@ beforeEach(() => {
   })) as unknown as typeof window.matchMedia;
 });
 
-const boot = async () => {
+/**
+ * Boots with nothing saved, which is what a first visit does: the shipped
+ * default is the chess board.
+ */
+const bootFresh = async () => {
   const module = await import('./main');
   flushFrames();
   return module.__eurasia;
+};
+
+/**
+ * Boots the city game. Most of these tests are about the city, and the default
+ * mode is chess now, so the choice is written where the app reads it — unless the
+ * test has already written its own settings file.
+ */
+const boot = async () => {
+  if (localStorage.getItem('eurasia.settings.v2') === null) {
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'build', size: 500 }));
+  }
+  return bootFresh();
 };
 
 const clickCell = (x: number, y: number): void => {
@@ -124,6 +140,19 @@ const cellCentre = (cols: number, rows: number, index: number): { x: number; y: 
 };
 
 describe('single-player shell', () => {
+  it('opens in chess on a first visit', async () => {
+    const { getChess } = await bootFresh();
+
+    // No save, no room, no choice made: the board is there at once.
+    expect(getChess()).not.toBeNull();
+    expect(getChess()?.pieces).toHaveLength(32);
+    expect(document.querySelector('.build-bar')?.classList.contains('hidden')).toBe(false);
+    const mode = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    );
+    expect(mode?.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('boots with a board, a panel and stats', async () => {
     await boot();
 
