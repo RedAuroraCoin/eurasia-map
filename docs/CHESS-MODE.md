@@ -22,11 +22,17 @@ along the march axis.
         south
 ```
 
-White camps in the west and marches east; black mirrors it in the east and
-marches west. Black tries to take the same eight files as white, so the queens
-and kings face each other; if the coast does not allow it, it takes the first
-block that fits. A camp is only placed where all sixteen cells are dry land at
-or above 250 m.
+White camps in **Europe** and marches east; black camps in the **north-east of
+Asia** and marches west, so the pawns always walk toward each other.
+
+The bands live in `BALANCE.chess.campLat` and `campLon`: white 46–64°N / −10–40°E,
+black 51–69°N / 130–145°E. Inside its band the engine picks the 2x8 patch with the
+most high ground, then the highest sum, so the camp lands on hills where the
+terrain offers them. Ground down to 40 m is allowed — a pawn on a coastal lowland
+is a pawn that drowns first, which is the mode working as intended.
+
+If a band leaves no 2x8 patch at all, the army falls back to the nearest high
+ground, back rank behind.
 
 ## Rules
 

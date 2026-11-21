@@ -160,8 +160,10 @@ const RAW = {
     towerCost: 10,
     metresPerRound: 10,
     campMinElevation: 250,
-    campLat: { white: [36, 58], black: [20, 48] },
-    campLon: { white: [-10, 40], black: [105, 145] },
+    // White in Europe, moved three files north of its first placement; black back
+    // in the north-east, where it stood before the bands existed.
+    campLat: { white: [46, 64], black: [51, 69] },
+    campLon: { white: [-10, 40], black: [130, 145] },
   },
   flood: {
     enabledByDefault: true,
