@@ -1,0 +1,154 @@
+import type { ChessCtx, ChessState, Piece, Side } from './types';
+
+/**
+ * Chess movement on a terrain grid.
+ *
+ * Everything here is pure: it answers "where can this piece go" and "where may
+ * the king build" without touching the state, so the client can highlight the
+ * same squares the reducer will accept.
+ */
+
+export interface Spot {
+  readonly row: number;
+  readonly col: number;
+}
+
+export const spotOf = (cell: number, cols: number): Spot => ({
+  row: Math.floor(cell / cols),
+  col: cell % cols,
+});
+
+export const cellOf = (row: number, col: number, ctx: ChessCtx): number | null =>
+  row < 0 || col < 0 || row >= ctx.rows || col >= ctx.cols ? null : row * ctx.cols + col;
+
+const ORTHO: readonly [number, number][] = [
+  [0, 1],
+  [0, -1],
+  [1, 0],
+  [-1, 0],
+];
+const DIAGONAL: readonly [number, number][] = [
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
+const ALL8: readonly [number, number][] = [...ORTHO, ...DIAGONAL];
+const KNIGHT: readonly [number, number][] = [
+  [1, 2],
+  [2, 1],
+  [-1, 2],
+  [-2, 1],
+  [1, -2],
+  [2, -1],
+  [-1, -2],
+  [-2, -1],
+];
+
+/** Land above the waterline. Towers and pieces are handled by the callers. */
+export const isDryLand = (cell: number, state: ChessState, ctx: ChessCtx): boolean =>
+  ctx.isLand(cell) && (ctx.elev[cell] ?? 0) >= state.seaLevel;
+
+/** Eight neighbours, for the king's step and for building next to it. */
+export function neighbours(cell: number, ctx: ChessCtx): number[] {
+  const { row, col } = spotOf(cell, ctx.cols);
+  const out: number[] = [];
+  for (const [dr, dc] of ALL8) {
+    const next = cellOf(row + dr, col + dc, ctx);
+    if (next !== null) out.push(next);
+  }
+  return out;
+}
+
+/**
+ * Every cell this piece may legally enter right now.
+ *
+ * The rules are chess rules with three map additions: water is a wall, the map
+ * edge is the board edge, and a tower is a capturable obstacle.
+ */
+export function legalTargets(state: ChessState, piece: Piece, ctx: ChessCtx): number[] {
+  const occupied = new Map<number, Piece>();
+  for (const other of state.pieces) {
+    if (other.id !== piece.id) occupied.set(other.cell, other);
+  }
+
+  const towerOwner = (cell: number): Side | null =>
+    state.towers[String(cell)] === undefined ? null : (state.towers[String(cell)] as Side);
+
+  /** 0 = cannot enter, 1 = enter and stop (capture), 2 = free. */
+  const entry = (cell: number): 0 | 1 | 2 => {
+    if (!isDryLand(cell, state, ctx)) return 0;
+    const other = occupied.get(cell);
+    if (other) return other.side === piece.side ? 0 : 1;
+    const tower = towerOwner(cell);
+    if (tower !== null) return tower === piece.side ? 0 : 1;
+    return 2;
+  };
+
+  const out: number[] = [];
+  const { row, col } = spotOf(piece.cell, ctx.cols);
+
+  const slide = (directions: readonly (readonly [number, number])[], maxSteps: number): void => {
+    for (const [dr, dc] of directions) {
+      for (let step = 1; step <= maxSteps; step++) {
+        const next = cellOf(row + dr * step, col + dc * step, ctx);
+        if (next === null) break;
+        const kind = entry(next);
+        if (kind === 0) break;
+        out.push(next);
+        if (kind === 1) break;
+      }
+    }
+  };
+
+  switch (piece.kind) {
+    case 'rook':
+      slide(ORTHO, Math.max(ctx.rows, ctx.cols));
+      break;
+    case 'bishop':
+      slide(DIAGONAL, Math.max(ctx.rows, ctx.cols));
+      break;
+    case 'queen':
+      slide(ALL8, Math.max(ctx.rows, ctx.cols));
+      break;
+    case 'king':
+      slide(ALL8, 1);
+      break;
+    case 'knight':
+      for (const [dr, dc] of KNIGHT) {
+        const next = cellOf(row + dr, col + dc, ctx);
+        if (next === null) continue;
+        // A knight jumps: it only cares about the landing square.
+        if (entry(next) !== 0) out.push(next);
+      }
+      break;
+    case 'pawn': {
+      // Pawns march east for side 0 and west for side 1, so the two armies meet.
+      const forward = piece.side === 0 ? 1 : -1;
+      const ahead = cellOf(row, col + forward, ctx);
+      if (ahead !== null && entry(ahead) === 2) out.push(ahead);
+      for (const dr of [-1, 1]) {
+        const target = cellOf(row + dr, col + forward, ctx);
+        if (target === null) continue;
+        // A pawn only steps diagonally to take something.
+        if (entry(target) === 1) out.push(target);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  return out;
+}
+
+/** Cells the side's king could fortify right now: dry, empty, next to it. */
+export function buildSpots(state: ChessState, ctx: ChessCtx): number[] {
+  const king = state.pieces.find((p) => p.side === state.turn && p.kind === 'king');
+  if (!king) return [];
+  const taken = new Set(state.pieces.map((p) => p.cell));
+  return neighbours(king.cell, ctx).filter(
+    (cell) =>
+      isDryLand(cell, state, ctx) && !taken.has(cell) && state.towers[String(cell)] === undefined,
+  );
+}

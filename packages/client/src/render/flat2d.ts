@@ -7,8 +7,22 @@ import {
   type StormPlan,
 } from '@eurasia/shared';
 import { buildBuildings, ownerTint } from './geometry';
+import { SIDE_COLOURS, TOWER_COLOUR, type UnitInstance, type UnitRole } from './pieces';
 import type { View } from './scene3d';
 import type { Lighting } from './palette';
+
+/** One character per piece, so the flat view still says what is standing there. */
+const GLYPHS: Record<UnitRole, string> = {
+  king: 'K',
+  queen: 'Q',
+  rook: 'R',
+  bishop: 'B',
+  knight: 'N',
+  pawn: 'P',
+  tower: '',
+};
+
+const glyphFor = (role: UnitRole): string => GLYPHS[role];
 
 /**
  * The no-WebGL view, and the low tier for phones that cannot hold 60 fps.
@@ -25,6 +39,7 @@ export class Flat2D implements View {
   private hovered = -1;
   private lighting: Lighting | null = null;
   private layout = { cell: 1, ox: 0, oy: 0 };
+  private units: readonly UnitInstance[] = [];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -38,6 +53,11 @@ export class Flat2D implements View {
 
   setMap(map: MapEntry): void {
     this.map = map;
+  }
+
+  /** Pieces are drawn as discs with a role mark: the flat view has no silhouettes. */
+  setUnits(units: readonly UnitInstance[]): void {
+    this.units = units;
   }
 
   setState(state: GameState): void {
@@ -138,6 +158,33 @@ export class Flat2D implements View {
           120 * shade + 40 * night,
         )} ${Math.round(60 * shade)})`;
         ctx.fillRect(ox + col * cell + inset, oy + row * cell + inset, size, size);
+      }
+
+      for (const unit of this.units) {
+        const col = unit.cell % map.cols;
+        const row = Math.floor(unit.cell / map.cols);
+        const cx = ox + col * cell + cell / 2;
+        const cy = oy + row * cell + cell / 2;
+        const radius = Math.max(2, cell * (unit.role === 'tower' ? 0.34 : 0.28));
+        ctx.fillStyle = unit.role === 'tower' ? TOWER_COLOUR : SIDE_COLOURS[unit.side];
+        ctx.beginPath();
+        if (unit.role === 'tower') {
+          ctx.rect(cx - radius, cy - radius, radius * 2, radius * 2);
+        } else {
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        }
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(6, 10, 16, 0.85)';
+        ctx.lineWidth = Math.max(1, cell * 0.07);
+        ctx.stroke();
+        const glyph = glyphFor(unit.role);
+        if (glyph && cell >= 14) {
+          ctx.fillStyle = unit.side === 0 ? '#1b2028' : '#e9e2d4';
+          ctx.font = `${Math.round(cell * 0.5)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(glyph, cx, cy + cell * 0.02);
+        }
       }
 
       // No meshes exist in the flat view, so the king — the only piece that can

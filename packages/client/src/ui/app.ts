@@ -1,7 +1,8 @@
 import { MAP_SIZES, type MapSize } from '@eurasia/shared';
 import { t } from '../i18n';
 import type { DayNight, Quality, Settings, Theme } from '../state/settings';
-import { formatNumber, h, row, segmented } from './dom';
+import type { GameMode } from '../state/settings';
+import { segmented, formatNumber, h, row } from './dom';
 
 export interface AppHandlers {
   onSize(size: MapSize): void;
@@ -15,6 +16,10 @@ export interface AppHandlers {
   onSpeed(index: number): void;
   onDemo(): void;
   onReset(): void;
+  /** Switch between the building game and the turn-based chess game. */
+  onMode: (mode: GameMode) => void;
+  /** Chess only: arm the king's build action for the next click. */
+  onBuild: () => void;
   /** Single-player only: create a room and go there. */
   onInvite: () => void;
   onConnectionStatus?: (
@@ -52,6 +57,7 @@ export class App {
   private readonly demoButton: HTMLButtonElement;
   private readonly statsEl: HTMLElement;
   private readonly segments: {
+    mode: ReturnType<typeof segmented<GameMode>>;
     size: ReturnType<typeof segmented<MapSize>>;
     theme: ReturnType<typeof segmented<Theme>>;
     quality: ReturnType<typeof segmented<Quality>>;
@@ -65,9 +71,12 @@ export class App {
   private resetResolver: ((value: boolean) => void) | null = null;
   private roomCode = '';
   private readonly invite: (() => void) | undefined;
+  private readonly onBuild: () => void;
+  private buildButton!: HTMLButtonElement;
 
   constructor(settings: Settings, handlers: AppHandlers) {
     this.invite = handlers.onInvite;
+    this.onBuild = handlers.onBuild;
     // --- canvas + stage -------------------------------------------------
     this.canvas = h('canvas', {
       attrs: {
@@ -166,6 +175,15 @@ export class App {
     );
 
     // --- settings panel -------------------------------------------------
+    const mode = segmented<GameMode>(
+      [
+        { value: 'build', label: t.settings.modeBuild },
+        { value: 'chess', label: t.settings.modeChess },
+      ],
+      settings.mode,
+      handlers.onMode,
+      t.settings.mode,
+    );
     const size = segmented<MapSize>(
       MAP_SIZES.map((value) => ({ value, label: String(value) })),
       settings.size,
@@ -245,7 +263,25 @@ export class App {
       t.settings.theme,
     );
 
-    this.segments = { size, theme, quality, dayNight, relief, hurricanes, flood, speed, sides };
+    this.segments = {
+      mode,
+      size,
+      theme,
+      quality,
+      dayNight,
+      relief,
+      hurricanes,
+      flood,
+      speed,
+      sides,
+    };
+
+    this.buildButton = h('button', {
+      class: 'button hidden',
+      text: t.chess.build,
+      attrs: { type: 'button' },
+      on: { click: () => this.onBuild() },
+    }) as HTMLButtonElement;
 
     this.demoButton = h('button', {
       class: 'button',
@@ -274,6 +310,7 @@ export class App {
           on: { click: () => this.setPanelOpen(false) },
         }),
       ),
+      row(t.settings.mode, mode.root),
       row(t.settings.size, size.root),
       row(t.settings.lighting, dayNight.root),
       row(t.settings.relief, relief.root),
@@ -283,7 +320,7 @@ export class App {
       row(t.settings.speed, speed.root),
       row(t.settings.quality, quality.root),
       row(t.settings.theme, theme.root),
-      h('div', { class: 'panel-actions' }, this.demoButton, resetButton),
+      h('div', { class: 'panel-actions' }, this.buildButton, this.demoButton, resetButton),
     );
 
     this.toggle = h('button', {
@@ -360,6 +397,45 @@ export class App {
 
   mount(parent: HTMLElement): void {
     parent.replaceChildren(this.root);
+  }
+
+  /** Chess mode shows its own action and hides the building-game demo. */
+  setChessMode(on: boolean): void {
+    this.root.classList.toggle('chess', on);
+    this.buildButton.classList.toggle('hidden', !on);
+    this.demoButton.classList.toggle('hidden', on);
+    this.statsEl.classList.toggle('multi', on);
+  }
+
+  setBuildActive(on: boolean): void {
+    this.buildButton.classList.toggle('armed', on);
+  }
+
+  /** Turn, round, both wallets and the sea: everything the mode needs at a glance. */
+  updateChess(info: {
+    turn: 0 | 1;
+    round: number;
+    coins: readonly [number, number];
+    seaLevel: number;
+    winner: 0 | 1 | null;
+  }): void {
+    const mine = info.turn === 0 ? t.chess.white : t.chess.black;
+    const theirs = info.turn === 0 ? t.chess.black : t.chess.white;
+    this.coinsEl.textContent = formatNumber(info.coins[0]);
+    this.oppCoinsEl.textContent = formatNumber(info.coins[1]);
+    this.incomeEl.textContent = t.panel.perDay(0);
+    this.incomeEl.classList.add('muted');
+    this.oppIncomeEl.textContent = t.panel.perDay(0);
+    this.oppIncomeEl.classList.add('muted');
+    this.cellsEl.textContent = t.chess.turn(mine);
+    this.oppCellsEl.textContent = t.chess.turn(theirs);
+    this.seaEl.textContent = t.panel.seaLevel(info.seaLevel);
+
+    const labels = this.statsEl.querySelectorAll('.stat-label');
+    if (labels[0]) labels[0].textContent = t.chess.white;
+    if (labels[1]) labels[1].textContent = t.panel.settings;
+    if (labels[2]) labels[2].textContent = t.chess.black;
+    if (labels[3]) labels[3].textContent = t.panel.settings;
   }
 
   /** The sea is the clock of the late game: it has to be readable at a glance. */

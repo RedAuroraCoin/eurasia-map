@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { BALANCE, getMap } from '@eurasia/shared';
+import { DEFAULT_SETTINGS } from './state/settings';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -63,6 +64,10 @@ beforeEach(() => {
   HTMLCanvasElement.prototype.getBoundingClientRect = () =>
     ({ x: 0, y: 0, width: 880, height: 720, top: 0, left: 0, right: 880, bottom: 720 }) as DOMRect;
 
+  // The app probes /api/health to learn whether rooms exist; in a DOM test that
+  // would reach for a server that is not running.
+  globalThis.fetch = (async () => ({ ok: false })) as unknown as typeof fetch;
+
   globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
     rafQueue.push(callback);
     return rafQueue.length;
@@ -117,7 +122,7 @@ describe('single-player shell', () => {
 
     expect(document.querySelector('h1')?.textContent).toBe('Eurasia Map');
     expect(document.querySelector('canvas')).not.toBeNull();
-    expect(document.querySelectorAll('.segmented')).toHaveLength(9);
+    expect(document.querySelectorAll('.segmented')).toHaveLength(10);
     // The panel is positioned against the stage: inside the app grid it slid
     // under the topbar and ignored that row in its max-height.
     expect(document.querySelector('.stage > .panel')).not.toBeNull();
@@ -133,6 +138,58 @@ describe('single-player shell', () => {
     // The sea is the late-game clock: it starts at the level in the balance file.
     expect(document.querySelector('.sea-stat .stat-value')?.textContent).toBe('0 m');
     expect(drawCalls).toContain('fillRect');
+  });
+
+  it('switches to chess and fields two armies', async () => {
+    const { getChess } = await boot();
+    expect(getChess()).toBeNull();
+
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement | undefined;
+    expect(chessButton).toBeDefined();
+    chessButton?.click();
+    flushFrames();
+
+    const game = getChess();
+    expect(game).not.toBeNull();
+    expect(game?.pieces).toHaveLength(32);
+    expect(game?.turn).toBe(0);
+    expect(game?.pieces.filter((p) => p.side === 0)).toHaveLength(16);
+    // The king's build action belongs to this mode only.
+    const build = document.querySelector('.panel-actions .button');
+    expect(build?.classList.contains('hidden')).toBe(false);
+  });
+
+  it('moves a chess piece by clicking it and then its destination', async () => {
+    const { getChess } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    // The mode starts on the default map size, not on whatever the test prefers.
+    const map = getMap(DEFAULT_SETTINGS.size);
+    const game = getChess();
+    if (!game) throw new Error('chess mode did not start');
+    const pawn = game.pieces.find(
+      (piece) =>
+        piece.side === 0 &&
+        piece.kind === 'pawn' &&
+        map.mask[piece.cell + 1] === '#' &&
+        !game.pieces.some((other) => other.cell === piece.cell + 1),
+    );
+    if (!pawn) throw new Error('no pawn with a free cell ahead');
+
+    const from = cellCentre(map.cols, map.rows, pawn.cell);
+    const to = cellCentre(map.cols, map.rows, pawn.cell + 1);
+    clickCell(from.x, from.y);
+    clickCell(to.x, to.y);
+
+    const after = getChess();
+    expect(after?.pieces.find((p) => p.id === pawn.id)?.cell).toBe(pawn.cell + 1);
+    expect(after?.turn).toBe(1);
   });
 
   it('claims a cell on Enter, and refuses to demolish the king square', async () => {

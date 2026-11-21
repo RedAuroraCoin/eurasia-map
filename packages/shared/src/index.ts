@@ -5,5 +5,6 @@ export * from './engine/types';
 export * from './engine/reduce';
 export * from './storm';
 export * from './engine/growth';
+export * from './chess';
 export * from './map';
 export * from './protocol';

@@ -63,6 +63,21 @@ export const BalanceSchema = z.object({
     maxNickLength: z.number().int().positive(),
   }),
 
+  chess: z.object({
+    /** Coins each side starts with. Towers are the only thing to spend them on. */
+    startCoins: z.number().int().min(0).max(1000),
+    /** Income per full round, so fortifying stays possible as the sea climbs. */
+    coinsPerRound: z.number().int().min(0).max(100),
+    towerCost: z.number().int().positive().max(100),
+    /** Metres of sea per full round: the clock the whole mode is built around. */
+    metresPerRound: z.number().min(0).max(500),
+    /**
+     * Armies camp on ground at least this high. On a real coastline the lowest
+     * cells are 11 m, so a sea-level camp would lose pieces to the first rise
+     * before either side had moved.
+     */
+    campMinElevation: z.number().min(0).max(4000),
+  }),
   flood: z.object({
     enabledByDefault: z.boolean(),
     /** Sea level when a game starts, metres above the ocean. */
@@ -126,6 +141,13 @@ const RAW = {
     maxNickLength: 24,
   },
 
+  chess: {
+    startCoins: 20,
+    coinsPerRound: 5,
+    towerCost: 10,
+    metresPerRound: 25,
+    campMinElevation: 250,
+  },
   flood: {
     enabledByDefault: true,
     startLevel: 0,

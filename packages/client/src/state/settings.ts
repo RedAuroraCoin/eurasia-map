@@ -13,6 +13,8 @@ export interface Settings {
   readonly hurricanes: boolean;
   /** The daily water rise. A rule, so a room ignores this and always floods. */
   readonly flood: boolean;
+  /** Which game is being played. They share the map and nothing else. */
+  readonly mode: GameMode;
   /** Index into SPEEDS. */
   readonly speed: number;
   readonly size: MapSize;
@@ -30,7 +32,10 @@ export interface Settings {
  */
 export const SPEEDS = [1, 60, 600, 86_400] as const;
 
+export type GameMode = 'build' | 'chess';
+
 export const DEFAULT_SETTINGS: Settings = {
+  mode: 'build',
   theme: 'auto',
   quality: 'auto',
   relief: true,
@@ -56,6 +61,7 @@ export function parseSettings(raw: unknown): Settings {
   const source = raw as Record<string, unknown>;
 
   const size = Number(source.size);
+  const mode = source.mode === 'chess' ? 'chess' : 'build';
   const speed = Number(source.speed);
 
   return {
@@ -66,6 +72,7 @@ export function parseSettings(raw: unknown): Settings {
     hurricanes:
       typeof source.hurricanes === 'boolean' ? source.hurricanes : DEFAULT_SETTINGS.hurricanes,
     flood: typeof source.flood === 'boolean' ? source.flood : DEFAULT_SETTINGS.flood,
+    mode,
     speed: Number.isInteger(speed) && speed >= 0 && speed < SPEEDS.length ? speed : 0,
     size: (MAP_SIZES as readonly number[]).includes(size)
       ? (size as MapSize)

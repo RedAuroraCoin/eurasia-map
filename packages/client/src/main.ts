@@ -22,6 +22,13 @@ import { browserStorage, clearSave, loadSave, saveState } from './state/save';
 import { advance, clockFor } from './state/clock';
 import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
 import { MultiplayerClient, createInvite, parseRoomFromUrl } from './multiplayer/client';
+import {
+  chessReduce,
+  createChessGame,
+  type ChessErrorCode,
+  type ChessState,
+} from '@eurasia/shared';
+import type { UnitInstance } from './render/pieces';
 import { App, type AppHandlers } from './ui/app';
 
 /**
@@ -47,6 +54,11 @@ let extraTime = 0;
 /** Last world day the simulation settled, so a fast clock settles per day, not per minute. */
 let lastWorldDay = Number.NEGATIVE_INFINITY;
 let lastLighting = -1;
+
+// ---------------------------------------------------------------- chess mode
+let chess: ChessState | null = null;
+let chessSelected: number | null = null;
+let chessBuild = false;
 let selected = 0;
 let saveTimer = 0;
 
@@ -81,6 +93,8 @@ const handlers: AppHandlers = {
       return;
     }
     switchSize(size);
+    // A different map is a different board: the armies cannot stay where they were.
+    if (settings.mode === 'chess') startChess();
   },
   onTheme: (theme) => {
     settings = { ...settings, theme };
@@ -120,6 +134,19 @@ const handlers: AppHandlers = {
     saveSettings(storage, settings);
     app.setSettings(settings, demo);
   },
+  onMode: (mode) => {
+    settings = { ...settings, mode };
+    saveSettings(storage, settings);
+    app.setSettings(settings, demo);
+    if (mode === 'chess') startChess();
+    else leaveChess();
+  },
+  onBuild: () => {
+    if (!chess) return;
+    chessBuild = !chessBuild;
+    app.setBuildActive(chessBuild);
+    app.setMessage(chessBuild ? t.chess.building : t.chess.build, 'info');
+  },
   onSides: (both) => {
     settings = { ...settings, sides: both ? 'both' : 'one' };
     saveSettings(storage, settings);
@@ -145,6 +172,10 @@ const handlers: AppHandlers = {
   onReset: () => {
     if (mp) {
       app.setMessage(t.messages.roomSizeLocked, 'error');
+      return;
+    }
+    if (settings.mode === 'chess') {
+      startChess();
       return;
     }
     void reset();
@@ -452,6 +483,135 @@ function resolveQuality(current: Settings): 'high' | 'low' {
   return cores >= 4 && ratio <= 2.2 ? 'high' : 'low';
 }
 
+// -------------------------------------------------------------------- chess
+
+const chessCtx = () => ({
+  isLand: (index: number) => map.mask[index] === '#',
+  elev: map.elev,
+  rows: map.rows,
+  cols: map.cols,
+  cellCount: map.rows * map.cols,
+});
+
+const unitsOf = (game: ChessState): UnitInstance[] => {
+  const out: UnitInstance[] = game.pieces.map((piece) => ({
+    id: piece.id,
+    role: piece.kind,
+    side: piece.side,
+    cell: piece.cell,
+  }));
+  Object.entries(game.towers).forEach(([cell, side], index) => {
+    out.push({ id: 10_000 + index, role: 'tower', side, cell: Number(cell) });
+  });
+  return out;
+};
+
+/** The 3D view draws buildings from a GameState; chess has none, only the sea. */
+const chessView = (): GameState => ({
+  ...state,
+  cells: {},
+  claimed: [0, 0],
+  kings: [-1, -1],
+  seaLevel: chess?.seaLevel ?? state.seaLevel,
+});
+
+function syncChess(): void {
+  if (!chess) return;
+  view.setState(chessView(), clock());
+  view.setUnits(unitsOf(chess));
+  app.updateChess({
+    turn: chess.turn,
+    round: chess.round,
+    coins: chess.coins,
+    seaLevel: chess.seaLevel,
+    winner: chess.winner,
+  });
+}
+
+function describeChessError(code: ChessErrorCode): string {
+  switch (code) {
+    case 'no_coins':
+      return t.chess.noCoins(BALANCE.chess.towerCost);
+    case 'not_yours':
+      return t.chess.notYours;
+    case 'over':
+      return 'Game over';
+    default:
+      return t.chess.illegal;
+  }
+}
+
+function applyChess(result: ReturnType<typeof chessReduce>): void {
+  if (!result.ok) {
+    app.setMessage(describeChessError(result.code), 'error');
+    return;
+  }
+  chess = result.state;
+  for (const event of result.events) {
+    if (event.t === 'captured') app.setMessage(t.messages.taken, 'info');
+    if (event.t === 'built') app.setMessage(t.chess.built, 'good');
+    if (event.t === 'drowned') app.setMessage(t.chess.drowned(event.pieces), 'error');
+    if (event.t === 'won') {
+      app.setMessage(
+        t.chess.won(event.side === 0 ? t.chess.white : t.chess.black, event.how),
+        'good',
+      );
+    }
+  }
+  chessBuild = false;
+  app.setBuildActive(false);
+  syncChess();
+}
+
+function startChess(): void {
+  if (mp) return;
+  chess = createChessGame(settings.size, nextSeed(), chessCtx());
+  chessSelected = null;
+  chessBuild = false;
+  app.setChessMode(true);
+  app.setBuildActive(false);
+  view.setUnits(unitsOf(chess));
+  syncChess();
+}
+
+function leaveChess(): void {
+  chess = null;
+  chessSelected = null;
+  chessBuild = false;
+  app.setChessMode(false);
+  app.setBuildActive(false);
+  view.setUnits([]);
+  view.setState(state, clock());
+  updateStats();
+}
+
+/** One click: pick a piece, then a destination — or place a tower when armed. */
+function chessClick(cell: number): void {
+  if (!chess || mp) return;
+  if (chess.winner !== null) return;
+  if (cell < 0) return;
+
+  if (chessBuild) {
+    applyChess(chessReduce(chess, { k: 'build', cell }, chessCtx()));
+    return;
+  }
+
+  const piece = chess.pieces.find((p) => p.cell === cell);
+  if (piece && piece.side === chess.turn) {
+    chessSelected = piece.id;
+    return;
+  }
+
+  if (chessSelected === null) {
+    app.setMessage(t.chess.notYours, 'error');
+    return;
+  }
+
+  const result = chessReduce(chess, { k: 'move', piece: chessSelected, to: cell }, chessCtx());
+  if (result.ok) chessSelected = null;
+  applyChess(result);
+}
+
 // -------------------------------------------------------------------- input
 
 let pointerDown: { x: number; y: number; at: number } | null = null;
@@ -469,7 +629,9 @@ app.canvas.addEventListener('pointerup', (event) => {
   // A drag is an orbit, not a claim.
   if (distance > 8 || elapsed > 700) return;
   app.canvas.focus({ preventScroll: true });
-  toggleCell(view.pick(event.clientX, event.clientY), event.shiftKey);
+  const cell = view.pick(event.clientX, event.clientY);
+  if (settings.mode === 'chess') chessClick(cell);
+  else toggleCell(cell, event.shiftKey);
 });
 
 app.canvas.addEventListener('pointermove', (event) => {
@@ -524,6 +686,7 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('beforeunload', saveNow);
 window.setInterval(settle, 60_000);
+if (settings.mode === 'chess') startChess();
 
 // --------------------------------------------------------------------- boot
 
@@ -590,6 +753,8 @@ function roomErrorText(code: string): string {
 }
 
 if (roomCode) {
+  // Rooms run the building game only: chess is hot-seat by design.
+  settings = { ...settings, mode: 'build' };
   app.setRoomCode(roomCode);
   app.setWaiting(true, t.messages.waitingOpponent);
 
@@ -745,12 +910,14 @@ export const __eurasia: {
   app: App;
   view: View;
   getState: () => GameState;
+  getChess: () => ChessState | null;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
 } = {
   app,
   view,
   getState: () => active(),
+  getChess: () => chess,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,
 };

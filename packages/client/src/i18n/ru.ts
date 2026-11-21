@@ -26,7 +26,27 @@ export const ru: Dict = {
     open: 'Настройки',
     close: 'Свернуть',
   },
+  chess: {
+    build: 'Построить башню',
+    building: 'Выбери клетку рядом с королём',
+    turn: (side: string) => `Ходят ${side}`,
+    white: 'белые',
+    black: 'чёрные',
+    won: (side: string, how: 'king' | 'drowned') =>
+      how === 'king'
+        ? `${side} берут короля и побеждают`
+        : `${side} побеждают — чужой король утонул`,
+    drowned: (n: number) => `Утонуло фигур: ${n}`,
+    built: 'Башня построена',
+    noCoins: (cost: number) => `Башня стоит ${cost} монет`,
+    illegal: 'Эта фигура так не ходит',
+    notYours: 'Сейчас ходит другая сторона',
+    newGame: 'Начать заново',
+  },
   settings: {
+    mode: 'Игра',
+    modeBuild: 'Строительство',
+    modeChess: 'Шахматы',
     map: 'Карта',
     size: 'Размер',
     lighting: 'Освещение',

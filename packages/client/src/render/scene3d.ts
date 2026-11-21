@@ -15,9 +15,11 @@ import {
   sideFor,
   unitColor,
 } from './geometry';
+import { unitColour, unitGeometry, type UnitInstance } from './pieces';
 import {
   boardSize,
   CELL,
+  cellToWorld,
   elevationToHeight,
   fitDistance,
   VIEW_DIRECTION,
@@ -47,6 +49,8 @@ export interface View {
   setSidePreview(preview: boolean): void;
   /** The storms currently alive. The engine has already decided their damage. */
   setStorms(plans: readonly StormPlan[]): void;
+  /** Chess mode: pieces and fortifications, in place of claimed cells. */
+  setUnits(units: readonly UnitInstance[]): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -99,6 +103,7 @@ export class Scene3D implements View {
   private stormPlans: readonly StormPlan[] = [];
   private water: THREE.Mesh | null = null;
   private seaLevel = 0;
+  private unitMeshes: THREE.InstancedMesh[] = [];
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
   private hoverRing: THREE.LineSegments | null = null;
@@ -474,6 +479,47 @@ export class Scene3D implements View {
     }
   }
 
+  /**
+   * Rebuilds the chess pieces. There are at most thirty-two plus towers, and the
+   * state changes once per move, so a full rebuild is cheaper than bookkeeping.
+   */
+  setUnits(units: readonly UnitInstance[]): void {
+    for (const mesh of this.unitMeshes) {
+      this.scene.remove(mesh);
+      (mesh.material as THREE.Material).dispose();
+      mesh.dispose();
+    }
+    this.unitMeshes = [];
+    if (units.length === 0) return;
+
+    const groups = new Map<string, UnitInstance[]>();
+    for (const unit of units) {
+      const key = `${unit.role}:${unit.side}`;
+      const list = groups.get(key);
+      if (list) list.push(unit);
+      else groups.set(key, [unit]);
+    }
+
+    const matrix = new THREE.Matrix4();
+    for (const list of groups.values()) {
+      const first = list[0] as UnitInstance;
+      const material = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(unitColour(first.role, first.side)),
+      });
+      const mesh = new THREE.InstancedMesh(unitGeometry(first.role), material, list.length);
+      mesh.castShadow = this.quality === 'high';
+      list.forEach((unit, index) => {
+        const { x, z } = cellToWorld(this.map, unit.cell);
+        const ground = elevationToHeight(this.map.elev[unit.cell] ?? 0, this.relief);
+        matrix.makeTranslation(x, ground, z);
+        mesh.setMatrixAt(index, matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      this.scene.add(mesh);
+      this.unitMeshes.push(mesh);
+    }
+  }
+
   setSidePreview(preview: boolean): void {
     if (preview === this.sidePreview) return;
     this.sidePreview = preview;
@@ -826,6 +872,12 @@ export class Scene3D implements View {
   }
 
   dispose(): void {
+    for (const mesh of this.unitMeshes) {
+      this.scene.remove(mesh);
+      (mesh.material as THREE.Material).dispose();
+      mesh.dispose();
+    }
+    this.unitMeshes = [];
     this.controls.dispose();
     this.renderer.dispose();
     this.depthTexture.dispose();
