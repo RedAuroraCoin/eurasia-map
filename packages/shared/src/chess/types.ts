@@ -54,6 +54,13 @@ export interface ChessCtx {
   readonly rows: number;
   readonly cols: number;
   readonly cellCount: number;
+  /**
+   * Rows each side may camp in, when the caller knows the map's latitudes. The
+   * engine has no geography of its own: it is told where Europe is.
+   */
+  readonly campRows?: readonly (readonly [number, number] | null)[];
+  /** Columns each side may camp in, from the same latitude/longitude bands. */
+  readonly campCols?: readonly (readonly [number, number] | null)[];
 }
 
 export type ChessEvent =

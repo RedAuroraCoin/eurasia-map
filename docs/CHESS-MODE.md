@@ -42,25 +42,27 @@ or above 250 m.
 
 ## The tide
 
-The sea rises **25 m per full round** (both sides having moved once).
+The sea rises **10 m per full round** (both sides having moved once).
 
-Measured on the real 500 map:
+Measured on the real 800 map:
 
-| round | sea   | land left |
-|-------|-------|-----------|
-| 4     | 100 m | 92 %      |
-| 8     | 200 m | 75 %      |
-| 16    | 400 m | 51 %      |
-| 40    | 1000 m| 17 %      |
-| 80    | 2000 m| 4 %       |
+| round | sea    | land left |
+|-------|--------|-----------|
+| 4     | 40 m   | 97 %      |
+| 10    | 100 m  | 90 %      |
+| 17    | 170 m  | 79 %      |
+| 25    | 250 m  | 69 %      |
+| 40    | 400 m  | 51 %      |
+| 60    | 600 m  | 32 %      |
+| 100   | 1000 m | 17 %      |
 
-Why 25 m: the opening must not lose material to the tide, and a typical game must
-feel the water. Camps are placed on ground at or above 250 m, so nothing drowns
-before round 10. A game of 20-40 rounds — 40 to 80 moves — ends with the board
-squeezed to the highlands, which is the point of the mode.
+Why 10 m: at 25 m the coast was gone before the opening was over, and at 1 day/s
+in the building game the whole map drowned in a minute and a half. At 10 m a game
+of 20–40 rounds (40–80 moves) spends the tide on the lowlands and still finishes
+with most of the board above water; a long game grinds down to the highlands.
 
 Tuning knobs, all in `BALANCE.chess`: `metresPerRound`, `campMinElevation`,
-`startCoins`, `coinsPerRound`, `towerCost`.
+`campLat`, `campLon`, `startCoins`, `coinsPerRound`, `towerCost`.
 
 ## What this version does not do
 

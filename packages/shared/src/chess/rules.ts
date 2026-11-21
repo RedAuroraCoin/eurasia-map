@@ -39,69 +39,87 @@ export const PIECES_PER_SIDE = BACK_RANK.length + 8;
 /**
  * The camp: a chess formation, not a scatter.
  *
- * Eight files along the north-south axis and two ranks along the march axis:
- * the back rank sits behind, the pawns one column closer to the enemy. White
- * camps in the west and marches east; black mirrors it in the east.
+ * Eight files along the north-south axis and two ranks along the march axis: the
+ * back rank behind, the pawns one column toward the enemy. A real coastline does
+ * not offer many clean 2x8 patches, so the patch is chosen rather than assumed —
+ * the highest ground inside the side's own latitude and longitude band.
  *
- * The block is searched rather than assumed: the first place near the side's
- * own edge where all sixteen cells are dry land wins. If the coast is too ragged
- * for a 2x8 block, the army falls back to the nearest high ground it can find.
+ * Ground that is merely dry is allowed: a pawn on a coastal lowland is a pawn
+ * that drowns first, which is the mode working as intended. The score prefers
+ * high cells, then the highest sum, so a camp sits on hills when it can.
  */
 interface Camp {
-  /** Column of the back rank. */
-  readonly back: number;
-  /** Column of the pawn rank, one step toward the enemy. */
-  readonly pawns: number;
-  /** First row of the eight files. */
-  readonly row: number;
+  /** Eight cells of the back rank, north to south. */
+  readonly backs: number[];
+  /** The pawn in front of each of them, same order. */
+  readonly pawns: number[];
 }
 
 const FILES = BACK_RANK.length;
+/** Nothing camps below this: the sea starts at 0 and the first rounds are free. */
+export const CAMP_FLOOR = 40;
+
+function cellAt(row: number, col: number, ctx: ChessCtx): number | null {
+  if (row < 0 || col < 0 || row >= ctx.rows || col >= ctx.cols) return null;
+  return row * ctx.cols + col;
+}
 
 function findCamp(side: Side, ctx: ChessCtx, preferRow?: number): Camp | null {
-  const forward = side === 0 ? 1 : -1;
-  const dry = (cell: number): boolean =>
-    ctx.isLand(cell) && (ctx.elev[cell] ?? 0) >= BALANCE.chess.campMinElevation;
+  const step = side === 0 ? 1 : -1;
+  const elevation = (cell: number): number => ctx.elev[cell] ?? 0;
+  const usable = (cell: number): boolean => ctx.isLand(cell) && elevation(cell) >= CAMP_FLOOR;
 
-  const columns: number[] = [];
-  for (let col = 0; col < ctx.cols; col++) columns.push(col);
-  // White looks from the west edge inwards, black from the east edge inwards.
-  if (side === 1) columns.reverse();
+  const rowBand = ctx.campRows?.[side] ?? null;
+  const firstRow = rowBand ? Math.max(0, rowBand[0]) : 0;
+  const lastRow = rowBand ? Math.min(ctx.rows - FILES, rowBand[1] - FILES + 1) : ctx.rows - FILES;
 
-  // A preferred row is tried first: chess has the two back ranks facing each
-  // other, queen against queen, and it looks wrong when they are offset.
-  const rows: number[] = [];
-  if (preferRow !== undefined && preferRow >= 0 && preferRow + FILES <= ctx.rows) {
-    rows.push(preferRow);
-  }
-  for (let row = 0; row + FILES <= ctx.rows; row++) {
-    if (row !== preferRow) rows.push(row);
-  }
+  const colBand = ctx.campCols?.[side] ?? null;
+  // Without a band the two sides still must not land on each other: white keeps
+  // to the western half, black to the eastern one.
+  const half = Math.floor(ctx.cols / 2);
+  const fallback: readonly [number, number] =
+    side === 0 ? [0, Math.max(0, half - 1)] : [Math.min(half, ctx.cols - 2), ctx.cols - 2];
+  const band: readonly [number, number] = colBand ?? fallback;
+  const firstCol = Math.max(0, band[0]);
+  const lastCol = Math.min(ctx.cols - 2, band[1]);
 
-  for (const col of columns) {
-    for (const row of rows) {
+  let best: { camp: Camp; score: number } | null = null;
+
+  for (let row = firstRow; row <= lastRow; row++) {
+    for (let col = firstCol; col <= lastCol; col++) {
+      const backs: number[] = [];
+      const pawns: number[] = [];
+      let score = 0;
       let ok = true;
+
       for (let file = 0; file < FILES && ok; file++) {
-        const back = (row + file) * ctx.cols + col;
-        const pawn = (row + file) * ctx.cols + col + forward;
-        if (!dry(back) || !dry(pawn)) ok = false;
+        const back = cellAt(row + file, col, ctx);
+        const pawn = cellAt(row + file, col + step, ctx);
+        if (back === null || pawn === null || !usable(back) || !usable(pawn)) {
+          ok = false;
+          break;
+        }
+        // Land at the camping line counts far more than land a metre above it.
+        const bonus = BALANCE.chess.campMinElevation;
+        score += (elevation(back) >= bonus ? 1_000 : 0) + (elevation(pawn) >= bonus ? 1_000 : 0);
+        score += Math.min(elevation(back), 400) + Math.min(elevation(pawn), 400);
+        backs.push(back);
+        pawns.push(pawn);
       }
-      if (ok) return { back: col, pawns: col + forward, row };
+
+      if (!ok) continue;
+      // Facing ranks: a camp in the same rows as the other side's is worth more.
+      if (preferRow !== undefined && row === preferRow) score += 500;
+      if (!best || score > best.score) best = { camp: { backs, pawns }, score };
     }
   }
-  return null;
+
+  return best ? best.camp : null;
 }
 
 /** The sixteen cells of a camp, back rank first. */
-function campCells(camp: Camp, ctx: ChessCtx): number[] {
-  const cells: number[] = [];
-  for (let file = 0; file < FILES; file++) {
-    cells.push((camp.row + file) * ctx.cols + camp.back);
-  }
-  for (let file = 0; file < FILES; file++) {
-    cells.push((camp.row + file) * ctx.cols + camp.pawns);
-  }
-  return cells;
+function campCells(camp: Camp): number[] {
+  return [...camp.backs, ...camp.pawns];
 }
 
 /**
@@ -120,10 +138,11 @@ export function createChessGame(
   let id = 0;
 
   const whiteCamp = findCamp(0, ctx);
+  const whiteRow = whiteCamp ? Math.floor((whiteCamp.backs[0] as number) / ctx.cols) : undefined;
   for (const side of [0, 1] as const) {
-    const camp = side === 0 ? whiteCamp : findCamp(1, ctx, whiteCamp?.row);
+    const camp = side === 0 ? whiteCamp : findCamp(1, ctx, whiteRow);
     if (camp) {
-      const cells = campCells(camp, ctx);
+      const cells = campCells(camp);
       homes[side] = cells;
       // Back rank first, then the pawns: the order the formation was built in.
       cells.forEach((cell, index) => {
@@ -330,7 +349,7 @@ export function chessReduce(
  */
 export function createHomeCells(side: Side, ctx: ChessCtx): number[] {
   const camp = findCamp(side, ctx);
-  return camp ? campCells(camp, ctx) : homeCells(side, ctx);
+  return camp ? campCells(camp) : homeCells(side, ctx);
 }
 
 /**

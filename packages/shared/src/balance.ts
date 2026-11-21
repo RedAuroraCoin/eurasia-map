@@ -72,11 +72,24 @@ export const BalanceSchema = z.object({
     /** Metres of sea per full round: the clock the whole mode is built around. */
     metresPerRound: z.number().min(0).max(500),
     /**
-     * Armies camp on ground at least this high. On a real coastline the lowest
-     * cells are 11 m, so a sea-level camp would lose pieces to the first rise
-     * before either side had moved.
+     * Ground at or above this counts as high ground when the camp is chosen: the
+     * patch inside the band with the most high cells wins. It is a preference,
+     * not a floor — a 2x8 patch of nothing but hills does not exist in Europe.
      */
     campMinElevation: z.number().min(0).max(4000),
+    /**
+     * Latitude bands the armies camp in, degrees north. White in Europe, black in
+     * East Asia: the two sides of the continent, not its southern edges.
+     */
+    campLat: z.object({
+      white: z.tuple([z.number().min(-90).max(90), z.number().min(-90).max(90)]),
+      black: z.tuple([z.number().min(-90).max(90), z.number().min(-90).max(90)]),
+    }),
+    /** Longitude bands, same idea: Europe in the west, East Asia in the east. */
+    campLon: z.object({
+      white: z.tuple([z.number().min(-180).max(180), z.number().min(-180).max(180)]),
+      black: z.tuple([z.number().min(-180).max(180), z.number().min(-180).max(180)]),
+    }),
   }),
   flood: z.object({
     enabledByDefault: z.boolean(),
@@ -145,8 +158,10 @@ const RAW = {
     startCoins: 20,
     coinsPerRound: 5,
     towerCost: 10,
-    metresPerRound: 25,
+    metresPerRound: 10,
     campMinElevation: 250,
+    campLat: { white: [36, 58], black: [20, 48] },
+    campLon: { white: [-10, 40], black: [105, 145] },
   },
   flood: {
     enabledByDefault: true,

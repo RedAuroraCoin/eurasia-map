@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../balance';
+import { MAP_CONFIG } from '../map';
 import { getMap } from '../map';
 import { buildSpots, legalTargets } from './moves';
-import { PIECES_PER_SIDE, chessReduce, createChessGame } from './rules';
+import { CAMP_FLOOR, PIECES_PER_SIDE, chessReduce, createChessGame } from './rules';
 import type { ChessCtx, ChessState, Piece, PieceKind, Side } from './types';
 
 /**
@@ -88,6 +89,59 @@ describe('the opening position', () => {
     expect(Math.max(...westPawns)).toBeLessThan(Math.min(...eastPawns));
   });
 
+  it('camps white in Europe and black in East Asia', () => {
+    const map800 = getMap(800);
+    const { lon0, lon1, lat0, lat1 } = MAP_CONFIG.bbox;
+    const big: ChessCtx = {
+      isLand: (cell) => map800.mask[cell] === '#',
+      elev: map800.elev,
+      rows: map800.rows,
+      cols: map800.cols,
+      cellCount: map800.rows * map800.cols,
+      campRows: [
+        [
+          Math.round(((lat1 - BALANCE.chess.campLat.white[1]) / (lat1 - lat0)) * (map800.rows - 1)),
+          Math.round(((lat1 - BALANCE.chess.campLat.white[0]) / (lat1 - lat0)) * (map800.rows - 1)),
+        ],
+        [
+          Math.round(((lat1 - BALANCE.chess.campLat.black[1]) / (lat1 - lat0)) * (map800.rows - 1)),
+          Math.round(((lat1 - BALANCE.chess.campLat.black[0]) / (lat1 - lat0)) * (map800.rows - 1)),
+        ],
+      ],
+      campCols: [
+        [
+          Math.round(((BALANCE.chess.campLon.white[0] - lon0) / (lon1 - lon0)) * (map800.cols - 1)),
+          Math.round(((BALANCE.chess.campLon.white[1] - lon0) / (lon1 - lon0)) * (map800.cols - 1)),
+        ],
+        [
+          Math.round(((BALANCE.chess.campLon.black[0] - lon0) / (lon1 - lon0)) * (map800.cols - 1)),
+          Math.round(((BALANCE.chess.campLon.black[1] - lon0) / (lon1 - lon0)) * (map800.cols - 1)),
+        ],
+      ],
+    };
+    const game = createChessGame(800, 1, big);
+    const degrees = (cell: number): { lon: number; lat: number } => {
+      const row = Math.floor(cell / big.cols);
+      const col = cell % big.cols;
+      return {
+        lon: lon0 + (col / (big.cols - 1)) * (lon1 - lon0),
+        lat: lat1 - (row / (big.rows - 1)) * (lat1 - lat0),
+      };
+    };
+
+    for (const piece of game.pieces) {
+      const { lon, lat } = degrees(piece.cell);
+      const band = piece.side === 0 ? BALANCE.chess.campLon.white : BALANCE.chess.campLon.black;
+      const latBand = piece.side === 0 ? BALANCE.chess.campLat.white : BALANCE.chess.campLat.black;
+      // Two cells of slack: the bands become whole rows and columns, and a pawn
+      // stands one column outside its own band, toward the enemy.
+      expect(lon).toBeGreaterThanOrEqual(band[0] - 12);
+      expect(lon).toBeLessThanOrEqual(band[1] + 12);
+      expect(lat).toBeGreaterThanOrEqual(latBand[0] - 6);
+      expect(lat).toBeLessThanOrEqual(latBand[1] + 6);
+    }
+  });
+
   it('lines up like a chess rank: eight files, two ranks, pawns in front', () => {
     const map800 = getMap(800);
     const big: ChessCtx = {
@@ -132,10 +186,12 @@ describe('the opening position', () => {
     }
   });
 
-  it('camps above the camping line, so the first rise cannot take a piece', () => {
+  it('camps on dry ground that the first rounds of sea cannot reach', () => {
     const game = createChessGame(500, 1, ctx);
     for (const piece of game.pieces) {
-      expect(ctx.elev[piece.cell] ?? 0).toBeGreaterThanOrEqual(BALANCE.chess.campMinElevation);
+      expect(ctx.elev[piece.cell] ?? 0).toBeGreaterThanOrEqual(CAMP_FLOOR);
+      // And no camp may drown before a few rounds have been played.
+      expect(ctx.elev[piece.cell] ?? 0).toBeGreaterThan(BALANCE.chess.metresPerRound * 3);
     }
   });
 
@@ -268,8 +324,8 @@ describe('turns and the sea', () => {
 
   it('drowns a piece the sea has reached, and reports it', () => {
     const s = state([piece(1, 0, 'rook', at(3, 3)), piece(2, 1, 'rook', at(4, 4))]);
-    // The rook walks onto 10 m of ground; the round's rise puts the sea at 25 m.
-    const ctx = ctx8({ [at(3, 4)]: 10 });
+    // The rook walks onto 5 m of ground; the round's rise puts the sea at 10 m.
+    const ctx = ctx8({ [at(3, 4)]: 5 });
     const first = chessReduce(s, { k: 'move', piece: 1, to: at(3, 4) }, ctx);
     const second = chessReduce(first.state, { k: 'move', piece: 2, to: at(4, 5) }, ctx);
 
@@ -279,7 +335,7 @@ describe('turns and the sea', () => {
 
   it('loses the game when the king drowns', () => {
     const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'rook', at(4, 4))]);
-    const ctx = ctx8({ [at(3, 4)]: 10 });
+    const ctx = ctx8({ [at(3, 4)]: 5 });
     const first = chessReduce(s, { k: 'move', piece: 1, to: at(3, 4) }, ctx);
     const second = chessReduce(first.state, { k: 'move', piece: 2, to: at(4, 5) }, ctx);
 

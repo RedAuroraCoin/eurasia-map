@@ -1,5 +1,6 @@
 import {
   BALANCE,
+  MAP_CONFIG,
   SAVE_VERSION,
   createInitialState,
   dayIndex,
@@ -492,12 +493,47 @@ function resolveQuality(current: Settings): 'high' | 'low' {
 
 // -------------------------------------------------------------------- chess
 
+/** Row whose centre sits at this latitude. Row 0 is the northern edge. */
+function rowForLat(lat: number): number {
+  const { lat0, lat1 } = MAP_CONFIG.bbox;
+  const t = (lat1 - lat) / (lat1 - lat0);
+  return Math.round(t * (map.rows - 1));
+}
+
+/**
+ * The bands the armies camp in: white in Europe, black in East Asia. The engine
+ * has no geography, so the latitude is resolved to rows here.
+ */
+function campRows(): readonly (readonly [number, number])[] {
+  const band = (pair: readonly [number, number]): readonly [number, number] => [
+    rowForLat(pair[1]),
+    rowForLat(pair[0]),
+  ];
+  return [band(BALANCE.chess.campLat.white), band(BALANCE.chess.campLat.black)];
+}
+
+/** Column whose centre sits at this longitude. Column 0 is the western edge. */
+function colForLon(lon: number): number {
+  const { lon0, lon1 } = MAP_CONFIG.bbox;
+  return Math.round(((lon - lon0) / (lon1 - lon0)) * (map.cols - 1));
+}
+
+function campCols(): readonly (readonly [number, number])[] {
+  const band = (pair: readonly [number, number]): readonly [number, number] => [
+    colForLon(pair[0]),
+    colForLon(pair[1]),
+  ];
+  return [band(BALANCE.chess.campLon.white), band(BALANCE.chess.campLon.black)];
+}
+
 const chessCtx = () => ({
   isLand: (index: number) => map.mask[index] === '#',
   elev: map.elev,
   rows: map.rows,
   cols: map.cols,
   cellCount: map.rows * map.cols,
+  campRows: campRows(),
+  campCols: campCols(),
 });
 
 const unitsOf = (game: ChessState): UnitInstance[] => {
