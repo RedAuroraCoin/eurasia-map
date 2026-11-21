@@ -7,7 +7,7 @@ import {
   type StormPlan,
 } from '@eurasia/shared';
 import { buildBuildings, ownerTint } from './geometry';
-import { SIDE_COLOURS, TOWER_COLOUR, type UnitInstance, type UnitRole } from './pieces';
+import { SIDE_COLOURS, TOWER_COLOURS, type UnitInstance, type UnitRole } from './pieces';
 import { HINT_COLOURS, type MoveHint } from './hints';
 import type { View } from './scene3d';
 import type { Lighting } from './palette';
@@ -199,7 +199,8 @@ export class Flat2D implements View {
         const cx = ox + col * cell + cell / 2;
         const cy = oy + row * cell + cell / 2;
         const radius = Math.max(2, cell * (unit.role === 'tower' ? 0.46 : 0.4));
-        ctx.fillStyle = unit.role === 'tower' ? TOWER_COLOUR : SIDE_COLOURS[unit.side];
+        // Towers keep the side's own colour, as the two castle models do.
+        ctx.fillStyle = unit.role === 'tower' ? TOWER_COLOURS[unit.side] : SIDE_COLOURS[unit.side];
         ctx.beginPath();
         if (unit.role === 'tower') {
           ctx.rect(cx - radius, cy - radius, radius * 2, radius * 2);

@@ -212,6 +212,20 @@ function buildBastion(palette: Palette): THREE.BufferGeometry[] {
   return parts;
 }
 
+/**
+ * A chess tower is the same castle, shrunk to sit inside one cell. Copied rather
+ * than scaled in place, because the building game draws the original at full size.
+ */
+export const TOWER_SCALE = 0.85;
+
+export function towerFromCastle(model: THREE.BufferGeometry): THREE.BufferGeometry {
+  const copy = model.clone();
+  copy.scale(TOWER_SCALE, TOWER_SCALE, TOWER_SCALE);
+  copy.computeBoundingBox();
+  copy.computeBoundingSphere();
+  return copy;
+}
+
 export function createCastleGeometry(variant: CastleVariant = 'keep'): THREE.BufferGeometry {
   const parts = variant === 'bastion' ? buildBastion(BASTION_PALETTE) : buildKeep(KEEP_PALETTE);
 

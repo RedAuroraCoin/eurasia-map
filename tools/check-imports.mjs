@@ -51,7 +51,12 @@ for (const pkg of PACKAGES) {
     const src = readFileSync(file, 'utf8');
     for (const match of src.matchAll(IMPORT_RE)) {
       const spec = match[1];
-      const bad = FORBIDDEN[pkg].some((re) => re.test(spec));
+      // A test file runs in Node under vitest, never in the browser bundle, so it
+      // may read a fixture from disk. Only node: builtins, only *.test.ts.
+      const isTest = /\.test\.tsx?$/.test(file);
+      const bad =
+        FORBIDDEN[pkg].some((re) => re.test(spec)) &&
+        !(isTest && spec.startsWith('node:') && !/^wrangler/.test(spec));
       if (bad) {
         violations++;
         console.error(`${relative(ROOT, file)}: "${pkg}" may not import "${spec}"`);

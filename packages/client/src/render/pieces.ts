@@ -259,9 +259,16 @@ export function unitGeometry(role: UnitRole): THREE.BufferGeometry {
 }
 
 export const SIDE_COLOURS = ['#efe6d2', '#2f3742'] as const;
-export const TOWER_COLOUR = '#8d8577';
+/**
+ * Towers are per side even in the fallback: the castles they stand in for are a
+ * purple darkstone on one side and a golden sandstone on the other, which is how
+ * the flat view and a missing model stay readable.
+ */
+export const TOWER_COLOURS = ['#8f7fa8', '#c9a86a'] as const;
+/** Kept for the flat view's shadow and any single-colour use. */
+export const TOWER_COLOUR = TOWER_COLOURS[0];
 
 /** Colour of a piece, with the dark side lifted a little so it is not a hole. */
 export function unitColour(role: UnitRole, side: 0 | 1): string {
-  return role === 'tower' ? TOWER_COLOUR : SIDE_COLOURS[side];
+  return role === 'tower' ? TOWER_COLOURS[side] : SIDE_COLOURS[side];
 }

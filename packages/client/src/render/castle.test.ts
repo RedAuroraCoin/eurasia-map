@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
-import { type CastleVariant, createCastleGeometry } from './castle';
+import { type CastleVariant, TOWER_SCALE, createCastleGeometry, towerFromCastle } from './castle';
+import { mergeObject, normalizeToUnitBox } from './model';
+import { unitColour } from './pieces';
 
 /**
  * Geometry can be built and measured without a GPU, so the castles are not
@@ -55,6 +59,76 @@ describe.each(VARIANTS)('castle geometry (%s)', (variant) => {
     const normal = castle.getAttribute('normal');
     expect(normal).toBeDefined();
     expect(normal.count).toBe(position.count);
+  });
+});
+
+/**
+ * In chess a tower is the side's castle, shrunk to one cell. Build mode draws the
+ * same geometry at full size, so the tower has to be a copy.
+ */
+describe('chess towers', () => {
+  it('shrinks a castle to a cell and leaves the original alone', () => {
+    const keep = createCastleGeometry('keep');
+    keep.computeBoundingBox();
+    const original = keep.boundingBox?.clone();
+    if (!original) throw new Error('no bounds');
+
+    const tower = towerFromCastle(keep);
+    tower.computeBoundingBox();
+    const box = tower.boundingBox;
+    if (!box) throw new Error('no tower bounds');
+
+    expect(box.max.x - box.min.x).toBeCloseTo((original.max.x - original.min.x) * TOWER_SCALE, 5);
+    expect(box.max.x - box.min.x).toBeLessThanOrEqual(TOWER_SCALE + 0.02);
+    expect(box.max.y).toBeLessThanOrEqual(TOWER_SCALE + 0.02);
+    expect(box.min.y).toBeCloseTo(0, 5);
+
+    keep.computeBoundingBox();
+    expect(keep.boundingBox?.max.y).toBeCloseTo(original.max.y, 5);
+    expect(keep.boundingBox?.max.y).toBeGreaterThan(TOWER_SCALE);
+  });
+
+  it('gives each side its own model, and both fit inside a cell', async () => {
+    const digests: number[] = [];
+    for (const file of ['castle-a.glb', 'castle-b.glb']) {
+      const buffer = readFileSync(new URL(`../../public/models/${file}`, import.meta.url));
+      const gltf = await new GLTFLoader().parseAsync(
+        buffer.buffer.slice(
+          buffer.byteOffset,
+          buffer.byteOffset + buffer.byteLength,
+        ) as ArrayBuffer,
+        '',
+      );
+      const merged = mergeObject(gltf.scene);
+      expect(merged).not.toBeNull();
+      normalizeToUnitBox(merged as THREE.BufferGeometry);
+
+      const tower = towerFromCastle(merged as THREE.BufferGeometry);
+      tower.computeBoundingBox();
+      const box = tower.boundingBox;
+      if (!box) throw new Error('no bounds');
+
+      // Bounds cannot tell two models apart — both fit the same unit box — so the
+      // triangles have to: a different castle is a different set of vertices.
+      const position = tower.getAttribute('position');
+      let digest = 0;
+      for (let i = 0; i < position.count; i++) {
+        digest += position.getX(i) * 1.7 + position.getY(i) * 3.1 + position.getZ(i) * 5.3;
+      }
+      digests.push(Math.round(digest * 1000));
+
+      expect(box.max.x - box.min.x).toBeLessThanOrEqual(TOWER_SCALE + 0.01);
+      expect(box.max.z - box.min.z).toBeLessThanOrEqual(TOWER_SCALE + 0.01);
+      expect(box.max.y).toBeLessThanOrEqual(TOWER_SCALE + 0.01);
+      expect(box.min.y).toBeCloseTo(0, 3);
+    }
+
+    // Two sides, two silhouettes: not one model used twice.
+    expect(digests[0]).not.toBe(digests[1]);
+  });
+
+  it('tells the sides apart even when a model is missing', () => {
+    expect(unitColour('tower', 0)).not.toBe(unitColour('tower', 1));
   });
 });
 

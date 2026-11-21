@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { stormPointAt, type GameState, type MapEntry, type StormPlan } from '@eurasia/shared';
-import { createCastleGeometry } from './castle';
+import { createCastleGeometry, towerFromCastle } from './castle';
 import { createKingGeometry } from './king';
 import { createStormLook, type StormLook } from './storm-look';
 import { loadSideModels } from './model';
@@ -119,6 +119,12 @@ export class Scene3D implements View {
   /** GLBs in public/models replace the procedural castles, per side. */
   private models: [THREE.BufferGeometry | null, THREE.BufferGeometry | null] = [null, null];
   private modelRequested = false;
+  /** The chess towers: the same castle models, shrunk to a cell. Cached per side. */
+  private towerGeometries: [THREE.BufferGeometry | null, THREE.BufferGeometry | null] = [
+    null,
+    null,
+  ];
+  private lastUnits: readonly UnitInstance[] = [];
 
   /** Review switch: alternate owners so both castle designs are visible. */
   private sidePreview = false;
@@ -133,6 +139,13 @@ export class Scene3D implements View {
     void loadSideModels().then((models) => {
       if (!models[0] && !models[1]) return;
       this.models = models;
+      // The chess towers are the same castles, so they change with the file too.
+      for (const side of [0, 1] as const) {
+        this.towerGeometries[side]?.dispose();
+        this.towerGeometries[side] = null;
+      }
+      if (this.lastUnits.some((unit) => unit.role === 'tower')) this.setUnits(this.lastUnits);
+
       if (!this.buildings) return;
       for (const side of [0, 1] as const) {
         const geometry = models[side];
@@ -493,7 +506,25 @@ export class Scene3D implements View {
    * Rebuilds the chess pieces. There are at most thirty-two plus towers, and the
    * state changes once per move, so a full rebuild is cheaper than bookkeeping.
    */
+  /**
+   * A chess tower is a castle model scaled to sit inside a cell. Copied rather
+   * than scaled in place: the building game draws the same geometry at full size.
+   */
+  private towerGeometry(side: 0 | 1): THREE.BufferGeometry | null {
+    const model = this.models[side];
+    if (!model) return null;
+    const cached = this.towerGeometries[side];
+    if (cached) return cached;
+    const copy = towerFromCastle(model);
+    this.towerGeometries[side] = copy;
+    return copy;
+  }
+
   setUnits(units: readonly UnitInstance[]): void {
+    this.lastUnits = units;
+    // Chess never builds a city, so the castles are requested from here too — and
+    // a tower drawn before the file arrived is rebuilt by the loader callback.
+    if (units.some((unit) => unit.role === 'tower')) this.loadCustomModelOnce();
     for (const mesh of this.unitMeshes) {
       this.scene.remove(mesh);
       (mesh.material as THREE.Material).dispose();
@@ -513,10 +544,23 @@ export class Scene3D implements View {
     const matrix = new THREE.Matrix4();
     for (const list of groups.values()) {
       const first = list[0] as UnitInstance;
+      // A tower prefers the side's castle model; without one it falls back to the
+      // procedural drum, tinted per side so the two are still told apart.
+      const castle = first.role === 'tower' ? this.towerGeometry(first.side) : null;
+      const tint = castle ? buildingTint(first.side, MODEL_TINT_STRENGTH) : null;
       const material = new THREE.MeshLambertMaterial({
-        color: new THREE.Color(unitColour(first.role, first.side)),
+        // A tinted model keeps its own palette: only a light lean towards the
+        // owner's colour, the same rule the buildings follow.
+        color: tint
+          ? new THREE.Color(tint[0] / 255, tint[1] / 255, tint[2] / 255)
+          : new THREE.Color(unitColour(first.role, first.side)),
+        vertexColors: castle !== null,
       });
-      const mesh = new THREE.InstancedMesh(unitGeometry(first.role), material, list.length);
+      const mesh = new THREE.InstancedMesh(
+        castle ?? unitGeometry(first.role),
+        material,
+        list.length,
+      );
       mesh.castShadow = this.quality === 'high';
       list.forEach((unit, index) => {
         const { x, z } = cellToWorld(this.map, unit.cell);
@@ -925,6 +969,10 @@ export class Scene3D implements View {
       mesh.dispose();
     }
     this.unitMeshes = [];
+    for (const side of [0, 1] as const) {
+      this.towerGeometries[side]?.dispose();
+      this.towerGeometries[side] = null;
+    }
     for (const mesh of this.hintMeshes) {
       this.scene.remove(mesh);
       (mesh.material as THREE.Material).dispose();
