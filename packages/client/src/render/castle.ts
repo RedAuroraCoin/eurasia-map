@@ -213,14 +213,18 @@ function buildBastion(palette: Palette): THREE.BufferGeometry[] {
 }
 
 /**
- * A chess tower is the same castle, sized to fill one cell. Copied rather than
- * scaled in place, because the building game draws the original at its own scale.
+ * A chess tower is the same castle, made tall and narrow: two thirds of a cell
+ * across, taller than the tallest piece, so a fortification reads as a landmark
+ * and leaves the squares beside it free. The model is stretched rather than cut,
+ * which is the price of keeping one set of castles for both modes.
  */
-export const TOWER_SCALE = 1.0;
+export const TOWER_WIDTH = 0.6;
+/** Above 1.7 the tower overtops the tallest piece (the king, at 1.63). */
+export const TOWER_HEIGHT = 1.75;
 
 export function towerFromCastle(model: THREE.BufferGeometry): THREE.BufferGeometry {
   const copy = model.clone();
-  copy.scale(TOWER_SCALE, TOWER_SCALE, TOWER_SCALE);
+  copy.scale(TOWER_WIDTH, TOWER_HEIGHT, TOWER_WIDTH);
   copy.computeBoundingBox();
   copy.computeBoundingSphere();
   return copy;

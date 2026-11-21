@@ -61,6 +61,12 @@ export interface View {
 }
 
 const FOV = 36;
+/**
+ * A garrisoned piece stands in the tower's cell, and the tower now overtops it.
+ * Nudging the piece towards the viewer keeps it visible without moving the cell
+ * it actually occupies.
+ */
+const GARRISON_OFFSET = 0.22;
 /** The sea plane is larger than the board so the horizon is water, not a cut edge. */
 const SEA_SCALE = 3.5;
 
@@ -541,6 +547,7 @@ export class Scene3D implements View {
       else groups.set(key, [unit]);
     }
 
+    const towers = new Set(units.filter((unit) => unit.role === 'tower').map((unit) => unit.cell));
     const matrix = new THREE.Matrix4();
     for (const list of groups.values()) {
       const first = list[0] as UnitInstance;
@@ -565,7 +572,12 @@ export class Scene3D implements View {
       list.forEach((unit, index) => {
         const { x, z } = cellToWorld(this.map, unit.cell);
         const ground = elevationToHeight(this.map.elev[unit.cell] ?? 0, this.relief);
-        matrix.makeTranslation(x, ground, z);
+        const inside = unit.role !== 'tower' && towers.has(unit.cell);
+        matrix.makeTranslation(
+          inside ? x + GARRISON_OFFSET : x,
+          ground,
+          inside ? z + GARRISON_OFFSET : z,
+        );
         mesh.setMatrixAt(index, matrix);
       });
       mesh.instanceMatrix.needsUpdate = true;

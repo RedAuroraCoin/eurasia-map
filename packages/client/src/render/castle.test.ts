@@ -2,7 +2,13 @@ import { readFileSync } from 'node:fs';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
-import { type CastleVariant, TOWER_SCALE, createCastleGeometry, towerFromCastle } from './castle';
+import {
+  type CastleVariant,
+  TOWER_HEIGHT,
+  TOWER_WIDTH,
+  createCastleGeometry,
+  towerFromCastle,
+} from './castle';
 import { mergeObject, normalizeToUnitBox } from './model';
 import { unitColour } from './pieces';
 
@@ -67,7 +73,7 @@ describe.each(VARIANTS)('castle geometry (%s)', (variant) => {
  * same geometry at full size, so the tower has to be a copy.
  */
 describe('chess towers', () => {
-  it('sizes a castle to a cell and leaves the original alone', () => {
+  it('makes a castle tall and narrow, and leaves the original alone', () => {
     const keep = createCastleGeometry('keep');
     keep.computeBoundingBox();
     const original = keep.boundingBox?.clone();
@@ -78,15 +84,20 @@ describe('chess towers', () => {
     const box = tower.boundingBox;
     if (!box) throw new Error('no tower bounds');
 
-    expect(box.max.x - box.min.x).toBeCloseTo((original.max.x - original.min.x) * TOWER_SCALE, 5);
-    expect(box.max.x - box.min.x).toBeLessThanOrEqual(TOWER_SCALE + 0.02);
-    expect(box.max.y).toBeLessThanOrEqual(TOWER_SCALE + 0.02);
+    expect(box.max.x - box.min.x).toBeCloseTo((original.max.x - original.min.x) * TOWER_WIDTH, 5);
+    expect(box.max.y).toBeCloseTo(original.max.y * TOWER_HEIGHT, 5);
+
+    // Narrower than a cell and taller than any piece, which is the point.
+    expect(box.max.x - box.min.x).toBeLessThanOrEqual(TOWER_WIDTH + 0.02);
+    expect(box.max.x - box.min.x).toBeLessThan(0.74);
+    expect(box.max.y).toBeCloseTo(TOWER_HEIGHT, 1);
+    expect(box.max.y).toBeGreaterThan(1.63);
     expect(box.min.y).toBeCloseTo(0, 5);
 
-    // The source is untouched: the tower is exactly the source at TOWER_SCALE.
+    // The source is untouched: the city still gets its own castle back.
     keep.computeBoundingBox();
     expect(keep.boundingBox?.max.y).toBeCloseTo(original.max.y, 5);
-    expect(box.max.y).toBeCloseTo(original.max.y * TOWER_SCALE, 5);
+    expect(keep.boundingBox?.max.y).toBeLessThan(TOWER_HEIGHT);
   });
 
   it('gives each side its own model, and both fit inside a cell', async () => {
@@ -118,9 +129,9 @@ describe('chess towers', () => {
       }
       digests.push(Math.round(digest * 1000));
 
-      expect(box.max.x - box.min.x).toBeLessThanOrEqual(TOWER_SCALE + 0.01);
-      expect(box.max.z - box.min.z).toBeLessThanOrEqual(TOWER_SCALE + 0.01);
-      expect(box.max.y).toBeLessThanOrEqual(TOWER_SCALE + 0.01);
+      expect(box.max.x - box.min.x).toBeLessThanOrEqual(TOWER_WIDTH + 0.01);
+      expect(box.max.z - box.min.z).toBeLessThanOrEqual(TOWER_WIDTH + 0.01);
+      expect(box.max.y).toBeLessThanOrEqual(TOWER_HEIGHT + 0.01);
       expect(box.min.y).toBeCloseTo(0, 3);
     }
 
