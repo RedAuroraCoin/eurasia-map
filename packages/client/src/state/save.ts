@@ -44,12 +44,11 @@ function parseCell(raw: unknown): CellState | null {
   // v2 saves have no health: a tower that survived the format change is intact.
   const max = BALANCE.hurricane.cellHp;
   const health = isFiniteNumber(hp) ? Math.max(0, Math.min(max, Math.floor(hp))) : max;
-  // v4 adds water. A save from before flooding is simply dry.
-  const savedWater = (raw as { water?: unknown }).water;
-  const water = isFiniteNumber(savedWater)
-    ? Math.max(0, Math.min(BALANCE.flood.maxLevel, savedWater))
-    : undefined;
-  return water === undefined ? { o, t, hp: health } : { o, t, hp: health, water };
+  // v5 replaced the per-cell water column with a local storm surge measured in
+  // metres. A v4 save's water is dropped: the map simply starts dry.
+  const savedSurge = (raw as { surge?: unknown }).surge;
+  const surge = isFiniteNumber(savedSurge) ? Math.max(0, Math.round(savedSurge)) : undefined;
+  return surge === undefined ? { o, t, hp: health } : { o, t, hp: health, surge };
 }
 
 /**
@@ -114,6 +113,11 @@ export function parseState(raw: unknown): GameState | null {
 
   const kings = parseKings(raw.kings) ?? deriveKings(parsedCells);
 
+  // v5 adds a global sea level. A save from before it starts at the ocean.
+  const seaLevel = isFiniteNumber(raw.seaLevel)
+    ? Math.round(Math.max(BALANCE.flood.startLevel, Math.min(BALANCE.flood.maxLevel, raw.seaLevel)))
+    : BALANCE.flood.startLevel;
+
   return {
     v: SAVE_VERSION,
     seed,
@@ -122,6 +126,7 @@ export function parseState(raw: unknown): GameState | null {
     claimed: parsedClaimed,
     lastDay,
     kings,
+    seaLevel,
   };
 }
 

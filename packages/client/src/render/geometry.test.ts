@@ -15,6 +15,7 @@ const ctx = (nowMs: number) => ({
   isLand: (cell: number) => getMap(500).mask[cell] === '#',
   cellCount: getMap(500).rows * getMap(500).cols,
   cols: getMap(500).cols,
+  elev: getMap(500).elev,
 });
 
 function claimedState(cells: number[]) {
@@ -147,28 +148,31 @@ describe('buildBuildings', () => {
     expect(day60).toBeCloseTo(day30, 6);
   });
 
-  it('sinks a tower as the water rises, to a stub just before it drowns', () => {
+  it('stops drawing the ground the sea has taken, and keeps the high ground', () => {
+    const map500 = getMap(500);
+    const low = map500.elev.findIndex((e, i) => map500.mask[i] === '#' && e < 400);
+    const high = map500.elev.findIndex((e, i) => map500.mask[i] === '#' && e > 4500);
+    expect(low).toBeGreaterThanOrEqual(0);
+    expect(high).toBeGreaterThanOrEqual(0);
+
+    const dry = buildTerrain(map500, true, {}, 0);
+    const risen = buildTerrain(map500, true, {}, 600);
+
+    expect(dry.some((cell) => cell.index === low)).toBe(true);
+    expect(risen.some((cell) => cell.index === low)).toBe(false);
+    expect(risen.some((cell) => cell.index === high)).toBe(true);
+    // The board genuinely loses cells as the level climbs.
+    expect(risen.length).toBeLessThan(dry.length);
+  });
+
+  it('does not draw a building the sea has taken', () => {
     const [cell] = landCells(1) as [number];
     const base = claimedState([cell]);
-    // Fully grown, so growth does not muddy the comparison.
-    const grownAt = T0 + 60 * MS_PER_DAY;
-    const at = (water: number): number => {
-      const state = {
-        ...base,
-        cells: { [String(cell)]: { ...base.cells[String(cell)]!, water } },
-      };
-      return buildBuildings(map, state, grownAt, true)[0]?.height ?? 0;
-    };
+    const ground = map.elev[cell] ?? 0;
+    const now = T0 + 60 * MS_PER_DAY;
 
-    const dry = at(0);
-    const half = at(BALANCE.flood.maxLevel / 2);
-    const nearly = at(BALANCE.flood.maxLevel - 1);
-
-    expect(dry).toBeGreaterThan(0);
-    expect(half).toBeLessThan(dry);
-    expect(nearly).toBeLessThan(half);
-    // Never below the floor: even swamped, something is still drawn.
-    expect(nearly).toBeGreaterThan(0);
+    expect(buildBuildings(map, base, now, true, ground).length).toBe(1);
+    expect(buildBuildings(map, base, now, true, ground + 1).length).toBe(0);
   });
 
   it('ignores claimed cells that are not land', () => {

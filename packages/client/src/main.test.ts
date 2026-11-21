@@ -130,6 +130,8 @@ describe('single-player shell', () => {
     expect(document.querySelector('.stats')?.textContent).toContain(
       String(BALANCE.claim.startCoins),
     );
+    // The sea is the late-game clock: it starts at the level in the balance file.
+    expect(document.querySelector('.sea-stat .stat-value')?.textContent).toBe('0 m');
     expect(drawCalls).toContain('fillRect');
   });
 

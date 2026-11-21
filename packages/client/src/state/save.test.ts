@@ -31,6 +31,7 @@ function withCells(count: number) {
     isLand: (index: number) => map.mask[index] === '#',
     cellCount: map.mask.length,
     cols: map.cols,
+    elev: map.elev,
   };
   // The king builds one step at a time, so claims follow a walk, not index order.
   let start = 0;
@@ -161,6 +162,26 @@ describe('migrate', () => {
   it('accepts the current version', () => {
     const state = withCells(1);
     expect(migrate(state)).toEqual({ state });
+  });
+
+  it('gives a v4 save a sea level and drops the per-cell water column', () => {
+    const state = withCells(1);
+    const key = Object.keys(state.cells)[0] as string;
+    const cell = state.cells[key] as { o: 0 | 1; t: number; hp: number };
+    // A v4 save: no seaLevel, and water measured in percent per cell.
+    const v4 = {
+      ...state,
+      v: 4,
+      cells: { [key]: { ...cell, water: 55 } },
+    } as unknown as Record<string, unknown>;
+    delete v4.seaLevel;
+
+    const result = migrate(v4);
+    if ('error' in result) throw new Error(result.error);
+
+    expect(result.state.seaLevel).toBe(BALANCE.flood.startLevel);
+    expect(result.state.cells[key]?.surge).toBeUndefined();
+    expect(result.state.cells[key]?.hp).toBe(cell.hp);
   });
 
   it('refuses versions it cannot understand', () => {

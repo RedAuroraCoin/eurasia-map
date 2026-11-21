@@ -532,6 +532,7 @@ export class Room {
       isLand: (cell: number) => cell >= 0 && cell < map.mask.length && map.mask[cell] === '#',
       cellCount: map.rows * map.cols,
       cols: map.cols,
+      elev: map.elev,
     };
   }
 

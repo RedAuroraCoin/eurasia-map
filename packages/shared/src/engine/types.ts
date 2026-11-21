@@ -3,7 +3,7 @@
  * together with a migration in the client and in the room. Protocol versioning
  * is separate: they change for different reasons.
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** Who owns a cell. Single-player uses slot 0 only. */
 export type Slot = 0 | 1;
@@ -16,11 +16,11 @@ export interface CellState {
   /** Hit points. Storms damage a tower before they level it. */
   readonly hp: number;
   /**
-   * Water level, 0..100. Absent means 0 — keeping it optional keeps saves of a
-   * dry map exactly as small as they were before flooding existed.
-   * At `BALANCE.flood.maxLevel` the cell drowns and is lost.
+   * Extra water the sea already has at this cell, in metres, on top of the
+   * global level: a hurricane surge. Absent means none, which keeps a cell that
+   * was never hit out of the save.
    */
-  readonly water?: number;
+  readonly surge?: number;
 }
 
 /**
@@ -45,6 +45,12 @@ export interface GameState {
    * away from it. Only the king builds.
    */
   readonly kings: readonly [number, number];
+  /**
+   * Global sea level, metres. Rises with time; a cell drowns when the ground
+   * under it is lower than this (plus any local storm surge). Elevation is what
+   * decides the endgame: the lowlands go first, the plateau last.
+   */
+  readonly seaLevel: number;
 }
 
 export type Command =
@@ -60,6 +66,7 @@ export type Command =
 export type ErrorCode =
   | 'out_of_bounds'
   | 'sea'
+  | 'flooded'
   | 'taken'
   | 'already_owned'
   | 'not_owned'
@@ -87,11 +94,11 @@ export type GameEvent =
     }
   | {
       readonly t: 'flood';
-      /** Cells that rose but survived. */
-      readonly risen: number;
-      /** Cells that reached the maximum and were lost to the sea. */
+      /** The sea level after this settlement, metres. */
+      readonly level: number;
+      /** Owned cells that went under and were lost. */
       readonly destroyed: number;
-      /** Surviving risers per slot. */
+      /** Drowned cells per slot. */
       readonly bySlot: readonly [number, number];
     }
   | {
@@ -129,6 +136,11 @@ export interface Ctx {
   readonly cellCount: number;
   /** Grid width, needed to know which cells are neighbours without wrapping rows. */
   readonly cols: number;
+  /**
+   * Ground height per cell, metres. The reducer needs it to drown and to refuse
+   * a claim below the waterline, so it is part of the context, not of the state.
+   */
+  readonly elev: readonly number[];
   /**
    * Whether the daily water rise applies. Undefined means yes: the rules are on
    * unless a caller (the single-player settings) explicitly turns them off.

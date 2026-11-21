@@ -98,6 +98,7 @@ export class Scene3D implements View {
   private night = 0;
   private stormPlans: readonly StormPlan[] = [];
   private water: THREE.Mesh | null = null;
+  private seaLevel = 0;
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
   private hoverRing: THREE.LineSegments | null = null;
@@ -259,7 +260,7 @@ export class Scene3D implements View {
     });
 
     this.water = new THREE.Mesh(geometry, material);
-    this.water.position.y = 0;
+    this.water.position.y = this.seaSurface();
     this.water.receiveShadow = false;
     this.scene.add(this.water);
   }
@@ -295,7 +296,7 @@ export class Scene3D implements View {
       this.glow = null;
     }
 
-    const cells = buildTerrain(this.map, this.relief, this.state?.cells ?? {});
+    const cells = buildTerrain(this.map, this.relief, this.state?.cells ?? {}, this.seaLevel);
     this.terrainCells = cells.map((cell) => cell.index);
 
     const geometry = new THREE.BoxGeometry(1, 1, 1);
@@ -482,15 +483,35 @@ export class Scene3D implements View {
   setState(state: GameState, now: number): void {
     const previous = this.state;
     this.state = state;
-    if (!previous || Object.keys(previous.cells).length !== Object.keys(state.cells).length) {
+    // Terrain below the waterline is not drawn, so a rise changes which cells
+    // exist at all: that is a rebuild, not a recolour.
+    const risen = state.seaLevel !== this.seaLevel;
+    this.seaLevel = state.seaLevel;
+    if (risen) {
+      this.rebuildTerrain();
+      if (this.water) this.water.position.y = this.seaSurface();
+    } else if (
+      !previous ||
+      Object.keys(previous.cells).length !== Object.keys(state.cells).length
+    ) {
       this.rebuildTerrainColors();
     }
     this.updateBuildings(state, now, true);
   }
 
+  /**
+   * Height of the sea surface for the current level. Mapped through the same
+   * exaggeration as the land so the plane sits on the contour it is drowning,
+   * and offset so level 0 leaves the water exactly where it has always been.
+   */
+  private seaSurface(): number {
+    const flat = elevationToHeight(0, this.relief);
+    return elevationToHeight(this.seaLevel, this.relief) - flat;
+  }
+
   private rebuildTerrainColors(): void {
     if (!this.terrain) return;
-    const cells = buildTerrain(this.map, this.relief, this.state?.cells ?? {});
+    const cells = buildTerrain(this.map, this.relief, this.state?.cells ?? {}, this.seaLevel);
     const color = new THREE.Color();
     cells.forEach((cell, i) => {
       color.setRGB(...unitColor(cell.color), THREE.SRGBColorSpace);
@@ -652,6 +673,7 @@ export class Scene3D implements View {
       v: 1,
       seed: 0,
       cells: {},
+      seaLevel: 0,
       coins: [0, 0],
       claimed: [0, 0],
       lastDay: 0,

@@ -11,6 +11,8 @@ const ctx = (nowMs: number, sea: readonly number[] = []): Ctx => ({
   isLand: (cell) => cell >= 0 && cell < 100 && !sea.includes(cell),
   cellCount: 100,
   cols: 10,
+  // Flat, high ground: these tests are about the rules, not the relief.
+  elev: Array.from({ length: 100 }, () => 3000),
 });
 
 const claim = (state: GameState, cell: number, nowMs = T0, slot: 0 | 1 = 0) =>

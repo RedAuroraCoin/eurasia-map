@@ -85,8 +85,6 @@ export interface BuildingInstance {
   readonly scale: number;
   /** 0..1 of full hit points; the scene darkens a battered tower. */
   readonly health: number;
-  /** 0..1 of the flood maximum; a swamped tower sinks into the sea. */
-  readonly water: number;
 }
 
 const mix = (a: Rgb, b: Rgb, k: number): Rgb => [
@@ -100,12 +98,16 @@ export function buildTerrain(
   map: MapEntry,
   relief: boolean,
   cells: Readonly<Record<string, { readonly o: number }>> = {},
+  seaLevel = 0,
 ): TerrainInstance[] {
   const out: TerrainInstance[] = [];
   for (let index = 0; index < map.rows * map.cols; index++) {
     if (map.mask[index] !== '#') continue;
     const { x, z } = cellToWorld(map, index);
     const elevation = map.elev[index] ?? 0;
+    // Land under the waterline is sea now: it is not drawn, so the board
+    // genuinely loses cells as the level climbs.
+    if (elevation < seaLevel) continue;
     const height = elevationToHeight(elevation, relief);
     const base = landColor(elevation);
     const color = cells[String(index)] ? mix(base, OWNER_TINT, OWNER_MIX) : base;
@@ -138,6 +140,7 @@ export function buildBuildings(
   state: GameState,
   now: number,
   relief: boolean,
+  seaLevel = state.seaLevel,
 ): BuildingInstance[] {
   const out: BuildingInstance[] = [];
   for (const key of Object.keys(state.cells)) {
@@ -145,6 +148,8 @@ export function buildBuildings(
     const cell = state.cells[key];
     if (!cell || !Number.isInteger(index) || index < 0 || index >= map.rows * map.cols) continue;
     if (map.mask[index] !== '#') continue;
+    // A cell the sea has taken has no building left to draw.
+    if ((map.elev[index] ?? 0) < seaLevel) continue;
 
     const { x, z } = cellToWorld(map, index);
     const ground = elevationToHeight(map.elev[index] ?? 0, relief);
@@ -153,11 +158,7 @@ export function buildBuildings(
     // storey, down to 45 % of its height at the last hit point.
     const health = Math.max(0, Math.min(1, cell.hp / BALANCE.hurricane.cellHp));
     const battered = 0.45 + 0.55 * health;
-    // Water does not just damage: it swallows. At the maximum the cell is gone,
-    // so the last visible state before that is a stub barely above the surface.
-    const water = Math.max(0, Math.min(1, (cell.water ?? 0) / BALANCE.flood.maxLevel));
-    const swamped = 1 - 0.8 * water;
-    const scale = grown * popScale(cell.t, now) * battered * swamped;
+    const scale = grown * popScale(cell.t, now) * battered;
     const height = Math.max(0.02, BUILDING_MAX * scale);
 
     out.push({
@@ -169,7 +170,6 @@ export function buildBuildings(
       width: BUILDING_FOOTPRINT * CELL,
       scale: grown,
       health,
-      water,
     });
   }
   return out.sort((a, b) => a.index - b.index);

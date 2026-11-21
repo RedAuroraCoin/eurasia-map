@@ -14,6 +14,7 @@ export function createInitialState(seed: number, nowMs: number): GameState {
     claimed: [0, 0],
     lastDay: dayIndex(nowMs),
     kings: [-1, -1],
+    seaLevel: BALANCE.flood.startLevel,
   };
 }
 
@@ -74,11 +75,15 @@ export function accrue(state: GameState, nowMs: number): { state: GameState; eve
 }
 
 /**
- * Daily flooding: every owned cell takes on water, loses a little health to it,
- * and is lost to the sea at the maximum.
+ * The sea rises with time and takes whatever ground lies below it.
+ *
+ * Elevation alone decides, which is the point of the mechanic: at 50 m a day
+ * the lowlands go in the first weeks, and the plateau is what is left at the
+ * end. A hurricane adds a local surge on top of the global level, so the cells
+ * it hits drown earlier than their neighbours on the same contour.
  *
  * Deliberately part of the day settlement rather than a separate command: the
- * room and the browser then cannot disagree about whether today's rise has been
+ * room and the browser then cannot disagree about whether today's rise was
  * applied, because both settle through the same `lastDay`.
  */
 export function applyFlood(
@@ -87,45 +92,48 @@ export function applyFlood(
   ctx: Ctx,
 ): { state: GameState; events: GameEvent[] } {
   const rules = BALANCE.flood;
-  const rise = rules.baseRisePerDay * days;
-  if (ctx.flood === false || days <= 0 || rise <= 0) return { state, events: [] };
+  if (ctx.flood === false || days <= 0) return { state, events: [] };
+
+  const level = Math.min(rules.maxLevel, state.seaLevel + Math.round(rules.metresPerDay * days));
+  if (level <= state.seaLevel) return { state, events: [] };
 
   const cells: Record<string, CellState> = { ...state.cells };
   const claimed: [number, number] = [state.claimed[0], state.claimed[1]];
   const kings: [number, number] = [state.kings[0], state.kings[1]];
   const bySlot: [number, number] = [0, 0];
-  const damage = Math.round(rise * rules.damagePerLevel);
-  let risen = 0;
   let destroyed = 0;
 
   for (const [k, cell] of Object.entries(state.cells)) {
-    const water = Math.min(rules.maxLevel, (cell.water ?? 0) + rise);
+    const index = Number(k);
+    if (!isUnderWater(index, cell, level, ctx)) continue;
 
-    if (water >= rules.maxLevel) {
-      delete cells[k];
-      claimed[cell.o] = Math.max(0, claimed[cell.o] - 1);
-      destroyed++;
-      // Same rule as a destroyed tower: the king steps to an owned neighbour,
-      // and the capital is gone only when there is nowhere to step.
-      if (kings[cell.o] === Number(k)) {
-        const fallback = kingMoves(Number(k), ctx).find(
-          (neighbour) => cells[key(neighbour)]?.o === cell.o,
-        );
-        kings[cell.o] = fallback ?? -1;
-      }
-      continue;
-    }
-
-    const hp = Math.max(0, cell.hp - damage);
-    cells[k] = hp > 0 ? { ...cell, water, hp } : { ...cell, water };
+    delete cells[k];
+    claimed[cell.o] = Math.max(0, claimed[cell.o] - 1);
     bySlot[cell.o] += 1;
-    risen++;
+    destroyed++;
+
+    // Same rule as a levelled tower: the king steps to an owned neighbour, and
+    // the capital is gone only when there is nowhere left to step.
+    if (kings[cell.o] === index) {
+      const fallback = kingMoves(index, ctx).find((n) => cells[key(n)]?.o === cell.o);
+      kings[cell.o] = fallback ?? -1;
+    }
   }
 
-  if (risen === 0 && destroyed === 0) return { state, events: [] };
+  const events: GameEvent[] = destroyed > 0 ? [{ t: 'flood', level, destroyed, bySlot }] : [];
+  return { state: { ...state, seaLevel: level, cells, claimed, kings }, events };
+}
 
-  const events: GameEvent[] = [{ t: 'flood', risen, destroyed, bySlot }];
-  return { state: { ...state, cells, claimed, kings }, events };
+/** Ground below the water at this cell: the global level plus any storm surge. */
+function isUnderWater(
+  index: number,
+  cell: CellState | undefined,
+  level: number,
+  ctx: Ctx,
+): boolean {
+  const ground = ctx.elev[index];
+  if (ground === undefined) return false;
+  return ground < level + (cell?.surge ?? 0);
 }
 
 function reject(
@@ -165,6 +173,10 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
       }
       if (!ctx.isLand(cell)) {
         return reject(s, 'sea', events, cell);
+      }
+      // Land that the sea has already taken is not land you can build on.
+      if ((ctx.elev[cell] ?? Infinity) < s.seaLevel) {
+        return reject(s, 'flooded', events, cell);
       }
       const existing = s.cells[key(cell)];
       if (existing !== undefined) {
@@ -208,18 +220,20 @@ export function reduce(state: GameState, cmd: Command, ctx: Ctx): Result {
       let hits = 0;
       let destroyed = 0;
 
-      const maxWater = BALANCE.flood.maxLevel;
       for (const cell of cmd.cells) {
         const existing = cells[key(cell)];
         if (existing === undefined) continue;
         hits++;
         bySlot[existing.o] += 1;
         const hp = Math.max(0, existing.hp - damage);
-        // A hurricane is also a storm surge: it pushes water inland.
-        const water = Math.min(maxWater, (existing.water ?? 0) + BALANCE.flood.stormBonus);
+        // A hurricane is also a storm surge, and the surge is local: it lifts
+        // the water at this cell only, so a low cell can go under even while
+        // its tower still has hit points left.
+        const surge = (existing.surge ?? 0) + BALANCE.flood.stormSurge;
+        const drowned = isUnderWater(cell, { ...existing, surge }, s.seaLevel, ctx);
 
-        if (hp > 0 && water < maxWater) {
-          cells[key(cell)] = { ...existing, hp, water };
+        if (hp > 0 && !drowned) {
+          cells[key(cell)] = { ...existing, hp, surge };
           events.push({ t: 'damaged', cell, hp, destroyed: false });
           continue;
         }

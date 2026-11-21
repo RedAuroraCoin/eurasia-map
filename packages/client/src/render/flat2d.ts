@@ -1,4 +1,11 @@
-import { cellColor, cssRgb, type GameState, type MapEntry, type StormPlan } from '@eurasia/shared';
+import {
+  cellColor,
+  cssRgb,
+  seaColor,
+  type GameState,
+  type MapEntry,
+  type StormPlan,
+} from '@eurasia/shared';
 import { buildBuildings, ownerTint } from './geometry';
 import type { View } from './scene3d';
 import type { Lighting } from './palette';
@@ -106,10 +113,14 @@ export class Flat2D implements View {
     const oy = Math.floor((height - cell * map.rows) / 2);
     this.layout = { cell, ox, oy };
 
+    // Land the sea has taken is drawn as sea: the same rule the 3D view uses to
+    // stop drawing the plate, so both views lose the same cells.
+    const seaLevel = this.state?.seaLevel ?? 0;
     for (let row = 0; row < map.rows; row++) {
       for (let col = 0; col < map.cols; col++) {
         const index = row * map.cols + col;
-        ctx.fillStyle = cssRgb(cellColor(map, index));
+        const drowned = map.mask[index] === '#' && (map.elev[index] ?? 0) < seaLevel;
+        ctx.fillStyle = cssRgb(drowned ? seaColor(-40) : cellColor(map, index));
         ctx.fillRect(ox + col * cell, oy + row * cell, cell, cell);
       }
     }

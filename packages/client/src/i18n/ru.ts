@@ -5,6 +5,10 @@ import type { Dict } from './en';
  * because it proves the design: one file per language, type-checked against the
  * English dictionary, no code changes needed to switch.
  */
+/** Sea levels run to four digits, so they get a thousands separator. */
+const formatMetres = (value: number): string =>
+  new Intl.NumberFormat('ru-RU').format(Math.round(value));
+
 export const ru: Dict = {
   app: {
     title: 'Карта Евразии',
@@ -15,6 +19,8 @@ export const ru: Dict = {
     income: 'Доход',
     perDay: (n: number) => `+${n} в день`,
     cells: 'Клетки',
+    sea: 'Море',
+    seaLevel: (metres: number) => `${formatMetres(metres)} м`,
     progress: (claimed: number, total: number) => `${claimed} / ${total}`,
     settings: 'Настройки',
     open: 'Настройки',
@@ -73,6 +79,7 @@ export const ru: Dict = {
     noCoins: (need: number, have: number) => `Не хватает монет: нужно ${need}, у тебя ${have}`,
     taken: 'Эта клетка уже занята',
     sea: 'В море строить нельзя',
+    flooded: 'Эта клетка уже под водой',
     failed: 'Не получилось — попробуй ещё раз',
     income: (amount: number, days: number) =>
       days === 1 ? `Начислено ${amount} монет за день` : `Начислено ${amount} монет за ${days} дн.`,
@@ -90,10 +97,10 @@ export const ru: Dict = {
         : `Ураган: повреждено ${hits}`,
     roomSizeLocked: 'В комнате карта и правила зафиксированы',
     roomsUnavailable: 'Комнатам нужен игровой сервер — в статической сборке его нет',
-    flood: (risen: number, destroyed: number) =>
+    flood: (level: number, destroyed: number) =>
       destroyed > 0
-        ? `Затопление: ${destroyed} клеток ушло под воду, вода поднимается в ${risen}`
-        : `Затопление: вода поднимается в ${risen} клетках`,
+        ? `Затопление: уровень моря ${level} м, ${destroyed} клеток ушло под воду`
+        : `Затопление: уровень моря ${level} м`,
     waitingOpponent: 'Ожидание соперника…',
     opponentConnected: 'Соперник подключился',
     opponentDisconnected: 'Соперник отключился',

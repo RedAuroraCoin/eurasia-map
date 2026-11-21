@@ -65,14 +65,17 @@ export const BalanceSchema = z.object({
 
   flood: z.object({
     enabledByDefault: z.boolean(),
-    /** Base water rise per in-game day per cell (0..100). */
-    baseRisePerDay: z.number().min(0).max(100),
-    /** Additional rise when a hurricane hits the cell. */
-    stormBonus: z.number().min(0).max(100),
-    /** Maximum water level (100 = fully flooded). */
-    maxLevel: z.number().int().positive().max(100),
-    /** Building HP loss per 1 % of water rise. */
-    damagePerLevel: z.number().min(0).max(1),
+    /** Sea level when a game starts, metres above the ocean. */
+    startLevel: z.number().min(0).max(9000),
+    /** How far the sea climbs per in-game day, metres. */
+    metresPerDay: z.number().min(0).max(1000),
+    /**
+     * A hurricane lifts the water at the cells it hits, not the whole sea:
+     * a low cell can drown long before the level would have reached it.
+     */
+    stormSurge: z.number().min(0).max(3000),
+    /** The sea stops here, so the last cells standing are the highest ones. */
+    maxLevel: z.number().int().positive().max(9000),
   }),
 });
 
@@ -125,10 +128,10 @@ const RAW = {
 
   flood: {
     enabledByDefault: true,
-    baseRisePerDay: 0.5,
-    stormBonus: 15,
-    maxLevel: 100,
-    damagePerLevel: 0.2,
+    startLevel: 0,
+    metresPerDay: 50,
+    stormSurge: 150,
+    maxLevel: 5200,
   },
 } as const;
 

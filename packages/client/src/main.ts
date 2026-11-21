@@ -176,6 +176,7 @@ const ctx = () => ({
   isLand: (index: number) => map.mask[index] === '#',
   cellCount: map.rows * map.cols,
   cols: map.cols,
+  elev: map.elev,
   flood: settings.flood,
 });
 
@@ -208,6 +209,7 @@ function firstLand(): number {
 function updateStats(): void {
   const current = active();
   const perCell = BALANCE.income.perCellPerDay;
+  app.updateSea(current.seaLevel);
   if (mp) {
     app.updateMultiStats(
       current.coins[0],
@@ -230,6 +232,8 @@ function describeError(code: string): string {
       return t.messages.noCoins(BALANCE.claim.cost, active().coins[0]);
     case 'sea':
       return t.messages.sea;
+    case 'flooded':
+      return t.messages.flooded;
     case 'taken':
     case 'already_owned':
       return t.messages.taken;
@@ -307,7 +311,7 @@ function settle(): void {
   const flood = result.events.find((event) => event.t === 'flood');
   if (flood && flood.t === 'flood') {
     app.setMessage(
-      t.messages.flood(flood.risen, flood.destroyed),
+      t.messages.flood(flood.level, flood.destroyed),
       flood.destroyed > 0 ? 'error' : 'info',
     );
   }
@@ -369,6 +373,7 @@ function buildDemoState(): GameState {
     v: SAVE_VERSION,
     seed: 1,
     cells,
+    seaLevel: BALANCE.flood.startLevel,
     coins: [0, 0],
     claimed: [claimed, 0],
     lastDay: dayIndex(now),
@@ -539,7 +544,7 @@ function sayEvents(events: readonly GameEvent[]): void {
     if (event.t === 'claimed') app.setMessage(t.messages.claimed(event.cost), 'good');
     if (event.t === 'unclaimed') app.setMessage(t.messages.unclaimed(event.refund), 'good');
     if (event.t === 'moved') app.setMessage(t.messages.moved, 'info');
-    if (event.t === 'flood') app.setMessage(t.messages.flood(event.risen, event.destroyed), 'info');
+    if (event.t === 'flood') app.setMessage(t.messages.flood(event.level, event.destroyed), 'info');
     if (event.t === 'storm' && event.hits > 0) {
       app.setMessage(
         t.messages.storm(event.hits, event.destroyed),

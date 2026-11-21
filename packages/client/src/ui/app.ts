@@ -36,6 +36,7 @@ export class App {
   private readonly coinsEl: HTMLElement;
   private readonly incomeEl: HTMLElement;
   private readonly cellsEl: HTMLElement;
+  private readonly seaEl: HTMLElement;
   private readonly oppCoinsEl: HTMLElement;
   private readonly oppIncomeEl: HTMLElement;
   private readonly oppCellsEl: HTMLElement;
@@ -110,6 +111,7 @@ export class App {
     this.coinsEl = h('strong', { class: 'stat-value', text: '—' });
     this.incomeEl = h('strong', { class: 'stat-value muted', text: '—' });
     this.cellsEl = h('strong', { class: 'stat-value', text: '—' });
+    this.seaEl = h('strong', { class: 'stat-value', text: '—' });
     this.oppCoinsEl = h('strong', { class: 'stat-value', text: '—' });
     this.oppIncomeEl = h('strong', { class: 'stat-value muted', text: '—' });
     this.oppCellsEl = h('strong', { class: 'stat-value', text: '—' });
@@ -152,6 +154,14 @@ export class App {
         { class: 'stat opponent-stat' },
         h('span', { class: 'stat-label', text: '' }),
         this.oppCellsEl,
+      ),
+      // Last on purpose: updateMultiStats addresses the four labels above by
+      // index, so a stat inserted before them would rename the wrong ones.
+      h(
+        'div',
+        { class: 'stat sea-stat' },
+        h('span', { class: 'stat-label', text: t.panel.sea }),
+        this.seaEl,
       ),
     );
 
@@ -350,6 +360,11 @@ export class App {
 
   mount(parent: HTMLElement): void {
     parent.replaceChildren(this.root);
+  }
+
+  /** The sea is the clock of the late game: it has to be readable at a glance. */
+  updateSea(level: number): void {
+    this.seaEl.textContent = t.panel.seaLevel(level);
   }
 
   updateStats(coins: number, income: number, claimed: number, total: number): void {

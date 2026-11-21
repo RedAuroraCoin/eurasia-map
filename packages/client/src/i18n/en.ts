@@ -3,6 +3,10 @@
  * dictionary *shape*: `Dict` is inferred from it, so any other language file is
  * type-checked against these exact keys and signatures and cannot silently drift.
  */
+/** Sea levels run to four digits, so they get a thousands separator. */
+const formatMetres = (value: number): string =>
+  new Intl.NumberFormat('en-US').format(Math.round(value));
+
 export const en = {
   app: {
     title: 'Eurasia Map',
@@ -13,6 +17,8 @@ export const en = {
     income: 'Income',
     perDay: (n: number) => `+${n} / day`,
     cells: 'Cells',
+    sea: 'Sea',
+    seaLevel: (metres: number) => `${formatMetres(metres)} m`,
     progress: (claimed: number, total: number) => `${claimed} / ${total}`,
     settings: 'Settings',
     open: 'Settings',
@@ -71,6 +77,7 @@ export const en = {
     noCoins: (need: number, have: number) => `Not enough coins: ${need} needed, ${have} in hand`,
     taken: 'That cell is already taken',
     sea: 'You cannot build on water',
+    flooded: 'That cell is under the sea now',
     failed: 'That did not work — try again',
     income: (amount: number, days: number) =>
       days === 1
@@ -90,10 +97,10 @@ export const en = {
         : `Hurricane: ${hits} towers damaged`,
     roomSizeLocked: 'The room fixes the map and the rules',
     roomsUnavailable: 'Rooms need the game server, which this static build does not have',
-    flood: (risen: number, destroyed: number) =>
+    flood: (level: number, destroyed: number) =>
       destroyed > 0
-        ? `Flood: ${destroyed} cells drowned, water rising in ${risen}`
-        : `Flood: water rising in ${risen} cells`,
+        ? `Flood: the sea is at ${level} m, ${destroyed} cells drowned`
+        : `Flood: the sea is at ${level} m`,
     waitingOpponent: 'Waiting for opponent…',
     opponentConnected: 'Opponent connected',
     opponentDisconnected: 'Opponent disconnected',
