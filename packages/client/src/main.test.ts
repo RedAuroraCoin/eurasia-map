@@ -224,6 +224,64 @@ describe('single-player shell', () => {
     expect(visibleSegments).toHaveLength(8);
   });
 
+  it('opens the menu with the hamburger and deals a new game from it', async () => {
+    // happy-dom has no modal dialog; without it askReset() refuses and the
+    // button would look broken in the test for the wrong reason.
+    HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+      this.open = true;
+    };
+    HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+      this.open = false;
+    };
+
+    const { getChess } = await boot();
+    const app = document.querySelector('.app') as HTMLElement;
+    const menu = document.querySelector('.menu-toggle') as HTMLButtonElement;
+    expect(menu).not.toBeNull();
+
+    menu.click();
+    expect(app.classList.contains('panel-open')).toBe(true);
+    menu.click();
+    expect(app.classList.contains('panel-open')).toBe(false);
+
+    // Play a move in chess, then reset from the menu.
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    const map = getMap(800);
+    const game = getChess();
+    if (!game) throw new Error('chess mode did not start');
+    const pawn = game.pieces.find(
+      (piece) =>
+        piece.side === 0 &&
+        piece.kind === 'pawn' &&
+        map.mask[piece.cell + 1] === '#' &&
+        !game.pieces.some((other) => other.cell === piece.cell + 1),
+    );
+    if (!pawn) throw new Error('no pawn with a free cell ahead');
+    const from = cellCentre(map.cols, map.rows, pawn.cell);
+    const to = cellCentre(map.cols, map.rows, pawn.cell + 1);
+    clickCell(from.x, from.y);
+    clickCell(to.x, to.y);
+    expect(getChess()?.turn).toBe(1);
+
+    const newGame = document.querySelector('.panel-primary .button') as HTMLButtonElement;
+    expect(newGame?.textContent).toBe('New game');
+    newGame.click();
+    const confirm = document.querySelector('.dialog .button-danger') as HTMLButtonElement;
+    confirm.click();
+    await Promise.resolve();
+    flushFrames();
+
+    const fresh = getChess();
+    expect(fresh?.turn).toBe(0);
+    expect(fresh?.round).toBe(0);
+    expect(fresh?.pieces.find((p) => p.id === pawn.id)?.cell).toBe(pawn.cell);
+  });
+
   it('resumes the chess game after a reload', async () => {
     const first = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(

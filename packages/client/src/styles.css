@@ -150,14 +150,22 @@ body {
   font-weight: 400;
 }
 
-.panel-toggle {
+/* The hamburger: it opens the menu sheet on small screens, and stays out of the
+   way on large ones, where the panel is always visible. */
+.menu-toggle {
   display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 34px;
   border: 1px solid var(--line);
   background: var(--panel-2);
   color: var(--fg);
   font: inherit;
-  font-size: 13px;
-  padding: 8px 12px;
+  font-size: 17px;
+  line-height: 1;
+  padding: 0;
   border-radius: 10px;
   cursor: pointer;
 }
@@ -308,6 +316,24 @@ body {
   cursor: pointer;
 }
 
+/* The primary action of the menu: a new game, reachable without scrolling. It
+   is the mobile form of the Start over button in the actions below. */
+.panel-primary {
+  display: none;
+  padding: 2px 0 10px;
+}
+
+.button-wide {
+  width: 100%;
+  justify-content: center;
+}
+
+/* The invite link lives in the topbar on a wide screen and in the menu on a
+   narrow one, where the topbar has no room for it. */
+.panel-invite {
+  display: none;
+}
+
 .panel-actions {
   display: flex;
   flex-direction: column;
@@ -388,21 +414,64 @@ body {
 
 .segmented button:focus-visible,
 .button:focus-visible,
-.panel-toggle:focus-visible,
+.menu-toggle:focus-visible,
 .panel-close:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 @media (max-width: 720px) {
-  .panel-toggle {
+  .menu-toggle {
     display: inline-flex;
     margin-left: auto;
   }
 
+  /* The topbar has one row and no room to spare: the brand shrinks, the stats
+     tighten, and the invite button lives in the menu instead of overflowing. */
+  .topbar {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand h1 {
+    font-size: 15px;
+    line-height: 1.15;
+  }
+
   .stats {
     margin-left: 0;
-    gap: 12px;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  .stat-value {
+    font-size: 13px;
+  }
+
+  .room-code {
+    display: none !important;
+  }
+
+  .panel-primary {
+    display: block;
+  }
+
+  .panel-invite {
+    display: inline-flex;
+  }
+
+  /* One new-game button per screen: the top one is the mobile form. */
+  .panel-reset {
+    display: none;
   }
 
   .brand p {

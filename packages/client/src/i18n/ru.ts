@@ -23,6 +23,7 @@ export const ru: Dict = {
     seaLevel: (metres: number) => `${formatMetres(metres)} м`,
     progress: (claimed: number, total: number) => `${claimed} / ${total}`,
     settings: 'Настройки',
+    newGame: 'Новая партия',
     open: 'Настройки',
     close: 'Свернуть',
   },

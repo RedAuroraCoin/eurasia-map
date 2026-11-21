@@ -21,6 +21,7 @@ export const en = {
     seaLevel: (metres: number) => `${formatMetres(metres)} m`,
     progress: (claimed: number, total: number) => `${claimed} / ${total}`,
     settings: 'Settings',
+    newGame: 'New game',
     open: 'Settings',
     close: 'Collapse',
   },

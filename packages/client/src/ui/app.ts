@@ -297,7 +297,7 @@ export class App {
       on: { click: () => handlers.onDemo() },
     }) as HTMLButtonElement;
     const resetButton = h('button', {
-      class: 'button button-danger',
+      class: 'button button-danger panel-reset',
       text: t.settings.reset,
       attrs: { type: 'button' },
       on: { click: () => handlers.onReset() },
@@ -317,6 +317,16 @@ export class App {
           on: { click: () => this.setPanelOpen(false) },
         }),
       ),
+      h(
+        'div',
+        { class: 'panel-primary' },
+        h('button', {
+          class: 'button button-wide',
+          text: t.panel.newGame,
+          attrs: { type: 'button' },
+          on: { click: () => handlers.onReset() },
+        }),
+      ),
       row(t.settings.mode, mode.root),
       this.sizeRow,
       row(t.settings.lighting, dayNight.root),
@@ -327,13 +337,30 @@ export class App {
       this.speedRow,
       row(t.settings.quality, quality.root),
       row(t.settings.theme, theme.root),
-      h('div', { class: 'panel-actions' }, this.buildButton, this.demoButton, resetButton),
+      h(
+        'div',
+        { class: 'panel-actions' },
+        this.buildButton,
+        this.demoButton,
+        h('button', {
+          class: 'button panel-invite',
+          text: t.room.invite,
+          attrs: { type: 'button' },
+          on: { click: () => this.onRoomClick() },
+        }),
+        resetButton,
+      ),
     );
 
     this.toggle = h('button', {
-      class: 'panel-toggle',
-      text: t.panel.settings,
-      attrs: { type: 'button', 'aria-expanded': 'false' },
+      class: 'menu-toggle',
+      text: '☰',
+      attrs: {
+        type: 'button',
+        'aria-expanded': 'false',
+        'aria-label': t.panel.settings,
+        title: t.panel.settings,
+      },
       on: { click: () => this.setPanelOpen(!this.root.classList.contains('panel-open')) },
     }) as HTMLButtonElement;
 
@@ -442,9 +469,10 @@ export class App {
 
     const labels = this.statsEl.querySelectorAll('.stat-label');
     if (labels[0]) labels[0].textContent = t.chess.white;
-    if (labels[1]) labels[1].textContent = t.panel.settings;
+    // The value already reads "White to move"; a label above it would repeat it.
+    if (labels[1]) labels[1].textContent = '';
     if (labels[2]) labels[2].textContent = t.chess.black;
-    if (labels[3]) labels[3].textContent = t.panel.settings;
+    if (labels[3]) labels[3].textContent = '';
   }
 
   /** The sea is the clock of the late game: it has to be readable at a glance. */
