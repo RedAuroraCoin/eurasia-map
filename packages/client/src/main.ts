@@ -682,6 +682,9 @@ function chessClick(cell: number): void {
   if (!chess || mp) return;
   if (chess.winner !== null) return;
   if (cell < 0) return;
+  // The keyboard walks `selected` around the board; keep it where the pointer
+  // went so both input methods act on the same cell.
+  selected = cell;
 
   if (chessBuild) {
     applyChess(chessReduce(chess, { k: 'build', cell }, chessCtx()));
@@ -753,7 +756,10 @@ app.canvas.addEventListener('keydown', (event) => {
     case 'Enter':
     case ' ':
       event.preventDefault();
-      toggleCell(selected, event.shiftKey);
+      // In chess the keyboard plays chess: Enter acts on the selected cell
+      // instead of claiming a cell in the building game behind the board.
+      if (settings.mode === 'chess') chessClick(selected);
+      else toggleCell(selected, event.shiftKey);
       return;
     default:
       return;

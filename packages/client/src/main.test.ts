@@ -282,6 +282,25 @@ describe('single-player shell', () => {
     expect(fresh?.pieces.find((p) => p.id === pawn.id)?.cell).toBe(pawn.cell);
   });
 
+  it('does not claim a building cell when Enter is pressed in chess', async () => {
+    const { getChess, getState } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+    expect(getChess()).not.toBeNull();
+
+    const canvas = document.querySelector('canvas');
+    canvas?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    canvas?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    flushFrames();
+
+    // The building game is behind the board and must stay untouched.
+    expect(getState().claimed[0]).toBe(0);
+    expect(getState().coins[0]).toBe(BALANCE.claim.startCoins);
+  });
+
   it('resumes the chess game after a reload', async () => {
     const first = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(
