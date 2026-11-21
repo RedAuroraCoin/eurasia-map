@@ -324,16 +324,12 @@ export class App {
       this.settleReset(false);
     });
 
+    // The panel is positioned against the stage, not the window: otherwise its
+    // top slides under the topbar and its max-height ignores that row.
+    this.stage.append(panel);
+
     // --- assembly -------------------------------------------------------
-    this.root = h(
-      'div',
-      { class: 'app' },
-      topbar,
-      this.stage,
-      panel,
-      this.waitingOverlay,
-      this.dialog,
-    );
+    this.root = h('div', { class: 'app' }, topbar, this.stage, this.waitingOverlay, this.dialog);
   }
 
   private buildLegend(): HTMLElement {

@@ -118,6 +118,10 @@ describe('single-player shell', () => {
     expect(document.querySelector('h1')?.textContent).toBe('Eurasia Map');
     expect(document.querySelector('canvas')).not.toBeNull();
     expect(document.querySelectorAll('.segmented')).toHaveLength(9);
+    // The panel is positioned against the stage: inside the app grid it slid
+    // under the topbar and ignored that row in its max-height.
+    expect(document.querySelector('.stage > .panel')).not.toBeNull();
+    expect(document.querySelector('.connection-status')?.classList.contains('hidden')).toBe(true);
     expect(document.querySelector('.stats')?.textContent).toContain('Coins');
     expect(document.querySelector('.stats')?.textContent).toContain('10');
     expect(drawCalls).toContain('fillRect');

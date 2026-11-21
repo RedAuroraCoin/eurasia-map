@@ -85,6 +85,10 @@ body {
   background: var(--bg);
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* ------------------------------------------------------------------ topbar */
 
 .topbar {
@@ -229,7 +233,8 @@ body {
 
 .legend {
   position: absolute;
-  right: clamp(10px, 2vw, 18px);
+  left: 50%;
+  transform: translateX(-50%);
   bottom: clamp(10px, 2vw, 18px);
   display: grid;
   gap: 3px;
