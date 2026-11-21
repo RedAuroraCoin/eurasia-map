@@ -159,6 +159,11 @@ describe('single-player shell', () => {
     // The king's build action belongs to this mode only.
     const build = document.querySelector('.panel-actions .button');
     expect(build?.classList.contains('hidden')).toBe(false);
+    // And the time-speed control is gone: a turn-based game has no world clock.
+    const visibleSegments = [...document.querySelectorAll('.segmented')].filter(
+      (element) => element.closest('.hidden') === null,
+    );
+    expect(visibleSegments).toHaveLength(9);
   });
 
   it('moves a chess piece by clicking it and then its destination', async () => {

@@ -73,6 +73,8 @@ export class App {
   private readonly invite: (() => void) | undefined;
   private readonly onBuild: () => void;
   private buildButton!: HTMLButtonElement;
+  /** Hidden in chess mode: a turn-based game has no world clock to speed up. */
+  private speedRow!: HTMLElement;
 
   constructor(settings: Settings, handlers: AppHandlers) {
     this.invite = handlers.onInvite;
@@ -276,6 +278,8 @@ export class App {
       sides,
     };
 
+    this.speedRow = row(t.settings.speed, speed.root);
+
     this.buildButton = h('button', {
       class: 'button hidden',
       text: t.chess.build,
@@ -317,7 +321,7 @@ export class App {
       row(t.settings.sides, sides.root),
       row(t.settings.hurricanes, hurricanes.root),
       row(t.settings.flood, flood.root),
-      row(t.settings.speed, speed.root),
+      this.speedRow,
       row(t.settings.quality, quality.root),
       row(t.settings.theme, theme.root),
       h('div', { class: 'panel-actions' }, this.buildButton, this.demoButton, resetButton),
@@ -402,6 +406,7 @@ export class App {
   /** Chess mode shows its own action and hides the building-game demo. */
   setChessMode(on: boolean): void {
     this.root.classList.toggle('chess', on);
+    this.speedRow.classList.toggle('hidden', on);
     this.buildButton.classList.toggle('hidden', !on);
     this.demoButton.classList.toggle('hidden', on);
     this.statsEl.classList.toggle('multi', on);

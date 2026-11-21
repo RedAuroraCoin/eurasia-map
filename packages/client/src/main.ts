@@ -883,7 +883,9 @@ function frame(now: number): void {
 
   // A room runs on real time: the server settles the days, so accelerating
   // here would only desync the animation from the state it is drawing.
-  const speed = mp ? 1 : demo ? DEMO_SPEED : speedMultiplier(settings);
+  // Chess is turn-based: there is no world clock to accelerate, and the control
+  // is hidden there, so the setting must not leak into the mode either.
+  const speed = mp || settings.mode === 'chess' ? 1 : demo ? DEMO_SPEED : speedMultiplier(settings);
   extraTime = advance(extraTime, delta, speed);
   const world = clock();
 

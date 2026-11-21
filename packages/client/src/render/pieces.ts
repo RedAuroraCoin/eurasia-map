@@ -78,12 +78,21 @@ function build(role: UnitRole): THREE.BufferGeometry {
   return merged ?? new THREE.SphereGeometry(0.1, 8, 6);
 }
 
+/**
+ * Chess pieces are read from further away than buildings: the board is the whole
+ * continent and the camera sits back. Sculpted at 1x they were specks, so every
+ * piece is scaled up once, here, rather than per instance.
+ */
+export const PIECE_SCALE = 2;
+
 const cache = new Map<UnitRole, THREE.BufferGeometry>();
 
 export function unitGeometry(role: UnitRole): THREE.BufferGeometry {
   const existing = cache.get(role);
   if (existing) return existing;
   const made = build(role);
+  made.scale(PIECE_SCALE, PIECE_SCALE, PIECE_SCALE);
+  made.computeBoundingBox();
   cache.set(role, made);
   return made;
 }

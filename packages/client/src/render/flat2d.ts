@@ -165,7 +165,7 @@ export class Flat2D implements View {
         const row = Math.floor(unit.cell / map.cols);
         const cx = ox + col * cell + cell / 2;
         const cy = oy + row * cell + cell / 2;
-        const radius = Math.max(2, cell * (unit.role === 'tower' ? 0.34 : 0.28));
+        const radius = Math.max(2, cell * (unit.role === 'tower' ? 0.42 : 0.36));
         ctx.fillStyle = unit.role === 'tower' ? TOWER_COLOUR : SIDE_COLOURS[unit.side];
         ctx.beginPath();
         if (unit.role === 'tower') {
