@@ -50,7 +50,7 @@ ground, back rank behind.
 - A turn is **one action**: move a piece, or spend it on a building instead.
   - *Tower* — 50 coins, on a dry empty cell next to the king. It blocks movement
     for both sides and can be taken by landing on it.
-  - *Pawn* — 100 coins, recruited **into one of your own towers**. It steps out on
+  - *Pawn* — 250 coins, recruited **into one of your own towers**. It steps out on
     later turns and walks like any other pawn.
     Your own pieces cannot enter your tower, but an enemy landing on the tower
     takes the tower and the pawn inside it together: a garrison is sheltered, not
