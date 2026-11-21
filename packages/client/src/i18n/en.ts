@@ -89,6 +89,7 @@ export const en = {
         ? `Hurricane: ${hits} towers damaged, ${destroyed} destroyed`
         : `Hurricane: ${hits} towers damaged`,
     roomSizeLocked: 'The room fixes the map and the rules',
+    roomsUnavailable: 'Rooms need the game server, which this static build does not have',
     flood: (risen: number, destroyed: number) =>
       destroyed > 0
         ? `Flood: ${destroyed} cells drowned, water rising in ${risen}`
@@ -115,6 +116,8 @@ export const en = {
   },
   room: {
     label: 'Room',
+    invite: 'Play with a friend',
+    inviteTitle: 'Create a room and copy the link',
     copy: 'Copy the invite link',
     copied: 'Invite link copied',
   },

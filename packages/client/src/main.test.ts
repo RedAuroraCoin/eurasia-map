@@ -122,6 +122,10 @@ describe('single-player shell', () => {
     // under the topbar and ignored that row in its max-height.
     expect(document.querySelector('.stage > .panel')).not.toBeNull();
     expect(document.querySelector('.connection-status')?.classList.contains('hidden')).toBe(true);
+    const invite = document.querySelector<HTMLButtonElement>('.room-code');
+    expect(invite).not.toBeNull();
+    expect(invite?.classList.contains('hidden')).toBe(false);
+    expect(invite?.textContent).toBe('Play with a friend');
     expect(document.querySelector('.stats')?.textContent).toContain('Coins');
     expect(document.querySelector('.stats')?.textContent).toContain('10');
     expect(drawCalls).toContain('fillRect');

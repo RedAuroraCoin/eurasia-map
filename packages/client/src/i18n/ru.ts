@@ -89,6 +89,7 @@ export const ru: Dict = {
         ? `Ураган: повреждено ${hits}, разрушено ${destroyed}`
         : `Ураган: повреждено ${hits}`,
     roomSizeLocked: 'В комнате карта и правила зафиксированы',
+    roomsUnavailable: 'Комнатам нужен игровой сервер — в статической сборке его нет',
     flood: (risen: number, destroyed: number) =>
       destroyed > 0
         ? `Затопление: ${destroyed} клеток ушло под воду, вода поднимается в ${risen}`
@@ -114,6 +115,8 @@ export const ru: Dict = {
   },
   room: {
     label: 'Комната',
+    invite: 'Игра вдвоём',
+    inviteTitle: 'Создать комнату и скопировать ссылку',
     copy: 'Скопировать ссылку-приглашение',
     copied: 'Ссылка-приглашение скопирована',
   },

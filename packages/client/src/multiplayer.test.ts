@@ -132,6 +132,34 @@ const socket = (): FakeSocket => {
   return socket;
 };
 
+describe('the invite button', () => {
+  it('creates a room from single-player and goes there', async () => {
+    history.replaceState({}, '', '/');
+    // The Worker probe decides whether rooms exist; pretend it answered.
+    globalThis.fetch = (async () => ({ ok: true })) as unknown as typeof fetch;
+    vi.resetModules();
+
+    await boot();
+    const invite = document.querySelector<HTMLButtonElement>('.room-code');
+    expect(invite?.textContent).toBe('Play with a friend');
+
+    invite?.click();
+    expect(location.search).toMatch(/room=[0-9A-Z]{10}/);
+  });
+
+  it('says why instead of navigating when there is no server', async () => {
+    history.replaceState({}, '', '/');
+    globalThis.fetch = (async () => ({ ok: false })) as unknown as typeof fetch;
+    vi.resetModules();
+
+    await boot();
+    document.querySelector<HTMLButtonElement>('.room-code')?.click();
+
+    expect(location.search).toBe('');
+    expect(document.querySelector('.status')?.textContent).toContain('game server');
+  });
+});
+
 describe('multiplayer room', () => {
   it('opens one socket to the room and shows the waiting overlay', async () => {
     const game = await boot();

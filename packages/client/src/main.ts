@@ -20,7 +20,7 @@ import { lightingAt, timeOfDayFromDate } from './render/palette';
 import { createView, type View } from './render/view';
 import { browserStorage, clearSave, loadSave, saveState } from './state/save';
 import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
-import { MultiplayerClient, parseRoomFromUrl } from './multiplayer/client';
+import { MultiplayerClient, createInvite, parseRoomFromUrl } from './multiplayer/client';
 import { App, type AppHandlers } from './ui/app';
 
 /**
@@ -52,6 +52,19 @@ let saveTimer = 0;
 const roomCode = parseRoomFromUrl();
 let mp: MultiplayerClient | null = null;
 let seat: 0 | 1 = 0;
+
+/**
+ * Rooms live in a Worker. The static GitHub Pages build has no `/api`, so the
+ * invite button has to say that rather than navigate into a dead room.
+ */
+let roomsAvailable = true;
+void fetch('/api/health', { method: 'GET' })
+  .then((response) => {
+    roomsAvailable = response.ok;
+  })
+  .catch(() => {
+    roomsAvailable = false;
+  });
 
 // Handlers are declared before the app because the constructor wires them up;
 // everything they close over (`app`, `view`) exists by the time one is called.
@@ -106,6 +119,15 @@ const handlers: AppHandlers = {
     saveSettings(storage, settings);
     view.setSidePreview(both);
     app.setSettings(settings, demo);
+  },
+  onInvite: () => {
+    if (mp) return;
+    if (!roomsAvailable) {
+      app.setMessage(t.messages.roomsUnavailable, 'error');
+      return;
+    }
+    const { url } = createInvite();
+    location.assign(url);
   },
   onDemo: () => {
     if (mp) {

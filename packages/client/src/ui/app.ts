@@ -15,6 +15,8 @@ export interface AppHandlers {
   onSpeed(index: number): void;
   onDemo(): void;
   onReset(): void;
+  /** Single-player only: create a room and go there. */
+  onInvite: () => void;
   onConnectionStatus?: (
     status: 'idle' | 'connecting' | 'waiting' | 'playing' | 'reconnecting' | 'error',
     info?: string,
@@ -61,8 +63,10 @@ export class App {
   };
   private resetResolver: ((value: boolean) => void) | null = null;
   private roomCode = '';
+  private readonly invite: (() => void) | undefined;
 
   constructor(settings: Settings, handlers: AppHandlers) {
+    this.invite = handlers.onInvite;
     // --- canvas + stage -------------------------------------------------
     this.canvas = h('canvas', {
       attrs: {
@@ -111,11 +115,13 @@ export class App {
     this.oppCellsEl = h('strong', { class: 'stat-value', text: '—' });
     this.connectionEl = h('span', { class: 'connection-status hidden', text: '' });
     this.opponentEl = h('span', { class: 'opponent-label hidden', text: '' });
+    // One button, two jobs: create a room when there is none, copy the invite
+    // once there is. Hiding it in single-player left no way to start a room.
     this.roomEl = h('button', {
-      class: 'room-code hidden',
-      text: '',
-      attrs: { type: 'button', title: t.room.copy },
-      on: { click: () => void this.copyInvite() },
+      class: 'room-code',
+      text: t.room.invite,
+      attrs: { type: 'button', title: t.room.inviteTitle },
+      on: { click: () => this.onRoomClick() },
     }) as HTMLButtonElement;
 
     this.statsEl = h(
@@ -409,7 +415,16 @@ export class App {
   setRoomCode(code: string): void {
     this.roomCode = code;
     this.roomEl.textContent = `${t.room.label} ${code}`;
+    this.roomEl.title = t.room.copy;
     this.roomEl.classList.remove('hidden');
+  }
+
+  private onRoomClick(): void {
+    if (!this.roomCode) {
+      this.invite?.();
+      return;
+    }
+    void this.copyInvite();
   }
 
   private async copyInvite(): Promise<void> {
