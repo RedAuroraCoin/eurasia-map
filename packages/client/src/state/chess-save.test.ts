@@ -10,6 +10,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
   CHESS_SAVE_KEY,
+  backupChessGame,
   clearChessGame,
   loadChessGame,
   parseChess,
@@ -121,6 +122,17 @@ describe('saving the chess game', () => {
     const parsed = parseChess({ ...state, seaLevel: 9999 }, ctx);
     expect(parsed?.seaLevel).toBe(seaLevelForRound(50, ctx));
     expect(parsed?.seaLevel).not.toBe(9999);
+  });
+
+  it('copies a refused file aside instead of losing it', () => {
+    const storage = new MemoryStorage();
+    const raw = JSON.stringify({ v: CHESS_VERSION + 1, savedAt: 1, state: fresh() });
+    storage.setItem(CHESS_SAVE_KEY, raw);
+
+    expect(backupChessGame(storage, 42)).toBe(true);
+    expect(storage.getItem(`${CHESS_SAVE_KEY}.backup.42`)).toBe(raw);
+    // The original is left where it was: the door back is the key it was under.
+    expect(storage.getItem(CHESS_SAVE_KEY)).toBe(raw);
   });
 
   it('clears the save', () => {

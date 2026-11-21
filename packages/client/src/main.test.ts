@@ -157,6 +157,26 @@ describe('single-player shell', () => {
     expect(getState().claimed[0]).toBe(0);
   });
 
+  it('keeps a copy of a save from a newer version instead of overwriting it', async () => {
+    // The version lives inside the state, not only in the envelope.
+    const raw = JSON.stringify({
+      v: SAVE_VERSION,
+      savedAt: 1,
+      state: { ...createInitialState(1, Date.UTC(2026, 0, 1)), v: SAVE_VERSION + 5 },
+    });
+    localStorage.setItem('eurasia.save.500', raw);
+
+    const { getState } = await boot();
+
+    // A fresh city, and the unreadable file is still there under a backup key.
+    expect(getState().claimed[0]).toBe(0);
+    const backup = Object.keys(localStorage).find((key) =>
+      key.startsWith('eurasia.save.500.backup.'),
+    );
+    expect(backup).toBeDefined();
+    expect(localStorage.getItem(backup as string)).toBe(raw);
+  });
+
   it('boots straight into chess when that is the saved mode', async () => {
     localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 500 }));
 

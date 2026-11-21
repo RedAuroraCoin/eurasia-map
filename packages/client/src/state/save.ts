@@ -180,6 +180,25 @@ export function saveState(
   }
 }
 
+/**
+ * Keeps a copy of a save we refused to load, under a timestamped key.
+ *
+ * Rolling the game back is cheap; rolling a save back is not, because an older
+ * build cannot read a newer file. So a file from a newer version — or one that
+ * looks corrupted — is copied aside before anything overwrites it, and the player
+ * can hand it back once the newer build is restored.
+ */
+export function backupSave(storage: StorageLike, size: number, now = Date.now()): boolean {
+  try {
+    const raw = storage.getItem(saveKey(size));
+    if (!raw) return false;
+    storage.setItem(`${saveKey(size)}.backup.${now}`, raw);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearSave(storage: StorageLike, size: number): void {
   try {
     storage.removeItem(saveKey(size));

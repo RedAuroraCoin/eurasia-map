@@ -155,6 +155,18 @@ export function saveChessGame(storage: StorageLike, state: ChessState, now = Dat
   }
 }
 
+/** Copies a save we refused to load, before a new game overwrites it. */
+export function backupChessGame(storage: StorageLike, now = Date.now()): boolean {
+  try {
+    const raw = storage.getItem(CHESS_SAVE_KEY);
+    if (!raw) return false;
+    storage.setItem(`${CHESS_SAVE_KEY}.backup.${now}`, raw);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearChessGame(storage: StorageLike): void {
   try {
     storage.removeItem(CHESS_SAVE_KEY);

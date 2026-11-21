@@ -19,8 +19,8 @@ import {
 import { t } from './i18n';
 import { lightingAt, timeOfDayFromDate } from './render/palette';
 import { createView, type View } from './render/view';
-import { browserStorage, clearSave, loadSave, saveState } from './state/save';
-import { clearChessGame, loadChessGame, saveChessGame } from './state/chess-save';
+import { backupSave, browserStorage, clearSave, loadSave, saveState } from './state/save';
+import { backupChessGame, clearChessGame, loadChessGame, saveChessGame } from './state/chess-save';
 import { advance, clockFor } from './state/clock';
 import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
 import { MultiplayerClient, createInvite, parseRoomFromUrl } from './multiplayer/client';
@@ -668,6 +668,7 @@ function startChess(): void {
     return;
   }
 
+  if (saved.reason === 'corrupt' || saved.reason === 'newer') backupChessGame(storage);
   newChessGame();
   if (saved.reason === 'corrupt') app.setMessage(t.chess.saveCorrupt, 'error');
   else if (saved.reason === 'newer') app.setMessage(t.chess.saveNewer, 'error');
@@ -847,6 +848,11 @@ window.setInterval(settle, 60_000);
 applyTheme();
 
 const loaded = loadSave(storage, settings.size);
+// A file we cannot read is copied aside before a new city is written over it:
+// rolling the build back is easy, rolling the save back is not.
+if (!loaded.ok && (loaded.reason === 'corrupt' || loaded.reason === 'newer')) {
+  backupSave(storage, settings.size);
+}
 state = loaded.ok ? loaded.state : createInitialState(nextSeed(), Date.now());
 
 // A save whose whole map is under water is finished, not playable: the player
