@@ -77,6 +77,8 @@ export class App {
   private readonly onRecruit: () => void;
   private buildButton!: HTMLButtonElement;
   private recruitButton!: HTMLButtonElement;
+  /** Always on screen in chess: building is the other half of a turn. */
+  private buildBar!: HTMLElement;
   /** Hidden in chess mode: a turn-based game has no world clock to speed up. */
   private speedRow!: HTMLElement;
   /** Hidden in chess mode: that mode is played on the 800-cell board only. */
@@ -293,14 +295,14 @@ export class App {
     // Prices come from the balance file, not from the label string: a change to
     // what a tower costs must not need a second edit in the translations.
     this.buildButton = h('button', {
-      class: 'button hidden',
+      class: 'button build-action',
       text: t.chess.build(BALANCE.chess.towerCost),
       attrs: { type: 'button', title: t.chess.buildTitle(BALANCE.chess.towerCost) },
       on: { click: () => this.onBuild() },
     }) as HTMLButtonElement;
 
     this.recruitButton = h('button', {
-      class: 'button hidden',
+      class: 'button build-action',
       text: t.chess.recruit(BALANCE.chess.pawnCost),
       attrs: { type: 'button', title: t.chess.recruitTitle(BALANCE.chess.pawnCost) },
       on: { click: () => this.onRecruit() },
@@ -356,8 +358,6 @@ export class App {
       h(
         'div',
         { class: 'panel-actions' },
-        this.buildButton,
-        this.recruitButton,
         this.demoButton,
         h('button', {
           class: 'button panel-invite',
@@ -432,6 +432,17 @@ export class App {
     // top slides under the topbar and its max-height ignores that row.
     this.stage.append(panel);
 
+    // Building is the other half of a turn, so the two actions sit on the board
+    // itself: a player should not have to open the settings sheet mid-game.
+    this.buildBar = h(
+      'div',
+      { class: 'build-bar hidden' },
+      h('span', { class: 'build-bar-label', text: t.panel.build }),
+      this.buildButton,
+      this.recruitButton,
+    );
+    this.stage.append(this.buildBar);
+
     // --- assembly -------------------------------------------------------
     this.root = h('div', { class: 'app' }, topbar, this.stage, this.waitingOverlay, this.dialog);
   }
@@ -455,8 +466,7 @@ export class App {
     this.root.classList.toggle('chess', on);
     this.speedRow.classList.toggle('hidden', on);
     this.sizeRow.classList.toggle('hidden', on);
-    this.buildButton.classList.toggle('hidden', !on);
-    this.recruitButton.classList.toggle('hidden', !on);
+    this.buildBar.classList.toggle('hidden', !on);
     this.demoButton.classList.toggle('hidden', on);
     this.statsEl.classList.toggle('multi', on);
   }
@@ -488,6 +498,12 @@ export class App {
     this.incomeEl.classList.toggle('muted', info.income[0] === 0);
     this.oppIncomeEl.textContent = t.panel.perTurn(info.income[1]);
     this.oppIncomeEl.classList.toggle('muted', info.income[1] === 0);
+
+    // A button you cannot afford is dimmed rather than hidden: the price is part
+    // of the decision, and the click still explains itself.
+    const purse = info.coins[info.turn];
+    this.buildButton.classList.toggle('unaffordable', purse < BALANCE.chess.towerCost);
+    this.recruitButton.classList.toggle('unaffordable', purse < BALANCE.chess.pawnCost);
     // The turn blocks are hidden here: two of them read "White to move" and
     // "Black to move" at the same time, which answers nothing. The turn is marked
     // once, on the side that has it.

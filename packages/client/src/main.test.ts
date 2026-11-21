@@ -227,6 +227,8 @@ describe('single-player shell', () => {
   it('switches to chess and fields two armies', async () => {
     const { getChess } = await boot();
     expect(getChess()).toBeNull();
+    // No building in the city game: the bar is there but hidden.
+    expect(document.querySelector('.build-bar')?.classList.contains('hidden')).toBe(true);
 
     const chessButton = [...document.querySelectorAll('.segmented button')].find(
       (button) => button.textContent === 'Chess',
@@ -240,9 +242,10 @@ describe('single-player shell', () => {
     expect(game?.pieces).toHaveLength(32);
     expect(game?.turn).toBe(0);
     expect(game?.pieces.filter((p) => p.side === 0)).toHaveLength(16);
-    // The king's build action belongs to this mode only.
-    const build = document.querySelector('.panel-actions .button');
-    expect(build?.classList.contains('hidden')).toBe(false);
+    // The build bar belongs to this mode only, and sits over the board.
+    const bar = document.querySelector('.build-bar');
+    expect(bar?.classList.contains('hidden')).toBe(false);
+    expect(document.querySelectorAll('.panel-actions .build-action')).toHaveLength(0);
     // And the time-speed control is gone: a turn-based game has no world clock.
     const visibleSegments = [...document.querySelectorAll('.segmented')].filter(
       (element) => element.closest('.hidden') === null,
@@ -386,8 +389,11 @@ describe('single-player shell', () => {
     chessButton.click();
     flushFrames();
 
-    const build = document.querySelector('.panel-actions .button') as HTMLButtonElement;
+    const build = document.querySelector('.build-bar .button') as HTMLButtonElement;
     expect(build?.textContent).toBe(`Tower · ${BALANCE.chess.towerCost}`);
+    // The bar lives over the board, and the settings sheet no longer carries it.
+    expect(document.querySelector('.panel-actions .build-action')).toBeNull();
+    expect(document.querySelector('.build-bar')?.classList.contains('hidden')).toBe(false);
     build.click();
     flushFrames();
 
@@ -439,7 +445,7 @@ describe('single-player shell', () => {
     const { getChess, getHints } = await boot();
     flushFrames();
 
-    const buttons = [...document.querySelectorAll('.panel-actions .button')] as HTMLButtonElement[];
+    const buttons = [...document.querySelectorAll('.build-bar .button')] as HTMLButtonElement[];
     const [, recruit] = buttons;
     if (!recruit) throw new Error('the recruit action is missing');
     expect(recruit.textContent).toBe(`Pawn · ${BALANCE.chess.pawnCost}`);
@@ -478,7 +484,7 @@ describe('single-player shell', () => {
     expect(game.coins[0]).toBe(BALANCE.chess.startCoins);
     expect(BALANCE.chess.startCoins).toBeLessThan(BALANCE.chess.towerCost);
 
-    const build = document.querySelector('.panel-actions .button') as HTMLButtonElement;
+    const build = document.querySelector('.build-bar .button') as HTMLButtonElement;
     build.click();
     const spot = getHints()[0];
     if (!spot) throw new Error('no build spot to try');

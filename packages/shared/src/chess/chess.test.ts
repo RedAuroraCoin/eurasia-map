@@ -597,7 +597,7 @@ describe('recruiting a pawn into a tower', () => {
 
   it('costs 30 coins, uses the turn and puts a pawn in the tower', () => {
     const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
-      coins: [60, 60],
+      coins: [BALANCE.chess.pawnCost + 10, BALANCE.chess.pawnCost + 10],
       towers: { [String(tower)]: 0 },
     });
 
@@ -605,7 +605,7 @@ describe('recruiting a pawn into a tower', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    expect(result.state.coins).toEqual([10, 60]);
+    expect(result.state.coins).toEqual([10, BALANCE.chess.pawnCost + 10]);
     expect(result.state.turn).toBe(1);
     const born = result.state.pieces.find((p) => p.cell === tower);
     expect(born?.kind).toBe('pawn');
@@ -630,7 +630,7 @@ describe('recruiting a pawn into a tower', () => {
 
   it('refuses a cell that holds no tower of yours', () => {
     const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
-      coins: [60, 60],
+      coins: [BALANCE.chess.pawnCost + 10, BALANCE.chess.pawnCost + 10],
       towers: { [String(tower)]: 1 },
     });
     const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
@@ -641,7 +641,10 @@ describe('recruiting a pawn into a tower', () => {
   it('refuses a tower that already has somebody in it', () => {
     const s = state(
       [piece(1, 0, 'king', at(3, 3)), piece(9, 0, 'rook', tower), piece(2, 1, 'king', at(7, 7))],
-      { coins: [60, 60], towers: { [String(tower)]: 0 } },
+      {
+        coins: [BALANCE.chess.pawnCost + 10, BALANCE.chess.pawnCost + 10],
+        towers: { [String(tower)]: 0 },
+      },
     );
     const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
     expect(result.ok).toBe(false);
@@ -650,7 +653,7 @@ describe('recruiting a pawn into a tower', () => {
 
   it('lets a recruited pawn walk like any other, two squares included', () => {
     const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
-      coins: [60, 60],
+      coins: [BALANCE.chess.pawnCost + 10, BALANCE.chess.pawnCost + 10],
       towers: { [String(tower)]: 0 },
     });
     const result = chessReduce(s, { k: 'recruit', cell: tower }, ctx8());
@@ -665,7 +668,7 @@ describe('recruiting a pawn into a tower', () => {
 
   it('lets the pawn walk out, and lets the enemy take the tower and the pawn together', () => {
     const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
-      coins: [60, 60],
+      coins: [BALANCE.chess.pawnCost + 10, BALANCE.chess.pawnCost + 10],
       towers: { [String(tower)]: 0 },
     });
     void s;
@@ -677,7 +680,10 @@ describe('recruiting a pawn into a tower', () => {
         { ...piece(9, 0, 'pawn', tower), moved: true },
         piece(2, 1, 'king', at(7, 7)),
       ],
-      { coins: [60, 60], towers: { [String(tower)]: 0 } },
+      {
+        coins: [BALANCE.chess.pawnCost + 10, BALANCE.chess.pawnCost + 10],
+        towers: { [String(tower)]: 0 },
+      },
     );
     const out = chessReduce(garrison, { k: 'move', piece: 9, to: tower + 1 }, ctx8());
     expect(out.ok).toBe(true);
@@ -690,7 +696,11 @@ describe('recruiting a pawn into a tower', () => {
         piece(3, 1, 'rook', at(3, 7)),
         piece(2, 1, 'king', at(7, 7)),
       ],
-      { turn: 1, coins: [60, 60], towers: { [String(tower)]: 0 } },
+      {
+        turn: 1,
+        coins: [BALANCE.chess.pawnCost + 10, BALANCE.chess.pawnCost + 10],
+        towers: { [String(tower)]: 0 },
+      },
     );
     const take = chessReduce(guarded, { k: 'move', piece: 3, to: tower }, ctx8());
     expect(take.ok).toBe(true);

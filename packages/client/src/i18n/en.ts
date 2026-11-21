@@ -21,6 +21,7 @@ export const en = {
     seaLevel: (metres: number) => `${formatMetres(metres)} m`,
     perTurn: (coins: number) => `+${coins} / turn`,
     progress: (claimed: number, total: number) => `${claimed} / ${total}`,
+    build: 'Build',
     settings: 'Settings',
     newGame: 'New game',
     open: 'Settings',

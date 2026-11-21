@@ -661,6 +661,56 @@ body {
   color: var(--fg);
 }
 
+/* Chess: building is half of a turn, so the two actions float over the board
+   instead of hiding behind the settings sheet. */
+.build-bar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: clamp(14px, 3vw, 26px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(8px);
+  z-index: 4;
+}
+
+.build-bar-label {
+  padding: 0 4px 0 8px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-soft);
+}
+
+.build-action {
+  min-height: 38px;
+  padding: 0 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Armed: the next click on the board spends the money. */
+.build-action.armed {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent) inset;
+}
+
+/* Dimmed, not hidden: the price is the decision, and a click still explains. */
+.build-action.unaffordable {
+  opacity: 0.55;
+}
+
+/* The elevation ramp explains terrain, and in chess the board is about pieces. */
+.app.chess .legend {
+  display: none;
+}
+
 /* Two blocks used to read "White to move" and "Black to move" at once. The turn
    now lives on the side that has it, so the duplicate blocks go. */
 .app.chess .turn-stat {
@@ -680,6 +730,26 @@ body {
 }
 
 @media (max-width: 720px) {
+  /* Thumb reach: the build bar spans the bottom of the board. */
+  .build-bar {
+    left: 10px;
+    right: 10px;
+    transform: none;
+    bottom: 10px;
+  }
+
+  .build-bar-label {
+    display: none;
+  }
+
+  .build-action {
+    flex: 1;
+    min-height: 44px;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+  }
+
   /* A room opponent's figures are noise on a phone. In chess the second block is
      Black — one of the two players — so it stays, in a compact two-column grid. */
   .opponent-stat {

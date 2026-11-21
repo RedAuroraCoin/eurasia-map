@@ -172,7 +172,9 @@ const RAW = {
     // A tower and a pawn cost the same: fifty coins, ten rounds of income, is a
     // decision rather than a purchase you make every other move.
     towerCost: 50,
-    pawnCost: 50,
+    // A pawn costs twice a tower: it is a piece on the board, and pieces decide
+    // the game while towers only hold ground.
+    pawnCost: 100,
     /** Every tower a side owns pays this at the end of each round. */
     towerIncome: 10,
     fullFloodRound: 200,
