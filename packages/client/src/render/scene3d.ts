@@ -270,6 +270,11 @@ export class Scene3D implements View {
     this.scene.add(this.water);
   }
 
+  /** Puts the sea plane on the contour of the current level. */
+  private placeWater(): void {
+    if (this.water) this.water.position.y = this.seaSurface();
+  }
+
   private rebuildTerrain(): void {
     if (this.terrain) {
       this.scene.remove(this.terrain);
@@ -301,6 +306,7 @@ export class Scene3D implements View {
       this.glow = null;
     }
 
+    this.placeWater();
     const cells = buildTerrain(this.map, this.relief, this.state?.cells ?? {}, this.seaLevel);
     this.terrainCells = cells.map((cell) => cell.index);
 
@@ -533,9 +539,11 @@ export class Scene3D implements View {
     // exist at all: that is a rebuild, not a recolour.
     const risen = state.seaLevel !== this.seaLevel;
     this.seaLevel = state.seaLevel;
+    // The plane follows the level, and also any rebuild that changed the
+    // vertical mapping (relief, map size, quality) without changing the level.
+    this.placeWater();
     if (risen) {
       this.rebuildTerrain();
-      if (this.water) this.water.position.y = this.seaSurface();
     } else if (
       !previous ||
       Object.keys(previous.cells).length !== Object.keys(state.cells).length
@@ -552,7 +560,9 @@ export class Scene3D implements View {
    */
   private seaSurface(): number {
     const flat = elevationToHeight(0, this.relief);
-    return elevationToHeight(this.seaLevel, this.relief) - flat;
+    // A hair above the contour: a cell standing exactly at the waterline would
+    // otherwise fight the plane for the same depth and flicker dry and wet.
+    return elevationToHeight(this.seaLevel, this.relief) - flat + 0.015;
   }
 
   private rebuildTerrainColors(): void {

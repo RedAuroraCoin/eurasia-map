@@ -1,4 +1,12 @@
-import { BALANCE, MS_PER_DAY, createInitialState, getMap, reduce } from '@eurasia/shared';
+import {
+  BALANCE,
+  MS_PER_DAY,
+  createInitialState,
+  getMap,
+  landColor,
+  reduce,
+  seaColor,
+} from '@eurasia/shared';
 import { describe, expect, it } from 'vitest';
 import {
   buildBuildings,
@@ -163,6 +171,27 @@ describe('buildBuildings', () => {
     expect(risen.some((cell) => cell.index === high)).toBe(true);
     // The board genuinely loses cells as the level climbs.
     expect(risen.length).toBeLessThan(dry.length);
+  });
+
+  it('paints drowned cells as sea when the board is flat, instead of cutting holes', () => {
+    const map500 = getMap(500);
+    const low = map500.elev.findIndex((e, i) => map500.mask[i] === '#' && e < 400);
+    expect(low).toBeGreaterThanOrEqual(0);
+    const level = 600;
+
+    // Relief on: the plate is gone, the sea plane covers the space.
+    expect(buildTerrain(map500, true, {}, level).some((c) => c.index === low)).toBe(false);
+
+    // Relief off: every cell is the same height, so cutting one would leave a
+    // hole down to the water. It stays, painted as sea.
+    const flat = buildTerrain(map500, false, {}, level);
+    const cell = flat.find((c) => c.index === low);
+    expect(cell).toBeDefined();
+    expect(cell?.color).not.toEqual(landColor(map500.elev[low] ?? 0));
+    const expected = seaColor((map500.elev[low] ?? 0) - level);
+    expect(cell?.color.map((v) => Math.round(v * 1000))).toEqual(
+      expected.map((v) => Math.round(v * 1000)),
+    );
   });
 
   it('does not draw a building the sea has taken', () => {

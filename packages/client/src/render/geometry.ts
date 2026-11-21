@@ -2,6 +2,7 @@ import {
   BALANCE,
   cellHeight,
   landColor,
+  seaColor,
   type GameState,
   type MapEntry,
   type Rgb,
@@ -105,11 +106,14 @@ export function buildTerrain(
     if (map.mask[index] !== '#') continue;
     const { x, z } = cellToWorld(map, index);
     const elevation = map.elev[index] ?? 0;
-    // Land under the waterline is sea now: it is not drawn, so the board
-    // genuinely loses cells as the level climbs.
-    if (elevation < seaLevel) continue;
+    const drowned = elevation < seaLevel;
+    // With relief on, land under the waterline is simply not drawn: the sea
+    // plane is above it. With relief off the whole board is one height, so
+    // cutting the cell would leave a hole down to the water instead of a
+    // flooded cell — there it is painted as sea and stays in place.
+    if (drowned && relief) continue;
     const height = elevationToHeight(elevation, relief);
-    const base = landColor(elevation);
+    const base = drowned ? seaColor(elevation - seaLevel) : landColor(elevation);
     const color = cells[String(index)] ? mix(base, OWNER_TINT, OWNER_MIX) : base;
     out.push({ index, x, y: height / 2, z, height, color });
   }
