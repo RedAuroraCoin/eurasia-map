@@ -1,5 +1,12 @@
 // @vitest-environment happy-dom
-import { BALANCE, SAVE_VERSION, createInitialState, getMap } from '@eurasia/shared';
+import {
+  BALANCE,
+  SAVE_VERSION,
+  createChessGame,
+  createInitialState,
+  getMap,
+} from '@eurasia/shared';
+import { saveChessGame } from './state/chess-save';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -345,7 +352,7 @@ describe('single-player shell', () => {
     flushFrames();
 
     const build = document.querySelector('.panel-actions .button') as HTMLButtonElement;
-    expect(build?.textContent).toBe('Tower · 10');
+    expect(build?.textContent).toBe(`Tower · ${BALANCE.chess.towerCost}`);
     build.click();
     flushFrames();
 
@@ -355,28 +362,18 @@ describe('single-player shell', () => {
   });
 
   it('arms the pawn recruit on your own tower', async () => {
-    const { getChess, getHints } = await boot();
-    const chessButton = [...document.querySelectorAll('.segmented button')].find(
-      (button) => button.textContent === 'Chess',
-    ) as HTMLButtonElement;
-    chessButton.click();
-    flushFrames();
-
-    const buttons = [...document.querySelectorAll('.panel-actions .button')] as HTMLButtonElement[];
-    const [build, recruit] = buttons;
-    if (!build || !recruit) throw new Error('chess actions are missing');
-    expect(recruit.textContent).toBe('Pawn · 30');
-
+    // Seeded rather than played: a tower now costs more than a side starts with,
+    // so the position is written straight into the save.
     const map = getMap(800);
-    const kingCell = (side: 0 | 1): number => {
-      const game = getChess();
-      const king = game?.pieces.find((piece) => piece.side === side && piece.kind === 'king');
-      if (!king) throw new Error('no king');
-      return king.cell;
-    };
-    const emptyNeighbour = (cell: number): number => {
-      const game = getChess();
-      const taken = new Set(game?.pieces.map((piece) => piece.cell));
+    const base = createChessGame(800, 7, {
+      isLand: (cell) => map.mask[cell] === '#',
+      elev: map.elev,
+      rows: map.rows,
+      cols: map.cols,
+      cellCount: map.mask.length,
+    });
+    const taken = new Set(base.pieces.map((piece) => piece.cell));
+    const freeNeighbour = (cell: number): number => {
       const col = cell % map.cols;
       const row = Math.floor(cell / map.cols);
       for (const [dr, dc] of [
@@ -390,17 +387,27 @@ describe('single-player shell', () => {
       }
       throw new Error('the king is boxed in');
     };
+    const kingOf = (side: 0 | 1): number => {
+      const king = base.pieces.find((piece) => piece.side === side && piece.kind === 'king');
+      if (!king) throw new Error('no king');
+      return king.cell;
+    };
+    const whiteTower = freeNeighbour(kingOf(0));
+    const blackTower = freeNeighbour(kingOf(1));
+    saveChessGame(localStorage, {
+      ...base,
+      coins: [BALANCE.chess.pawnCost, BALANCE.chess.pawnCost],
+      towers: { [String(whiteTower)]: 0, [String(blackTower)]: 1 },
+    });
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 800 }));
 
-    // White fortifies, black fortifies, and then it is White's turn again.
-    build.click();
-    const whiteTower = emptyNeighbour(kingCell(0));
-    const whiteAt = cellCentre(map.cols, map.rows, whiteTower);
-    clickCell(whiteAt.x, whiteAt.y);
-    build.click();
-    const blackTower = emptyNeighbour(kingCell(1));
-    const blackAt = cellCentre(map.cols, map.rows, blackTower);
-    clickCell(blackAt.x, blackAt.y);
+    const { getChess, getHints } = await boot();
+    flushFrames();
 
+    const buttons = [...document.querySelectorAll('.panel-actions .button')] as HTMLButtonElement[];
+    const [, recruit] = buttons;
+    if (!recruit) throw new Error('the recruit action is missing');
+    expect(recruit.textContent).toBe(`Pawn · ${BALANCE.chess.pawnCost}`);
     expect(getChess()?.towers[String(whiteTower)]).toBe(0);
     expect(getChess()?.towers[String(blackTower)]).toBe(1);
 
@@ -410,6 +417,33 @@ describe('single-player shell', () => {
     const hints = getHints();
     // Only your own tower, and only the one of them: the enemy's is not yours.
     expect(hints).toEqual([{ cell: whiteTower, kind: 'recruit' }]);
+  });
+
+  it('refuses a tower when the side cannot pay for one', async () => {
+    const { getChess, getHints } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    const game = getChess();
+    if (!game) throw new Error('chess mode did not start');
+    expect(game.coins[0]).toBe(BALANCE.chess.startCoins);
+    expect(BALANCE.chess.startCoins).toBeLessThan(BALANCE.chess.towerCost);
+
+    const build = document.querySelector('.panel-actions .button') as HTMLButtonElement;
+    build.click();
+    const spot = getHints()[0];
+    if (!spot) throw new Error('no build spot to try');
+    const map = getMap(800);
+    const at = cellCentre(map.cols, map.rows, spot.cell);
+    clickCell(at.x, at.y);
+
+    // The turn is not spent and nothing is built: the wallet is simply too small.
+    expect(getChess()?.towers[String(spot.cell)]).toBeUndefined();
+    expect(getChess()?.coins[0]).toBe(BALANCE.chess.startCoins);
+    expect(getChess()?.turn).toBe(0);
   });
 
   it('does not claim a building cell when Enter is pressed in chess', async () => {

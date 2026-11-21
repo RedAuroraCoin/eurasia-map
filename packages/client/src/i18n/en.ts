@@ -26,10 +26,11 @@ export const en = {
     close: 'Collapse',
   },
   chess: {
-    build: 'Tower · 10',
-    buildTitle: 'Spend the turn and 10 coins on a tower next to the king',
-    recruit: 'Pawn · 30',
-    recruitTitle: 'Spend the turn and 30 coins on a pawn in one of your towers',
+    build: (cost: number) => `Tower · ${cost}`,
+    buildTitle: (cost: number) => `Spend the turn and ${cost} coins on a tower next to the king`,
+    recruit: (cost: number) => `Pawn · ${cost}`,
+    recruitTitle: (cost: number) =>
+      `Spend the turn and ${cost} coins on a pawn in one of your towers`,
     building: 'Pick a cell next to the king',
     recruiting: 'Pick one of your towers',
     recruited: 'Pawn recruited',

@@ -168,10 +168,10 @@ const RAW = {
   chess: {
     startCoins: 20,
     coinsPerRound: 5,
-    towerCost: 10,
-    // A pawn from a garrison costs more than a tower: it is a piece on the
-    // board, and the board is what the mode is about.
-    pawnCost: 30,
+    // A tower and a pawn cost the same: fifty coins, ten rounds of income, is a
+    // decision rather than a purchase you make every other move.
+    towerCost: 50,
+    pawnCost: 50,
     fullFloodRound: 200,
     floodExponent: 2,
     campMinElevation: 250,

@@ -1,4 +1,4 @@
-import { MAP_SIZES, type MapSize } from '@eurasia/shared';
+import { BALANCE, MAP_SIZES, type MapSize } from '@eurasia/shared';
 import { t } from '../i18n';
 import type { DayNight, Quality, Settings, Theme } from '../state/settings';
 import type { GameMode } from '../state/settings';
@@ -288,17 +288,19 @@ export class App {
     this.speedRow = row(t.settings.speed, speed.root);
     this.sizeRow = row(t.settings.size, size.root);
 
+    // Prices come from the balance file, not from the label string: a change to
+    // what a tower costs must not need a second edit in the translations.
     this.buildButton = h('button', {
       class: 'button hidden',
-      text: t.chess.build,
-      attrs: { type: 'button', title: t.chess.buildTitle },
+      text: t.chess.build(BALANCE.chess.towerCost),
+      attrs: { type: 'button', title: t.chess.buildTitle(BALANCE.chess.towerCost) },
       on: { click: () => this.onBuild() },
     }) as HTMLButtonElement;
 
     this.recruitButton = h('button', {
       class: 'button hidden',
-      text: t.chess.recruit,
-      attrs: { type: 'button', title: t.chess.recruitTitle },
+      text: t.chess.recruit(BALANCE.chess.pawnCost),
+      attrs: { type: 'button', title: t.chess.recruitTitle(BALANCE.chess.pawnCost) },
       on: { click: () => this.onRecruit() },
     }) as HTMLButtonElement;
 

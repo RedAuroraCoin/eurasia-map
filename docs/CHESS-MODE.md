@@ -48,15 +48,15 @@ ground, back rank behind.
   another. It promotes to a queen on reaching the enemy's camp, and a pawn
   recruited into a tower walks exactly like this from its first turn.
 - A turn is **one action**: move a piece, or spend it on a building instead.
-  - *Tower* — 10 coins, on a dry empty cell next to the king. It blocks movement
+  - *Tower* — 50 coins, on a dry empty cell next to the king. It blocks movement
     for both sides and can be taken by landing on it.
-  - *Pawn* — 30 coins, recruited **into one of your own towers**. It arrives with
-    `moved: true`, so no two-square opening, and it steps out on later turns.
+  - *Pawn* — 50 coins, recruited **into one of your own towers**. It steps out on
+    later turns and walks like any other pawn.
     Your own pieces cannot enter your tower, but an enemy landing on the tower
     takes the tower and the pawn inside it together: a garrison is sheltered, not
     safe.
-- Coins: 20 to start, +5 per side per round, so a pawn costs six rounds of income
-  and a tower two.
+- Coins: 20 to start, +5 per side per round, so either building is six rounds of
+  income away at the start — a decision, not a purchase you make every other move.
 - Taking the enemy king wins. So does the enemy king drowning.
 
 ## The tide

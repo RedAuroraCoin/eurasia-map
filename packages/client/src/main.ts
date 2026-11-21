@@ -162,7 +162,10 @@ const handlers: AppHandlers = {
     chessAction = chessAction === 'tower' ? 'none' : 'tower';
     chessSelected = null;
     app.setAction(chessAction);
-    app.setMessage(chessAction === 'tower' ? t.chess.building : t.chess.build, 'info');
+    app.setMessage(
+      chessAction === 'tower' ? t.chess.building : t.chess.build(BALANCE.chess.towerCost),
+      'info',
+    );
     refreshHints();
   },
   onRecruit: () => {
@@ -170,7 +173,10 @@ const handlers: AppHandlers = {
     chessAction = chessAction === 'pawn' ? 'none' : 'pawn';
     chessSelected = null;
     app.setAction(chessAction);
-    app.setMessage(chessAction === 'pawn' ? t.chess.recruiting : t.chess.recruit, 'info');
+    app.setMessage(
+      chessAction === 'pawn' ? t.chess.recruiting : t.chess.recruit(BALANCE.chess.pawnCost),
+      'info',
+    );
     refreshHints();
   },
   onSides: (both) => {
