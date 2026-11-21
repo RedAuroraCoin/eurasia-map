@@ -1,6 +1,5 @@
 // @vitest-environment happy-dom
 import { BALANCE, getMap } from '@eurasia/shared';
-import { DEFAULT_SETTINGS } from './state/settings';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -163,7 +162,8 @@ describe('single-player shell', () => {
     const visibleSegments = [...document.querySelectorAll('.segmented')].filter(
       (element) => element.closest('.hidden') === null,
     );
-    expect(visibleSegments).toHaveLength(9);
+    // Ten in the building game; chess drops the map size and the time speed.
+    expect(visibleSegments).toHaveLength(8);
   });
 
   it('moves a chess piece by clicking it and then its destination', async () => {
@@ -174,8 +174,8 @@ describe('single-player shell', () => {
     chessButton.click();
     flushFrames();
 
-    // The mode starts on the default map size, not on whatever the test prefers.
-    const map = getMap(DEFAULT_SETTINGS.size);
+    // Chess is played on the 800-cell board whatever the building game uses.
+    const map = getMap(800);
     const game = getChess();
     if (!game) throw new Error('chess mode did not start');
     const pawn = game.pieces.find(

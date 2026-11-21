@@ -37,9 +37,76 @@ const BACK_RANK: readonly PieceKind[] = [
 export const PIECES_PER_SIDE = BACK_RANK.length + 8;
 
 /**
- * Builds the opening position: each side takes the land cells nearest its own
- * edge, back rank behind, pawns in front. Deterministic, and it works on any map
- * because it reads the mask rather than assuming a rectangle.
+ * The camp: a chess formation, not a scatter.
+ *
+ * Eight files along the north-south axis and two ranks along the march axis:
+ * the back rank sits behind, the pawns one column closer to the enemy. White
+ * camps in the west and marches east; black mirrors it in the east.
+ *
+ * The block is searched rather than assumed: the first place near the side's
+ * own edge where all sixteen cells are dry land wins. If the coast is too ragged
+ * for a 2x8 block, the army falls back to the nearest high ground it can find.
+ */
+interface Camp {
+  /** Column of the back rank. */
+  readonly back: number;
+  /** Column of the pawn rank, one step toward the enemy. */
+  readonly pawns: number;
+  /** First row of the eight files. */
+  readonly row: number;
+}
+
+const FILES = BACK_RANK.length;
+
+function findCamp(side: Side, ctx: ChessCtx, preferRow?: number): Camp | null {
+  const forward = side === 0 ? 1 : -1;
+  const dry = (cell: number): boolean =>
+    ctx.isLand(cell) && (ctx.elev[cell] ?? 0) >= BALANCE.chess.campMinElevation;
+
+  const columns: number[] = [];
+  for (let col = 0; col < ctx.cols; col++) columns.push(col);
+  // White looks from the west edge inwards, black from the east edge inwards.
+  if (side === 1) columns.reverse();
+
+  // A preferred row is tried first: chess has the two back ranks facing each
+  // other, queen against queen, and it looks wrong when they are offset.
+  const rows: number[] = [];
+  if (preferRow !== undefined && preferRow >= 0 && preferRow + FILES <= ctx.rows) {
+    rows.push(preferRow);
+  }
+  for (let row = 0; row + FILES <= ctx.rows; row++) {
+    if (row !== preferRow) rows.push(row);
+  }
+
+  for (const col of columns) {
+    for (const row of rows) {
+      let ok = true;
+      for (let file = 0; file < FILES && ok; file++) {
+        const back = (row + file) * ctx.cols + col;
+        const pawn = (row + file) * ctx.cols + col + forward;
+        if (!dry(back) || !dry(pawn)) ok = false;
+      }
+      if (ok) return { back: col, pawns: col + forward, row };
+    }
+  }
+  return null;
+}
+
+/** The sixteen cells of a camp, back rank first. */
+function campCells(camp: Camp, ctx: ChessCtx): number[] {
+  const cells: number[] = [];
+  for (let file = 0; file < FILES; file++) {
+    cells.push((camp.row + file) * ctx.cols + camp.back);
+  }
+  for (let file = 0; file < FILES; file++) {
+    cells.push((camp.row + file) * ctx.cols + camp.pawns);
+  }
+  return cells;
+}
+
+/**
+ * Builds the opening position. Deterministic, and it reads the mask rather than
+ * assuming a rectangle, so a map with a broken coast still starts.
  */
 export function createChessGame(
   size: 300 | 500 | 800,
@@ -52,10 +119,28 @@ export function createChessGame(
   const homes: number[][] = [[], []];
   let id = 0;
 
+  const whiteCamp = findCamp(0, ctx);
   for (const side of [0, 1] as const) {
+    const camp = side === 0 ? whiteCamp : findCamp(1, ctx, whiteCamp?.row);
+    if (camp) {
+      const cells = campCells(camp, ctx);
+      homes[side] = cells;
+      // Back rank first, then the pawns: the order the formation was built in.
+      cells.forEach((cell, index) => {
+        pieces.push({
+          id: id++,
+          side,
+          kind: index < FILES ? (BACK_RANK[index] as PieceKind) : 'pawn',
+          cell,
+          promoted: false,
+        });
+      });
+      continue;
+    }
+
+    // No room for a formation: the nearest high ground, back rank behind.
     const cells = homeCells(side, ctx);
     homes[side] = cells;
-    // The half nearest the side's own edge is the back rank; the rest are pawns.
     const sorted = [...cells].sort((a, b) => {
       const pa = spotOf(a, ctx.cols);
       const pb = spotOf(b, ctx.cols);
@@ -63,10 +148,7 @@ export function createChessGame(
       if (byColumn !== 0) return byColumn;
       return pa.row - pb.row;
     });
-    const back = sorted.slice(0, BACK_RANK.length);
-    const front = sorted.slice(BACK_RANK.length);
-
-    back.forEach((cell, index) => {
+    sorted.slice(0, FILES).forEach((cell, index) => {
       pieces.push({
         id: id++,
         side,
@@ -75,7 +157,7 @@ export function createChessGame(
         promoted: false,
       });
     });
-    for (const cell of front) {
+    for (const cell of sorted.slice(FILES)) {
       pieces.push({ id: id++, side, kind: 'pawn', cell, promoted: false });
     }
   }
@@ -247,7 +329,8 @@ export function chessReduce(
  * save stays small and a rule change cannot leave stale home squares behind.
  */
 export function createHomeCells(side: Side, ctx: ChessCtx): number[] {
-  return homeCells(side, ctx);
+  const camp = findCamp(side, ctx);
+  return camp ? campCells(camp, ctx) : homeCells(side, ctx);
 }
 
 /**

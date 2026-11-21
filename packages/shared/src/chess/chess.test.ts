@@ -88,6 +88,50 @@ describe('the opening position', () => {
     expect(Math.max(...westPawns)).toBeLessThan(Math.min(...eastPawns));
   });
 
+  it('lines up like a chess rank: eight files, two ranks, pawns in front', () => {
+    const map800 = getMap(800);
+    const big: ChessCtx = {
+      isLand: (cell) => map800.mask[cell] === '#',
+      elev: map800.elev,
+      rows: map800.rows,
+      cols: map800.cols,
+      cellCount: map800.rows * map800.cols,
+    };
+    const game = createChessGame(800, 1, big);
+    const col = (cell: number): number => cell % big.cols;
+    const row = (cell: number): number => Math.floor(cell / big.cols);
+
+    for (const side of [0, 1] as const) {
+      const mine = game.pieces.filter((p) => p.side === side);
+      const back = mine.filter((p) => p.kind !== 'pawn');
+      const pawns = mine.filter((p) => p.kind === 'pawn');
+
+      // One file for the back rank, one for the pawns.
+      expect(new Set(back.map((p) => col(p.cell))).size).toBe(1);
+      expect(new Set(pawns.map((p) => col(p.cell))).size).toBe(1);
+      // Eight consecutive files.
+      const rows = back.map((p) => row(p.cell)).sort((a, b) => a - b);
+      expect(rows).toHaveLength(8);
+      rows.forEach((value, index) => expect(value).toBe((rows[0] as number) + index));
+      // Pawns stand on the same files, one column toward the enemy.
+      expect(pawns.map((p) => row(p.cell)).sort((a, b) => a - b)).toEqual(rows);
+      const step = side === 0 ? 1 : -1;
+      for (const pawn of pawns) expect(col(pawn.cell)).toBe(col(back[0]!.cell) + step);
+      // The order of the back rank, north to south.
+      const order = rows.map((value) => back.find((p) => row(p.cell) === value)?.kind as PieceKind);
+      expect(order).toEqual([
+        'rook',
+        'knight',
+        'bishop',
+        'queen',
+        'king',
+        'bishop',
+        'knight',
+        'rook',
+      ]);
+    }
+  });
+
   it('camps above the camping line, so the first rise cannot take a piece', () => {
     const game = createChessGame(500, 1, ctx);
     for (const piece of game.pieces) {

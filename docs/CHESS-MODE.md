@@ -4,6 +4,30 @@ A second game on the same map: two sides, chess pieces, one device. Built as a
 separate engine (`packages/shared/src/chess`) so the rules of the building game
 and the rules of chess never share a branch.
 
+## The board
+
+One size only: the **800-cell map**. The size control is hidden in this mode, and
+the building game's own map is restored when you switch back — playing chess does
+not change which board you build on.
+
+## The opening position
+
+A chess rank, not a scatter: eight files along the north-south axis, two ranks
+along the march axis.
+
+```
+        north
+   R N B Q K B N R     back rank
+   p p p p p p p p     pawns, one column east
+        south
+```
+
+White camps in the west and marches east; black mirrors it in the east and
+marches west. Black tries to take the same eight files as white, so the queens
+and kings face each other; if the coast does not allow it, it takes the first
+block that fits. A camp is only placed where all sixteen cells are dry land at
+or above 250 m.
+
 ## Rules
 
 - Each side fields 16 pieces: king, queen, 2 rooks, 2 bishops, 2 knights, 8 pawns.

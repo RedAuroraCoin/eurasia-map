@@ -93,8 +93,6 @@ const handlers: AppHandlers = {
       return;
     }
     switchSize(size);
-    // A different map is a different board: the armies cannot stay where they were.
-    if (settings.mode === 'chess') startChess();
   },
   onTheme: (theme) => {
     settings = { ...settings, theme };
@@ -375,15 +373,24 @@ function scheduleSave(): void {
 function saveNow(): void {
   if (demo || mp) return;
   clearTimeout(saveTimer);
-  saveState(storage, state, Date.now(), settings.size);
+  // The board the state belongs to, not the setting: chess swaps the map without
+  // touching the preference, and the two must not be written over each other.
+  saveState(storage, state, Date.now(), map.land);
 }
 
-function switchSize(size: MapSize): void {
-  if (size === settings.size) return;
+/**
+ * Swaps the board. `remember` is false when the switch belongs to a mode rather
+ * than to the player: chess is 800 cells only, and the player's building map
+ * must be waiting when they switch back.
+ */
+function switchSize(size: MapSize, remember = true): void {
+  if (remember && size === settings.size) return;
   saveNow();
 
-  settings = { ...settings, size };
-  saveSettings(storage, settings);
+  if (remember) {
+    settings = { ...settings, size };
+    saveSettings(storage, settings);
+  }
   map = getMap(size);
 
   const loaded = loadSave(storage, size);
@@ -563,9 +570,14 @@ function applyChess(result: ReturnType<typeof chessReduce>): void {
   syncChess();
 }
 
+const CHESS_SIZE: MapSize = 800;
+
 function startChess(): void {
   if (mp) return;
-  chess = createChessGame(settings.size, nextSeed(), chessCtx());
+  // The turn-based mode is played on one board size, so the size is not a choice
+  // there: switch to it without touching the building game's saved preference.
+  if (map.land !== CHESS_SIZE) switchSize(CHESS_SIZE, false);
+  chess = createChessGame(CHESS_SIZE, nextSeed(), chessCtx());
   chessSelected = null;
   chessBuild = false;
   app.setChessMode(true);
@@ -581,6 +593,8 @@ function leaveChess(): void {
   app.setChessMode(false);
   app.setBuildActive(false);
   view.setUnits([]);
+  // Back to whatever map the building game was playing before chess.
+  if (map.land !== settings.size) switchSize(settings.size, false);
   view.setState(state, clock());
   updateStats();
 }
