@@ -662,8 +662,25 @@ body {
 }
 
 @media (max-width: 720px) {
+  /* A room opponent's figures are noise on a phone. In chess the second block is
+     Black — one of the two players — so it stays, in a compact two-column grid. */
   .opponent-stat {
     display: none;
+  }
+
+  .app.chess .stats {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: start;
+    gap: 2px 14px;
+  }
+
+  .app.chess .opponent-stat {
+    display: flex;
+  }
+
+  .app.chess .sea-stat {
+    grid-column: 1 / -1;
   }
 }
 

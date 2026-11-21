@@ -19,6 +19,7 @@ export const en = {
     cells: 'Cells',
     sea: 'Sea',
     seaLevel: (metres: number) => `${formatMetres(metres)} m`,
+    perTurn: (coins: number) => `+${coins} / turn`,
     progress: (claimed: number, total: number) => `${claimed} / ${total}`,
     settings: 'Settings',
     newGame: 'New game',

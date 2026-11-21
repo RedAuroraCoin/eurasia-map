@@ -597,10 +597,19 @@ function syncChess(): void {
   if (!chess) return;
   view.setState(chessView(), clock());
   view.setUnits(unitsOf(chess));
+  // What each side will be paid when this round closes: the base rate plus one
+  // share per tower it still holds.
+  const game = chess;
+  const towerCount = (side: 0 | 1): number =>
+    Object.values(game.towers).filter((owner) => owner === side).length;
+  const perSide = (side: 0 | 1): number =>
+    BALANCE.chess.coinsPerRound + BALANCE.chess.towerIncome * towerCount(side);
+
   app.updateChess({
     turn: chess.turn,
     round: chess.round,
     coins: chess.coins,
+    income: [perSide(0), perSide(1)],
     seaLevel: chess.seaLevel,
     winner: chess.winner,
   });

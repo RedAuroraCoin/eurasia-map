@@ -253,17 +253,23 @@ function endTurn(
   const round = turn === 0 ? state.round + 1 : state.round;
 
   let seaLevel = state.seaLevel;
-  let coins: [number, number] = [state.coins[0], state.coins[1]];
-  if (turn === 0) {
-    seaLevel = seaLevelForRound(round, ctx);
-    coins = [coins[0] + BALANCE.chess.coinsPerRound, coins[1] + BALANCE.chess.coinsPerRound];
-  }
+  if (turn === 0) seaLevel = seaLevelForRound(round, ctx);
 
   const ground = (cell: number): number => ctx.elev[cell] ?? 0;
   const pieces = state.pieces.filter((piece) => ground(piece.cell) >= seaLevel);
   const towers: Record<string, Side> = {};
   for (const [cell, side] of Object.entries(state.towers)) {
     if (ground(Number(cell)) >= seaLevel) towers[cell] = side;
+  }
+
+  // Income is paid once a round, and only for the towers that survived the tide:
+  // a drowned tower stops earning, so the player has to build inland instead.
+  const coins: [number, number] = [state.coins[0], state.coins[1]];
+  if (turn === 0) {
+    for (const side of [0, 1] as const) {
+      const owned = Object.values(towers).filter((owner) => owner === side).length;
+      coins[side] += BALANCE.chess.coinsPerRound + BALANCE.chess.towerIncome * owned;
+    }
   }
 
   const drowned = state.pieces.length - pieces.length;

@@ -411,6 +411,17 @@ describe('single-player shell', () => {
     expect(getChess()?.towers[String(whiteTower)]).toBe(0);
     expect(getChess()?.towers[String(blackTower)]).toBe(1);
 
+    // Both wallets show their own income: one tower each, so the same figure
+    // twice. The mobile rule keys off these two classes, so they are pinned here.
+    const perTurn = BALANCE.chess.coinsPerRound + BALANCE.chess.towerIncome;
+    const incomes = [...document.querySelectorAll('.stat .stat-value')]
+      .map((node) => node.textContent ?? '')
+      .filter((text) => text.endsWith('/ turn'));
+    expect(incomes).toHaveLength(2);
+    expect(incomes).toEqual([`+${perTurn} / turn`, `+${perTurn} / turn`]);
+    expect(document.querySelector('.app')?.classList.contains('chess')).toBe(true);
+    expect(document.querySelector('.stats')?.classList.contains('multi')).toBe(true);
+
     recruit.click();
     flushFrames();
 

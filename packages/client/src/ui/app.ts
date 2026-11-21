@@ -473,6 +473,8 @@ export class App {
     turn: 0 | 1;
     round: number;
     coins: readonly [number, number];
+    /** Coins each side is paid when the round closes: base rate plus towers. */
+    income: readonly [number, number];
     seaLevel: number;
     winner: 0 | 1 | null;
   }): void {
@@ -480,10 +482,12 @@ export class App {
     const theirs = info.turn === 0 ? t.chess.black : t.chess.white;
     this.coinsEl.textContent = formatNumber(info.coins[0]);
     this.oppCoinsEl.textContent = formatNumber(info.coins[1]);
-    this.incomeEl.textContent = t.panel.perDay(0);
-    this.incomeEl.classList.add('muted');
-    this.oppIncomeEl.textContent = t.panel.perDay(0);
-    this.oppIncomeEl.classList.add('muted');
+    // Both wallets show their own income, not just White's: with towers paying
+    // per round, the second number is the other player's whole plan.
+    this.incomeEl.textContent = t.panel.perTurn(info.income[0]);
+    this.incomeEl.classList.toggle('muted', info.income[0] === 0);
+    this.oppIncomeEl.textContent = t.panel.perTurn(info.income[1]);
+    this.oppIncomeEl.classList.toggle('muted', info.income[1] === 0);
     this.cellsEl.textContent = t.chess.turn(mine);
     this.oppCellsEl.textContent = t.chess.turn(theirs);
     this.seaEl.textContent = t.panel.seaLevel(info.seaLevel);

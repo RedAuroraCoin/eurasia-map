@@ -21,6 +21,7 @@ export const ru: Dict = {
     cells: 'Клетки',
     sea: 'Море',
     seaLevel: (metres: number) => `${formatMetres(metres)} м`,
+    perTurn: (coins: number) => `+${coins} / ход`,
     progress: (claimed: number, total: number) => `${claimed} / ${total}`,
     settings: 'Настройки',
     newGame: 'Новая партия',

@@ -517,6 +517,49 @@ describe('the king builds instead of moving', () => {
   });
 });
 
+describe('towers pay their owner', () => {
+  it('pays the base rate plus ten for every tower when the round closes', () => {
+    const s = state(
+      [piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7)), piece(3, 1, 'rook', at(6, 6))],
+      {
+        turn: 1,
+        coins: [0, 0],
+        towers: { [String(at(5, 5))]: 0, [String(at(5, 6))]: 0, [String(at(6, 5))]: 1 },
+      },
+    );
+
+    const result = chessReduce(s, { k: 'move', piece: 3, to: at(6, 7) }, ctx8());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.state.round).toBe(1);
+    expect(result.state.coins[0]).toBe(BALANCE.chess.coinsPerRound + 2 * BALANCE.chess.towerIncome);
+    expect(result.state.coins[1]).toBe(BALANCE.chess.coinsPerRound + BALANCE.chess.towerIncome);
+  });
+
+  it('stops paying for a tower the sea has taken', () => {
+    // Cell 0 is the lowest ground on this board, and round 101 drowns it.
+    const low = at(0, 0);
+    const s = state(
+      [piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7)), piece(3, 1, 'rook', at(6, 6))],
+      {
+        turn: 1,
+        round: 100,
+        coins: [0, 0],
+        towers: { [String(low)]: 0 },
+      },
+    );
+
+    const result = chessReduce(s, { k: 'move', piece: 3, to: at(6, 7) }, ctx8());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.state.towers[String(low)]).toBeUndefined();
+    // Base rate only: the drowned tower earns nothing.
+    expect(result.state.coins[0]).toBe(BALANCE.chess.coinsPerRound);
+  });
+});
+
 describe('winning and refusing', () => {
   it('wins by taking the king', () => {
     const s = state([piece(1, 0, 'rook', at(3, 3)), piece(2, 1, 'king', at(3, 6))]);

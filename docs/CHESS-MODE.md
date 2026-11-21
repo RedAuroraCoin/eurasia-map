@@ -55,8 +55,10 @@ ground, back rank behind.
     Your own pieces cannot enter your tower, but an enemy landing on the tower
     takes the tower and the pawn inside it together: a garrison is sheltered, not
     safe.
-- Coins: 20 to start, +5 per side per round, so either building is six rounds of
-  income away at the start — a decision, not a purchase you make every other move.
+- Coins: 20 to start, then **+5 per side per round plus 10 for every tower that
+  side still holds**. A tower pays for itself in five rounds, which makes holding
+  ground worth as much as taking it — and a tower the sea has drowned stops
+  paying, so income has to move uphill with the army.
 - Taking the enemy king wins. So does the enemy king drowning.
 
 ## The tide

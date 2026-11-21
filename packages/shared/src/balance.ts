@@ -70,6 +70,7 @@ export const BalanceSchema = z.object({
     coinsPerRound: z.number().int().min(0).max(100),
     towerCost: z.number().int().positive().max(100),
     pawnCost: z.number().int().positive().max(1000),
+    towerIncome: z.number().int().min(0).max(1000),
     /**
      * The round at which the sea covers the last cell. A game cannot outlast it,
      * and an average game — 40 to 45 moves each — ends on the highlands rather
@@ -172,6 +173,8 @@ const RAW = {
     // decision rather than a purchase you make every other move.
     towerCost: 50,
     pawnCost: 50,
+    /** Every tower a side owns pays this at the end of each round. */
+    towerIncome: 10,
     fullFloodRound: 200,
     floodExponent: 2,
     campMinElevation: 250,
