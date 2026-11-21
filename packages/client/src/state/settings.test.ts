@@ -48,7 +48,6 @@ describe('parseSettings', () => {
       theme: 'dark',
       quality: 'ultra',
       relief: false,
-      dayNight: 'night',
       hurricanes: 'yes',
       speed: 2,
       size: 999,
@@ -56,10 +55,15 @@ describe('parseSettings', () => {
     expect(parsed.theme).toBe('dark');
     expect(parsed.quality).toBe(DEFAULT_SETTINGS.quality);
     expect(parsed.relief).toBe(false);
-    expect(parsed.dayNight).toBe('night');
     expect(parsed.hurricanes).toBe(DEFAULT_SETTINGS.hurricanes);
     expect(parsed.speed).toBe(2);
     expect(parsed.size).toBe(DEFAULT_SETTINGS.size);
+  });
+
+  it('ignores the day/night key an older build wrote', () => {
+    const parsed = parseSettings({ dayNight: 'night', theme: 'light' });
+    expect(parsed.theme).toBe('light');
+    expect('dayNight' in parsed).toBe(false);
   });
 
   it('accepts every advertised map size', () => {

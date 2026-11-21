@@ -129,7 +129,7 @@ describe('single-player shell', () => {
 
     expect(document.querySelector('h1')?.textContent).toBe('Eurasia Map');
     expect(document.querySelector('canvas')).not.toBeNull();
-    expect(document.querySelectorAll('.segmented')).toHaveLength(10);
+    expect(document.querySelectorAll('.segmented')).toHaveLength(9);
     // The panel is positioned against the stage: inside the app grid it slid
     // under the topbar and ignored that row in its max-height.
     expect(document.querySelector('.stage > .panel')).not.toBeNull();
@@ -250,8 +250,8 @@ describe('single-player shell', () => {
     const visibleSegments = [...document.querySelectorAll('.segmented')].filter(
       (element) => element.closest('.hidden') === null,
     );
-    // Ten in the building game; chess drops the map size and the time speed.
-    expect(visibleSegments).toHaveLength(8);
+    // Nine in the building game; chess drops the map size and the time speed.
+    expect(visibleSegments).toHaveLength(7);
   });
 
   it('opens the menu with the hamburger and deals a new game from it', async () => {

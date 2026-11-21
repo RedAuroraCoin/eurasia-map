@@ -3,13 +3,11 @@ import { SETTINGS_KEY, type StorageLike } from './save';
 
 export type Theme = 'auto' | 'light' | 'dark';
 export type Quality = 'auto' | 'high' | 'low';
-export type DayNight = 'auto' | 'day' | 'night';
 
 export interface Settings {
   readonly theme: Theme;
   readonly quality: Quality;
   readonly relief: boolean;
-  readonly dayNight: DayNight;
   readonly hurricanes: boolean;
   /** The daily water rise. A rule, so a room ignores this and always floods. */
   readonly flood: boolean;
@@ -39,7 +37,6 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto',
   quality: 'auto',
   relief: true,
-  dayNight: 'auto',
   hurricanes: true,
   flood: BALANCE.flood.enabledByDefault,
   speed: 0,
@@ -68,7 +65,6 @@ export function parseSettings(raw: unknown): Settings {
     theme: pick<Theme>(source.theme, ['auto', 'light', 'dark'], DEFAULT_SETTINGS.theme),
     quality: pick<Quality>(source.quality, ['auto', 'high', 'low'], DEFAULT_SETTINGS.quality),
     relief: typeof source.relief === 'boolean' ? source.relief : DEFAULT_SETTINGS.relief,
-    dayNight: pick<DayNight>(source.dayNight, ['auto', 'day', 'night'], DEFAULT_SETTINGS.dayNight),
     hurricanes:
       typeof source.hurricanes === 'boolean' ? source.hurricanes : DEFAULT_SETTINGS.hurricanes,
     flood: typeof source.flood === 'boolean' ? source.flood : DEFAULT_SETTINGS.flood,

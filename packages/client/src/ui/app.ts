@@ -1,6 +1,6 @@
 import { BALANCE, MAP_SIZES, type MapSize } from '@eurasia/shared';
 import { t } from '../i18n';
-import type { DayNight, Quality, Settings, Theme } from '../state/settings';
+import type { Quality, Settings, Theme } from '../state/settings';
 import type { GameMode } from '../state/settings';
 import { segmented, formatNumber, h, row } from './dom';
 
@@ -10,7 +10,6 @@ export interface AppHandlers {
   onQuality(quality: Quality): void;
   onRelief(on: boolean): void;
   onSides(both: boolean): void;
-  onDayNight(mode: DayNight): void;
   onHurricanes(on: boolean): void;
   onFlood(on: boolean): void;
   onSpeed(index: number): void;
@@ -63,7 +62,6 @@ export class App {
     size: ReturnType<typeof segmented<MapSize>>;
     theme: ReturnType<typeof segmented<Theme>>;
     quality: ReturnType<typeof segmented<Quality>>;
-    dayNight: ReturnType<typeof segmented<DayNight>>;
     relief: ReturnType<typeof segmented<string>>;
     hurricanes: ReturnType<typeof segmented<string>>;
     flood: ReturnType<typeof segmented<string>>;
@@ -203,16 +201,6 @@ export class App {
       handlers.onSize,
       t.settings.size,
     );
-    const dayNight = segmented<DayNight>(
-      [
-        { value: 'auto', label: t.settings.lightingAuto },
-        { value: 'day', label: t.settings.lightingDay },
-        { value: 'night', label: t.settings.lightingNight },
-      ],
-      settings.dayNight,
-      handlers.onDayNight,
-      t.settings.lighting,
-    );
     const relief = segmented<string>(
       [
         { value: 'on', label: t.settings.reliefOn },
@@ -281,7 +269,6 @@ export class App {
       size,
       theme,
       quality,
-      dayNight,
       relief,
       hurricanes,
       flood,
@@ -347,7 +334,6 @@ export class App {
       ),
       row(t.settings.mode, mode.root),
       this.sizeRow,
-      row(t.settings.lighting, dayNight.root),
       row(t.settings.relief, relief.root),
       row(t.settings.sides, sides.root),
       row(t.settings.hurricanes, hurricanes.root),
@@ -630,7 +616,6 @@ export class App {
     this.segments.size.set(settings.size);
     this.segments.theme.set(settings.theme);
     this.segments.quality.set(settings.quality);
-    this.segments.dayNight.set(settings.dayNight);
     this.segments.relief.set(settings.relief ? 'on' : 'off');
     this.segments.hurricanes.set(settings.hurricanes ? 'on' : 'off');
     this.segments.flood.set(settings.flood ? 'on' : 'off');

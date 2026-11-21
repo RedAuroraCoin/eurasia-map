@@ -17,7 +17,7 @@ import {
   type MapSize,
 } from '@eurasia/shared';
 import { t } from './i18n';
-import { lightingAt, timeOfDayFromDate } from './render/palette';
+import { lightingAt } from './render/palette';
 import { createView, type View } from './render/view';
 import { backupSave, browserStorage, clearSave, loadSave, saveState } from './state/save';
 import { backupChessGame, clearChessGame, loadChessGame, saveChessGame } from './state/chess-save';
@@ -68,7 +68,6 @@ let nextStormAt = 0;
 let stormCounter = 0;
 /** Last world day the simulation settled, so a fast clock settles per day, not per minute. */
 let lastWorldDay = Number.NEGATIVE_INFINITY;
-let lastLighting = -1;
 
 // ---------------------------------------------------------------- chess mode
 let chess: ChessState | null = null;
@@ -128,12 +127,6 @@ const handlers: AppHandlers = {
     view.setRelief(relief);
     view.setState(active(), Date.now());
     app.setSettings(settings, demo);
-  },
-  onDayNight: (dayNight) => {
-    settings = { ...settings, dayNight };
-    saveSettings(storage, settings);
-    lastLighting = -1;
-    applyLighting(true);
   },
   onHurricanes: (hurricanes) => {
     settings = { ...settings, hurricanes };
@@ -473,7 +466,6 @@ function toggleDemo(): void {
   if (demo) {
     demoState = buildDemoState();
     extraTime = 0;
-    lastLighting = -1;
   }
   app.setSettings(settings, demo);
   view.setState(active(), Date.now());
@@ -506,17 +498,15 @@ function applyTheme(): void {
   else element.dataset.theme = settings.theme;
 }
 
-function applyLighting(force = false): void {
-  const timeOfDay =
-    settings.dayNight === 'day'
-      ? 0.45
-      : settings.dayNight === 'night'
-        ? 0.02
-        : timeOfDayFromDate(new Date(clock()));
+/**
+ * The board is always in daylight. Night was a setting, but a dark map hides the
+ * relief and the pieces, so the sun is fixed just past noon instead: long enough
+ * shadows to read the height, no dusk to squint through.
+ */
+const DAYLIGHT = 0.45;
 
-  if (!force && Math.abs(timeOfDay - lastLighting) < 0.0008) return;
-  lastLighting = timeOfDay;
-  view.setLighting(lightingAt(timeOfDay));
+function applyLighting(): void {
+  view.setLighting(lightingAt(DAYLIGHT));
 }
 
 function resolveQuality(current: Settings): 'high' | 'low' {
@@ -924,7 +914,7 @@ app.canvas.focus({ preventScroll: true });
 view.setSelected(selected);
 view.setState(state, Date.now());
 updateStats();
-applyLighting(true);
+applyLighting();
 settle();
 // Only now is there a state to switch away from: starting chess earlier crashed
 // on a missing `state` and left the screen with nothing but the sea plane.
@@ -1124,7 +1114,6 @@ function frame(now: number): void {
     }
   }
 
-  applyLighting();
   updateStorms(world);
   view.render(world);
   requestAnimationFrame(frame);
