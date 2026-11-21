@@ -85,11 +85,30 @@ export const ru: Dict = {
       destroyed > 0
         ? `Ураган: повреждено ${hits}, разрушено ${destroyed}`
         : `Ураган: повреждено ${hits}`,
+    roomSizeLocked: 'В комнате карта и правила зафиксированы',
+    waitingOpponent: 'Ожидание соперника…',
+    opponentConnected: 'Соперник подключился',
+    opponentDisconnected: 'Соперник отключился',
+    connectionLost: 'Соединение потеряно — переподключение…',
+    connectionFailed: 'Не удалось подключиться',
+    roomFull: 'Комната заполнена',
+    roomGone: 'Комната больше не существует',
+    badSecret: 'Неверная сессия — перезагрузите страницу',
+    needRefresh: 'Версия игры устарела — обновите страницу',
+    you: 'Вы',
+    opponent: 'Соперник',
+    yourTurn: 'Ваш ход',
+    theirTurn: 'Ход соперника',
     loaded: (claimed: number) => `Прогресс загружен: ${claimed} клеток`,
   },
   errors: {
     saveCorrupt: 'Сохранение повреждено — начат новый город',
     saveNewer: 'Сохранение от более новой версии игры — начни заново',
+  },
+  room: {
+    label: 'Комната',
+    copy: 'Скопировать ссылку-приглашение',
+    copied: 'Ссылка-приглашение скопирована',
   },
   legend: {
     elevation: 'Высота',

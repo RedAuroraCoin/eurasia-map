@@ -12,6 +12,7 @@ import {
   stormCells,
   type StormPlan,
   type GameState,
+  type GameEvent,
   type MapSize,
 } from '@eurasia/shared';
 import { t } from './i18n';
@@ -19,6 +20,7 @@ import { lightingAt, timeOfDayFromDate } from './render/palette';
 import { createView, type View } from './render/view';
 import { browserStorage, clearSave, loadSave, saveState } from './state/save';
 import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
+import { MultiplayerClient, parseRoomFromUrl } from './multiplayer/client';
 import { App, type AppHandlers } from './ui/app';
 
 /**
@@ -42,10 +44,25 @@ let lastLighting = -1;
 let selected = 0;
 let saveTimer = 0;
 
+/**
+ * Multiplayer is opt-in through the URL: `?room=CODE`. When a room is present
+ * the server owns the state — this module stops reducing, stops ticking and
+ * stops saving, and only sends intents and draws what comes back.
+ */
+const roomCode = parseRoomFromUrl();
+let mp: MultiplayerClient | null = null;
+let seat: 0 | 1 = 0;
+
 // Handlers are declared before the app because the constructor wires them up;
 // everything they close over (`app`, `view`) exists by the time one is called.
 const handlers: AppHandlers = {
-  onSize: (size) => switchSize(size),
+  onSize: (size) => {
+    if (mp) {
+      app.setMessage(t.messages.roomSizeLocked, 'error');
+      return;
+    }
+    switchSize(size);
+  },
   onTheme: (theme) => {
     settings = { ...settings, theme };
     saveSettings(storage, settings);
@@ -85,8 +102,20 @@ const handlers: AppHandlers = {
     view.setSidePreview(both);
     app.setSettings(settings, demo);
   },
-  onDemo: () => toggleDemo(),
-  onReset: () => void reset(),
+  onDemo: () => {
+    if (mp) {
+      app.setMessage(t.messages.roomSizeLocked, 'error');
+      return;
+    }
+    toggleDemo();
+  },
+  onReset: () => {
+    if (mp) {
+      app.setMessage(t.messages.roomSizeLocked, 'error');
+      return;
+    }
+    void reset();
+  },
 };
 
 const app = new App(settings, handlers);
@@ -150,12 +179,21 @@ function firstLand(): number {
 
 function updateStats(): void {
   const current = active();
-  app.updateStats(
-    current.coins[0],
-    current.claimed[0] * BALANCE.income.perCellPerDay,
-    current.claimed[0],
-    map.land,
-  );
+  const perCell = BALANCE.income.perCellPerDay;
+  if (mp) {
+    app.updateMultiStats(
+      current.coins[0],
+      current.claimed[0] * perCell,
+      current.claimed[0],
+      current.coins[1],
+      current.claimed[1] * perCell,
+      current.claimed[1],
+      t.messages.you,
+      t.messages.opponent,
+    );
+    return;
+  }
+  app.updateStats(current.coins[0], current.claimed[0] * perCell, current.claimed[0], map.land);
 }
 
 function describeError(code: string): string {
@@ -184,6 +222,17 @@ function toggleCell(index: number, demolish = false): void {
     return;
   }
   if (index < 0 || index >= map.rows * map.cols) return;
+
+  // In a room the server decides: send the intent, draw only what comes back.
+  if (mp) {
+    const owned = state.cells[String(index)] !== undefined;
+    if (owned && !demolish) mp.move(index);
+    else if (owned) mp.unclaim(index);
+    else mp.claim(index);
+    selected = index;
+    view.setSelected(index);
+    return;
+  }
 
   const owned = state.cells[String(index)] !== undefined;
   const king = state.kings[0];
@@ -218,7 +267,7 @@ function toggleCell(index: number, demolish = false): void {
 
 /** Credits income for the days that passed while the player was away. */
 function settle(): void {
-  if (demo) return;
+  if (demo || mp) return;
   const result = reduce(state, { k: 'tick' }, ctx());
   if (result.state === state) return;
 
@@ -234,13 +283,13 @@ function settle(): void {
 }
 
 function scheduleSave(): void {
-  if (demo) return;
+  if (demo || mp) return;
   clearTimeout(saveTimer);
   saveTimer = window.setTimeout(saveNow, 250);
 }
 
 function saveNow(): void {
-  if (demo) return;
+  if (demo || mp) return;
   clearTimeout(saveTimer);
   saveState(storage, state, Date.now(), settings.size);
 }
@@ -447,6 +496,92 @@ updateStats();
 applyLighting(true);
 settle();
 
+// --------------------------------------------------------------- multiplayer
+
+function sayEvents(events: readonly GameEvent[]): void {
+  for (const event of events) {
+    if (event.t === 'claimed') app.setMessage(t.messages.claimed(event.cost), 'good');
+    if (event.t === 'unclaimed') app.setMessage(t.messages.unclaimed(event.refund), 'good');
+    if (event.t === 'moved') app.setMessage(t.messages.moved, 'info');
+    if (event.t === 'storm' && event.hits > 0) {
+      app.setMessage(
+        t.messages.storm(event.hits, event.destroyed),
+        event.destroyed > 0 ? 'error' : 'info',
+      );
+    }
+  }
+}
+
+function applyServerState(next: GameState, events: readonly GameEvent[]): void {
+  state = next;
+  view.setState(state, Date.now());
+  updateStats();
+  sayEvents(events);
+}
+
+function roomErrorText(code: string): string {
+  switch (code) {
+    case 'room_full':
+      return t.messages.roomFull;
+    case 'room_gone':
+      return t.messages.roomGone;
+    case 'bad_secret':
+      return t.messages.badSecret;
+    case 'refresh':
+      return t.messages.needRefresh;
+    default:
+      return t.messages.connectionFailed;
+  }
+}
+
+if (roomCode) {
+  app.setRoomCode(roomCode);
+  app.setWaiting(true, t.messages.waitingOpponent);
+
+  mp = new MultiplayerClient(roomCode, {
+    onStatusChange: (status, info) => {
+      switch (status) {
+        case 'connecting':
+          app.setConnectionStatus('connecting', '');
+          break;
+        case 'waiting':
+          app.setConnectionStatus('waiting', t.messages.waitingOpponent);
+          app.setWaiting(true, t.messages.waitingOpponent);
+          break;
+        case 'playing':
+          app.setConnectionStatus('playing', '');
+          app.setWaiting(false);
+          break;
+        case 'reconnecting':
+          app.setConnectionStatus('reconnecting', t.messages.connectionLost);
+          break;
+        case 'error':
+          app.setConnectionStatus('error', info ?? t.messages.connectionFailed);
+          break;
+        default:
+          app.setConnectionStatus('idle');
+          break;
+      }
+    },
+    onWelcome: (welcomeSeat, _rev, next) => {
+      seat = welcomeSeat;
+      app.setWaiting(false);
+      applyServerState(next, []);
+    },
+    onState: (next, events) => applyServerState(next, events),
+    onReject: (_id, code) => app.setMessage(describeError(code), 'error'),
+    onError: (code) => {
+      app.setMessage(roomErrorText(code), 'error');
+      if (code !== 'rate_limited') app.setWaiting(false);
+    },
+    onStorms: (plans) => view.setStorms(plans),
+  });
+  mp.connect();
+
+  window.setInterval(() => mp?.ping(), 25_000);
+  window.addEventListener('beforeunload', () => mp?.disconnect());
+}
+
 let previous = performance.now();
 interface ActiveStorm {
   readonly plan: StormPlan;
@@ -464,6 +599,8 @@ let stormCounter = 0;
  * issue, so the storm looks identical on both screens.
  */
 function updateStorms(now: number): void {
+  // The room issues its own plans over the wire; the client only animates them.
+  if (mp) return;
   if (!settings.hurricanes || demo) {
     if (storms.length > 0) {
       storms = [];
@@ -535,8 +672,16 @@ function frame(now: number): void {
 requestAnimationFrame(frame);
 
 /** Exposed for the DOM smoke test and for poking at it in the console. */
-export const __eurasia: { app: App; view: View; getState: () => GameState } = {
+export const __eurasia: {
+  app: App;
+  view: View;
+  getState: () => GameState;
+  getSeat: () => 0 | 1;
+  isMultiplayer: () => boolean;
+} = {
   app,
   view,
   getState: () => active(),
+  getSeat: () => seat,
+  isMultiplayer: () => mp !== null,
 };

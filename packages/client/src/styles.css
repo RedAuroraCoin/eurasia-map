@@ -430,6 +430,169 @@ body {
   }
 }
 
+/* ------------------------------------------------------------------ multiplayer */
+
+.room-code {
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.room-code:hover {
+  border-color: var(--accent);
+}
+
+.opponent-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-soft);
+  white-space: nowrap;
+}
+
+.opponent-stat[hidden],
+.opponent-label[hidden] {
+  display: none;
+}
+
+/* Opponent figures only make sense once a room is joined. */
+.stats:not(.multi) .opponent-stat {
+  display: none;
+}
+
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--fg-soft);
+  white-space: nowrap;
+}
+
+.connection-status[data-status='connecting'] {
+  background: rgb(255 190 60 / 18%);
+  border-color: #e0a020;
+  color: #e0a020;
+}
+
+.connection-status[data-status='waiting'] {
+  background: rgb(100 180 255 / 18%);
+  border-color: #4a90d9;
+  color: #4a90d9;
+}
+
+.connection-status[data-status='playing'] {
+  background: rgb(80 200 120 / 18%);
+  border-color: #30a040;
+  color: #30a040;
+}
+
+.connection-status[data-status='reconnecting'] {
+  background: rgb(255 150 60 / 18%);
+  border-color: #e07010;
+  color: #e07010;
+  animation: pulse 1.2s infinite;
+}
+
+.connection-status[data-status='error'] {
+  background: rgb(255 80 80 / 18%);
+  border-color: #d03030;
+  color: #d03030;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.opponent-label {
+  margin-right: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-soft);
+  white-space: nowrap;
+}
+
+.waiting-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(8 12 18 / 88%);
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.waiting-overlay.hidden {
+  display: none;
+}
+
+.waiting-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 32px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.waiting-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--fg);
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.opponent-stat {
+  opacity: 0.85;
+}
+
+.opponent-stat .stat-value {
+  color: var(--fg);
+}
+
+@media (max-width: 720px) {
+  .opponent-stat {
+    display: none;
+  }
+}
+
 /* ------------------------------------------------------------------ dialog */
 
 .dialog {

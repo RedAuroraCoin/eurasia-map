@@ -62,6 +62,18 @@ export const BalanceSchema = z.object({
   player: z.object({
     maxNickLength: z.number().int().positive(),
   }),
+
+  flood: z.object({
+    enabledByDefault: z.boolean(),
+    /** Base water rise per in-game day per cell (0..100). */
+    baseRisePerDay: z.number().min(0).max(100),
+    /** Additional rise when a hurricane hits the cell. */
+    stormBonus: z.number().min(0).max(100),
+    /** Maximum water level (100 = fully flooded). */
+    maxLevel: z.number().int().positive().max(100),
+    /** Building HP loss per 1 % of water rise. */
+    damagePerLevel: z.number().min(0).max(1),
+  }),
 });
 
 export type Balance = z.infer<typeof BalanceSchema>;
@@ -109,6 +121,14 @@ const RAW = {
 
   player: {
     maxNickLength: 24,
+  },
+
+  flood: {
+    enabledByDefault: true,
+    baseRisePerDay: 0.5,
+    stormBonus: 15,
+    maxLevel: 100,
+    damagePerLevel: 0.2,
   },
 } as const;
 

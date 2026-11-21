@@ -10,7 +10,9 @@ import {
   planStorm,
   nextStormGap,
   hash01,
+  getMap,
   type StormPlan,
+  type MapSize,
 } from '@eurasia/shared';
 
 /**
@@ -34,6 +36,8 @@ type SecretHash = string;
 
 interface StoredState {
   schema: number;
+  /** Board size; the terrains differ per size, so the room must remember it. */
+  size: MapSize;
   gameState: GameState;
   /** Seat 0 secret hash → seat 1 secret hash. Missing = empty. */
   seats: [SecretHash | null, SecretHash | null];
@@ -295,7 +299,7 @@ export class Room {
     const fullCmd = { ...cmd, slot: seat } as Command;
 
     const stored = await this.getStored();
-    const ctx = this.makeContext(stored.gameState);
+    const ctx = this.makeContext(stored.size);
     const result = reduce(stored.gameState, fullCmd, ctx);
 
     if (!result.ok) {
@@ -358,7 +362,7 @@ export class Room {
           Math.floor(
             hash01(numericSeed) * (BALANCE.hurricane.lifeMaxMs - BALANCE.hurricane.lifeMinMs),
           );
-        const map = getMapFromState(stored.gameState);
+        const map = getMap(stored.size);
         const plan = planStorm({
           seed: numericSeed,
           id: ++stored.stormCounter,
@@ -377,9 +381,9 @@ export class Room {
     for (const [id, plan] of Object.entries(stored.storms) as [string, StormPlan][]) {
       if (plan.damageAt <= now && now < plan.endsAt) {
         // Resolve damage
-        const map = getMapFromState(stored.gameState);
+        const map = getMap(stored.size);
         const cells = stormCells(plan, map);
-        const ctx = this.makeContext(stored.gameState);
+        const ctx = this.makeContext(stored.size);
         const result = reduce(stored.gameState, { k: 'damage', cells }, ctx);
         if (result.ok) {
           stored.gameState = result.state;
@@ -419,9 +423,9 @@ export class Room {
 
     for (const [id, plan] of Object.entries(stored.storms) as [string, StormPlan][]) {
       if (plan.damageAt <= now && now < plan.endsAt) {
-        const map = getMapFromState(stored.gameState);
+        const map = getMap(stored.size);
         const cells = stormCells(plan, map);
-        const ctx = this.makeContext(stored.gameState);
+        const ctx = this.makeContext(stored.size);
         const result = reduce(stored.gameState, { k: 'damage', cells }, ctx);
         if (result.ok) {
           stored.gameState = result.state;
@@ -468,6 +472,7 @@ export class Room {
     );
     const room: StoredState = {
       schema: SCHEMA_VERSION,
+      size: 500,
       gameState: initialState,
       seats: [null, null],
       connections: {},
@@ -487,18 +492,18 @@ export class Room {
     if (stored.schema < 2) {
       stored.schema = 2;
     }
+    // Rooms created before the terrain fix stored no size; 500 is the default.
+    if (!stored.size) stored.size = 500;
     await this.putStored(stored);
   }
 
-  private makeContext(gameState: GameState) {
+  private makeContext(size: MapSize) {
+    const map = getMap(size);
     return {
       nowMs: Date.now(),
-      isLand: (cell: number) => {
-        const map = getMapFromState(gameState);
-        return cell >= 0 && cell < map.mask.length && map.mask[cell] === '#';
-      },
-      cellCount: 500,
-      cols: 35,
+      isLand: (cell: number) => cell >= 0 && cell < map.mask.length && map.mask[cell] === '#',
+      cellCount: map.rows * map.cols,
+      cols: map.cols,
     };
   }
 
@@ -565,25 +570,4 @@ export class Room {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
-}
-
-/** Helper to get map dimensions from state. */
-function getMapFromState(state: GameState): import('@eurasia/shared').MapEntry {
-  const land = Object.keys(state.cells).length;
-  const sizeMap: Record<
-    number,
-    {
-      size: import('@eurasia/shared').MapSize;
-      land: number;
-      rows: number;
-      cols: number;
-      mask: string;
-      elev: readonly number[];
-    }
-  > = {
-    300: { size: 300, land: 300, rows: 22, cols: 28, mask: '', elev: [] },
-    500: { size: 500, land: 500, rows: 29, cols: 35, mask: '', elev: [] },
-    800: { size: 800, land: 800, rows: 36, cols: 44, mask: '', elev: [] },
-  };
-  return sizeMap[land] ?? { size: 500, land: 500, rows: 29, cols: 35, mask: '', elev: [] };
 }

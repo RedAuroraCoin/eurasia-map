@@ -85,12 +85,31 @@ export const en = {
       destroyed > 0
         ? `Hurricane: ${hits} towers damaged, ${destroyed} destroyed`
         : `Hurricane: ${hits} towers damaged`,
+    roomSizeLocked: 'The room fixes the map and the rules',
+    waitingOpponent: 'Waiting for opponent…',
+    opponentConnected: 'Opponent connected',
+    opponentDisconnected: 'Opponent disconnected',
+    connectionLost: 'Connection lost — reconnecting…',
+    connectionFailed: 'Connection failed',
+    roomFull: 'Room is full',
+    roomGone: 'Room no longer exists',
+    badSecret: 'Invalid session — please reload',
+    needRefresh: 'Game version mismatch — please refresh',
+    you: 'You',
+    opponent: 'Opponent',
+    yourTurn: 'Your turn',
+    theirTurn: "Opponent's turn",
     loaded: (claimed: number) =>
       claimed === 1 ? 'Loaded 1 claimed cell' : `Loaded ${claimed} claimed cells`,
   },
   errors: {
     saveCorrupt: 'The save was corrupted — a new city was started',
     saveNewer: 'This save comes from a newer version of the game — start over',
+  },
+  room: {
+    label: 'Room',
+    copy: 'Copy the invite link',
+    copied: 'Invite link copied',
   },
   legend: {
     elevation: 'Elevation',

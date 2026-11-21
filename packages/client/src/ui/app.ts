@@ -14,43 +14,39 @@ export interface AppHandlers {
   onSpeed(index: number): void;
   onDemo(): void;
   onReset(): void;
+  onConnectionStatus?: (
+    status: 'idle' | 'connecting' | 'waiting' | 'playing' | 'reconnecting' | 'error',
+    info?: string,
+  ) => void;
+  onOpponentChange?: (connected: boolean, name?: string) => void;
+  onRoomCode?: (code: string, url: string) => void;
 }
 
 export type MessageTone = 'info' | 'error' | 'good';
 
-/**
- * The whole interface, built once and then updated by id-free references.
- * Keeping it in one class is deliberate: there is no framework here, and a
- * "component" that renders three numbers does not earn its own file.
- */
 export class App {
   readonly canvas: HTMLCanvasElement;
   readonly frame: HTMLElement;
   readonly stage: HTMLElement;
 
-  private readonly root: HTMLElement = h('div', { class: 'app' });
-  private readonly coinsEl = h('strong', { class: 'stat-value', text: '—' });
-  private readonly incomeEl = h('strong', { class: 'stat-value', text: '—' });
-  private readonly cellsEl = h('strong', { class: 'stat-value', text: '—' });
-  private readonly barEl = h('div', { class: 'progress-fill' });
-  private readonly progressEl = h('div', {
-    class: 'progress',
-    attrs: {
-      role: 'progressbar',
-      'aria-valuemin': '0',
-      'aria-valuemax': '100',
-      'aria-valuenow': '0',
-    },
-  });
-  private readonly statusEl = h('div', {
-    class: 'status',
-    attrs: { role: 'status', 'aria-live': 'polite' },
-  });
+  private readonly root: HTMLElement;
+  private readonly coinsEl: HTMLElement;
+  private readonly incomeEl: HTMLElement;
+  private readonly cellsEl: HTMLElement;
+  private readonly oppCoinsEl: HTMLElement;
+  private readonly oppIncomeEl: HTMLElement;
+  private readonly oppCellsEl: HTMLElement;
+  private readonly connectionEl: HTMLElement;
+  private readonly opponentEl: HTMLElement;
+  private readonly roomEl: HTMLButtonElement;
+  private readonly waitingOverlay: HTMLElement;
+  private readonly barEl: HTMLElement;
+  private readonly progressEl: HTMLElement;
+  private readonly statusEl: HTMLElement;
   private readonly dialog: HTMLDialogElement;
-  private readonly panel: HTMLElement;
   private readonly toggle: HTMLButtonElement;
-  private resetResolver: ((value: boolean) => void) | null = null;
-
+  private readonly demoButton: HTMLButtonElement;
+  private readonly statsEl: HTMLElement;
   private readonly segments: {
     size: ReturnType<typeof segmented<MapSize>>;
     theme: ReturnType<typeof segmented<Theme>>;
@@ -61,19 +57,40 @@ export class App {
     speed: ReturnType<typeof segmented<number>>;
     sides: ReturnType<typeof segmented<string>>;
   };
-
-  private readonly demoButton: HTMLButtonElement;
+  private resetResolver: ((value: boolean) => void) | null = null;
+  private roomCode = '';
 
   constructor(settings: Settings, handlers: AppHandlers) {
+    // --- canvas + stage -------------------------------------------------
     this.canvas = h('canvas', {
       attrs: {
         tabindex: '0',
         role: 'application',
         'aria-label': `${t.hud.hint}. ${t.hud.keyboardHint}`,
       },
-    });
+    }) as HTMLCanvasElement;
 
     this.frame = h('div', { class: 'map-frame' }, this.canvas);
+
+    this.barEl = h('div', { class: 'progress-fill' });
+    this.progressEl = h(
+      'div',
+      {
+        class: 'progress',
+        attrs: {
+          role: 'progressbar',
+          'aria-valuemin': '0',
+          'aria-valuemax': '100',
+          'aria-valuenow': '0',
+        },
+      },
+      this.barEl,
+    );
+    this.statusEl = h('div', {
+      class: 'status',
+      attrs: { role: 'status', 'aria-live': 'polite' },
+    });
+
     this.stage = h(
       'section',
       { class: 'stage' },
@@ -83,8 +100,54 @@ export class App {
       this.buildLegend(),
     );
 
-    this.progressEl.append(this.barEl);
+    // --- stat values ----------------------------------------------------
+    this.coinsEl = h('strong', { class: 'stat-value', text: '—' });
+    this.incomeEl = h('strong', { class: 'stat-value muted', text: '—' });
+    this.cellsEl = h('strong', { class: 'stat-value', text: '—' });
+    this.oppCoinsEl = h('strong', { class: 'stat-value', text: '—' });
+    this.oppIncomeEl = h('strong', { class: 'stat-value muted', text: '—' });
+    this.oppCellsEl = h('strong', { class: 'stat-value', text: '—' });
+    this.connectionEl = h('span', { class: 'connection-status hidden', text: '' });
+    this.opponentEl = h('span', { class: 'opponent-label hidden', text: '' });
+    this.roomEl = h('button', {
+      class: 'room-code hidden',
+      text: '',
+      attrs: { type: 'button', title: t.room.copy },
+      on: { click: () => void this.copyInvite() },
+    }) as HTMLButtonElement;
 
+    this.statsEl = h(
+      'div',
+      { class: 'stats' },
+      h(
+        'div',
+        { class: 'stat' },
+        h('span', { class: 'stat-label', text: t.panel.coins }),
+        this.coinsEl,
+        this.incomeEl,
+      ),
+      h(
+        'div',
+        { class: 'stat' },
+        h('span', { class: 'stat-label', text: t.panel.cells }),
+        this.cellsEl,
+      ),
+      h(
+        'div',
+        { class: 'stat opponent-stat' },
+        h('span', { class: 'stat-label', text: '' }),
+        this.oppCoinsEl,
+        this.oppIncomeEl,
+      ),
+      h(
+        'div',
+        { class: 'stat opponent-stat' },
+        h('span', { class: 'stat-label', text: '' }),
+        this.oppCellsEl,
+      ),
+    );
+
+    // --- settings panel -------------------------------------------------
     const size = segmented<MapSize>(
       MAP_SIZES.map((value) => ({ value, label: String(value) })),
       settings.size,
@@ -162,7 +225,7 @@ export class App {
       text: t.settings.demoOn,
       attrs: { type: 'button' },
       on: { click: () => handlers.onDemo() },
-    });
+    }) as HTMLButtonElement;
     const resetButton = h('button', {
       class: 'button button-danger',
       text: t.settings.reset,
@@ -170,7 +233,7 @@ export class App {
       on: { click: () => handlers.onReset() },
     });
 
-    this.panel = h(
+    const panel = h(
       'aside',
       { class: 'panel', attrs: { 'aria-label': t.panel.settings } },
       h(
@@ -200,65 +263,65 @@ export class App {
       text: t.panel.settings,
       attrs: { type: 'button', 'aria-expanded': 'false' },
       on: { click: () => this.setPanelOpen(!this.root.classList.contains('panel-open')) },
-    });
+    }) as HTMLButtonElement;
 
-    const stats = h(
+    // --- topbar ---------------------------------------------------------
+    const topbar = h(
+      'header',
+      { class: 'topbar' },
+      h('div', { class: 'brand' }, h('h1', { text: t.app.title }), h('p', { text: t.app.tagline })),
+      this.statsEl,
+      this.opponentEl,
+      this.connectionEl,
+      this.roomEl,
+      this.toggle,
+    );
+
+    // --- waiting overlay + confirm dialog -------------------------------
+    this.waitingOverlay = h(
       'div',
-      { class: 'stats' },
+      { class: 'waiting-overlay hidden' },
       h(
         'div',
-        { class: 'stat' },
-        h('span', { class: 'stat-label', text: t.panel.coins }),
-        this.coinsEl,
-        this.incomeEl,
-      ),
-      h(
-        'div',
-        { class: 'stat' },
-        h('span', { class: 'stat-label', text: t.panel.cells }),
-        this.cellsEl,
+        { class: 'waiting-content' },
+        h('div', { class: 'spinner' }),
+        h('p', { class: 'waiting-text', text: '' }),
       ),
     );
 
-    this.root.append(
-      h(
-        'header',
-        { class: 'topbar' },
-        h(
-          'div',
-          { class: 'brand' },
-          h('h1', { text: t.app.title }),
-          h('p', { text: t.app.tagline }),
-        ),
-        stats,
-        this.toggle,
-      ),
-      this.stage,
-      this.panel,
-    );
-
-    this.dialog = h('dialog', { class: 'dialog' }) as HTMLDialogElement;
-    const cancel = h('button', {
+    const settleNo = h('button', {
       class: 'button',
       text: t.confirm.resetNo,
       attrs: { type: 'button' },
       on: { click: () => this.settleReset(false) },
     });
-    const confirm = h('button', {
+    const settleYes = h('button', {
       class: 'button button-danger',
       text: t.confirm.resetYes,
       attrs: { type: 'button' },
       on: { click: () => this.settleReset(true) },
     });
-    this.dialog.append(
+    this.dialog = h(
+      'dialog',
+      { class: 'dialog' },
       h('p', { text: t.confirm.reset }),
-      h('div', { class: 'dialog-actions' }, cancel, confirm),
-    );
+      h('div', { class: 'dialog-actions' }, settleNo, settleYes),
+    ) as HTMLDialogElement;
     this.dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
       this.settleReset(false);
     });
-    this.root.append(this.dialog);
+
+    // --- assembly -------------------------------------------------------
+    this.root = h(
+      'div',
+      { class: 'app' },
+      topbar,
+      this.stage,
+      panel,
+      this.waitingOverlay,
+      this.dialog,
+    );
   }
 
   private buildLegend(): HTMLElement {
@@ -284,6 +347,76 @@ export class App {
     const percent = total > 0 ? Math.round((claimed / total) * 100) : 0;
     this.barEl.style.width = `${percent}%`;
     this.progressEl.setAttribute('aria-valuenow', String(percent));
+  }
+
+  updateMultiStats(
+    myCoins: number,
+    myIncome: number,
+    myCells: number,
+    oppCoins: number,
+    oppIncome: number,
+    oppCells: number,
+    myLabel: string,
+    oppLabel: string,
+  ): void {
+    this.statsEl.classList.add('multi');
+    this.coinsEl.textContent = formatNumber(myCoins);
+    this.incomeEl.textContent = t.panel.perDay(myIncome);
+    this.incomeEl.classList.toggle('muted', myIncome === 0);
+    this.cellsEl.textContent = t.panel.progress(myCells, 0);
+    this.oppCoinsEl.textContent = formatNumber(oppCoins);
+    this.oppIncomeEl.textContent = t.panel.perDay(oppIncome);
+    this.oppIncomeEl.classList.toggle('muted', oppIncome === 0);
+    this.oppCellsEl.textContent = t.panel.progress(oppCells, 0);
+
+    const labels = this.statsEl.querySelectorAll('.stat-label');
+    if (labels[0]) labels[0].textContent = `${myLabel} ${t.panel.coins}`;
+    if (labels[1]) labels[1].textContent = `${myLabel} ${t.panel.cells}`;
+    if (labels[2]) labels[2].textContent = `${oppLabel} ${t.panel.coins}`;
+    if (labels[3]) labels[3].textContent = `${oppLabel} ${t.panel.cells}`;
+
+    const share = myCells + oppCells > 0 ? Math.round((myCells / (myCells + oppCells)) * 100) : 0;
+    this.barEl.style.width = `${share}%`;
+    this.progressEl.setAttribute('aria-valuenow', String(share));
+  }
+
+  setWaiting(show: boolean, text?: string): void {
+    this.waitingOverlay.classList.toggle('hidden', !show);
+    if (show && text !== undefined) {
+      const textEl = this.waitingOverlay.querySelector('.waiting-text');
+      if (textEl) textEl.textContent = text;
+    }
+  }
+
+  setConnectionStatus(
+    status: 'idle' | 'connecting' | 'waiting' | 'playing' | 'reconnecting' | 'error',
+    info?: string,
+  ): void {
+    this.connectionEl.textContent = info ?? '';
+    this.connectionEl.dataset.status = status;
+    this.connectionEl.classList.toggle('hidden', status === 'idle');
+  }
+
+  /** Show the room code in the topbar; the button copies the invite link. */
+  setRoomCode(code: string): void {
+    this.roomCode = code;
+    this.roomEl.textContent = `${t.room.label} ${code}`;
+    this.roomEl.classList.remove('hidden');
+  }
+
+  private async copyInvite(): Promise<void> {
+    const url = `${location.origin}${location.pathname}?room=${this.roomCode}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.setMessage(t.room.copied, 'good');
+    } catch {
+      this.setMessage(url, 'info');
+    }
+  }
+
+  setOpponent(name: string, connected: boolean): void {
+    this.opponentEl.textContent = connected ? name : '';
+    this.opponentEl.classList.toggle('hidden', !connected);
   }
 
   setMessage(text: string, tone: MessageTone = 'info'): void {
