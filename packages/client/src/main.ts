@@ -80,6 +80,8 @@ let chessAction: 'none' | 'tower' | 'rocket' | 'pawn' | 'fire' = 'none';
 let hints: MoveHint[] = [];
 /** The blast area under the pointer while a rocket is armed. */
 let zone: ZoneCell[] = [];
+/** The cell whose zone was shown and would be fired at by the next tap. */
+let aimCell: number | null = null;
 let selected = 0;
 let saveTimer = 0;
 
@@ -191,6 +193,7 @@ const handlers: AppHandlers = {
     if (!chess) return;
     chessAction = chessAction === 'fire' ? 'none' : 'fire';
     chessSelected = null;
+    aimCell = null;
     app.setAction(chessAction);
     app.setMessage(
       chessAction === 'fire'
@@ -759,6 +762,7 @@ function leaveChess(): void {
   chess = null;
   chessSelected = null;
   chessAction = 'none';
+  aimCell = null;
   app.setChessMode(false);
   app.setAction('none');
   view.setUnits([]);
@@ -774,6 +778,7 @@ function leaveChess(): void {
 
 /** Recomputes the move hints for whatever is selected right now. */
 function refreshHints(): void {
+  if (chessAction !== 'fire') aimCell = null;
   if (!chess || mp || settings.mode !== 'chess') {
     if (hints.length > 0) {
       hints = [];
@@ -912,6 +917,19 @@ function chessClick(cell: number): void {
   }
 
   if (chessAction === 'fire') {
+    // Two taps, not one: the first shows the zone and where the rockets would land,
+    // the second fires. A shot costs 200 coins and can kill your own pieces, so it
+    // should not be one stray tap away.
+    if (aimCell !== cell) {
+      aimCell = cell;
+      selected = cell;
+      view.setSelected(cell);
+      previewZone(cell);
+      app.setMessage(t.chess.confirmFire(BALANCE.chess.rocketShotCost), 'info');
+      return;
+    }
+
+    aimCell = null;
     applyChess(chessReduce(chess, { k: 'fire', cell }, chessCtx()), BALANCE.chess.rocketShotCost);
     return;
   }

@@ -62,6 +62,10 @@ ground, back rank behind.
     blocks movement and can be taken. **Instead of a move** it fires for **200
     coins a shot**, hit or miss — the rockets leave the tube either way. Pick a cell
     within **seven** cells of the base, and it shells the **3x3 zone** around it.
+    Firing is **two taps**: the first shows the zone and what stands in it, the
+    second on the same cell fires. A shot costs 200 coins and can kill your own
+    pieces, so it should not be one stray tap away — on a phone there is no hover to
+    preview it with.
     **Every piece in the zone rolls for itself**, its own side's included: a shot
     can take several pieces at once, and a rocket does not check uniforms, so
     shelling a cell next to your own knight can cost you the knight. A rocket that

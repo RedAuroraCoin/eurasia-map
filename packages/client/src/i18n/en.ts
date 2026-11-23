@@ -43,6 +43,7 @@ export const en = {
     fireTitle: (cost: number) =>
       `Spend the turn and ${cost} coins shooting a 3x3 zone within seven cells`,
     firing: (cost: number) => `Pick a target: ${cost} coins, 50% dead centre, 20% around it`,
+    confirmFire: (cost: number) => `Zone shown — tap the same cell again to fire (${cost} coins)`,
     rocketBuilt: 'Rocket base built',
     rocketHits: (total: number) =>
       total === 1 ? 'Hit — 1 piece gone' : `Hit — ${total} pieces gone`,

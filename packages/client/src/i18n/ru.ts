@@ -44,6 +44,8 @@ export const ru: Dict = {
     fireTitle: (cost: number) =>
       `Потратить ход и ${cost} монет на выстрел по квадрату 3×3 в пределах семи клеток`,
     firing: (cost: number) => `Выберите цель: ${cost} монет, 50% в центре, 20% по остальным`,
+    confirmFire: (cost: number) =>
+      `Зона показана — коснитесь этой же клетки ещё раз, чтобы выстрелить (${cost} монет)`,
     rocketBuilt: 'Ракетная установка построена',
     rocketHits: (total: number) => `Попадание — уничтожено фигур: ${total}`,
     rocketHitsOwn: (total: number, own: number) =>

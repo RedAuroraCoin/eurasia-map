@@ -613,6 +613,77 @@ describe('single-player shell', () => {
     );
   });
 
+  it('fires only on the second tap at the same cell', async () => {
+    const map = getMap(800);
+    const base = createChessGame(800, 13, {
+      isLand: (cell) => map.mask[cell] === '#',
+      elev: map.elev,
+      rows: map.rows,
+      cols: map.cols,
+      cellCount: map.mask.length,
+    });
+    const taken = new Set(base.pieces.map((piece) => piece.cell));
+    const freeNeighbour = (cell: number): number => {
+      const col = cell % map.cols;
+      const row = Math.floor(cell / map.cols);
+      for (const [dr, dc] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const next = (row + dr) * map.cols + (col + dc);
+        if (map.mask[next] === '#' && !taken.has(next)) return next;
+      }
+      throw new Error('the king is boxed in');
+    };
+    const whiteKing = base.pieces.find((piece) => piece.side === 0 && piece.kind === 'king');
+    if (!whiteKing) throw new Error('no white king');
+    const rocketCell = freeNeighbour(whiteKing.cell);
+
+    const row = Math.floor(rocketCell / map.cols);
+    const col = rocketCell % map.cols;
+    let quarry = -1;
+    for (let step = 2; step <= 5 && quarry < 0; step++) {
+      const next = row * map.cols + (col + step);
+      if (col + step < map.cols && map.mask[next] === '#' && !taken.has(next)) quarry = next;
+    }
+    if (quarry < 0) throw new Error('no room for a target');
+
+    saveChessGame(localStorage, {
+      ...base,
+      coins: [BALANCE.chess.rocketShotCost * 2, 0],
+      rockets: { [String(rocketCell)]: 0 },
+      pieces: [
+        ...base.pieces,
+        { id: 900, side: 1, kind: 'rook', cell: quarry, promoted: false, moved: true },
+      ],
+    });
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 800 }));
+
+    const { getChess, getZone } = await boot();
+    flushFrames();
+
+    const fire = [...document.querySelectorAll('.build-bar .button')].find((button) =>
+      button.textContent?.startsWith('Fire · '),
+    ) as HTMLButtonElement;
+    fire.click();
+    flushFrames();
+
+    const at = cellCentre(map.cols, map.rows, quarry);
+    clickCell(at.x, at.y);
+
+    // First tap: the zone is shown, nothing is paid, the turn has not moved.
+    expect(getZone().length).toBeGreaterThan(0);
+    expect(getChess()?.coins[0]).toBe(BALANCE.chess.rocketShotCost * 2);
+    expect(getChess()?.turn).toBe(0);
+
+    // Second tap on the same cell: the rockets go.
+    clickCell(at.x, at.y);
+    expect(getChess()?.coins[0]).toBe(BALANCE.chess.rocketShotCost);
+    expect(getChess()?.turn).toBe(1);
+  });
+
   it('recovers after a refused shot instead of swallowing the next tap', async () => {
     const { getChess, getHints } = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(
@@ -628,13 +699,16 @@ describe('single-player shell', () => {
     flushFrames();
     expect(fire.classList.contains('armed')).toBe(true);
 
-    // There is no base yet, so the shot is refused — and the mode lets go, instead
-    // of turning every later tap into another refused shot.
+    // There is no base yet: the first tap only shows the zone, the second asks the
+    // engine — which refuses, and the mode lets go instead of turning every later
+    // tap into another refused shot.
     const map = getMap(800);
     const game = getChess();
     const target = game?.pieces.find((piece) => piece.side === 1 && piece.kind === 'pawn');
     if (!target) throw new Error('no black pawn');
     const at = cellCentre(map.cols, map.rows, target.cell);
+    clickCell(at.x, at.y);
+    expect(fire.classList.contains('armed')).toBe(true);
     clickCell(at.x, at.y);
 
     expect(fire.classList.contains('armed')).toBe(false);
