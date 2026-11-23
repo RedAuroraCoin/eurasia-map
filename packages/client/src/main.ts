@@ -664,6 +664,14 @@ function describeChessError(code: ChessErrorCode, cost = BALANCE.chess.towerCost
 
 function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess.towerCost): void {
   if (!result.ok) {
+    // A refused action disarms itself. Leaving it armed turned every later tap on
+    // the board into another rejected attempt, so the board looked frozen: a shot
+    // out of range, or one the wallet could not pay for, swallowed the next move.
+    if (chessAction === 'fire') {
+      chessAction = 'none';
+      app.setAction('none');
+      refreshHints();
+    }
     app.setMessage(describeChessError(result.code, cost), 'error');
     return;
   }

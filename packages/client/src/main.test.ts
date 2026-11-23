@@ -613,6 +613,43 @@ describe('single-player shell', () => {
     );
   });
 
+  it('recovers after a refused shot instead of swallowing the next tap', async () => {
+    const { getChess, getHints } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+
+    const fire = [...document.querySelectorAll('.build-bar .button')].find((button) =>
+      button.textContent?.startsWith('Fire · '),
+    ) as HTMLButtonElement;
+    fire.click();
+    flushFrames();
+    expect(fire.classList.contains('armed')).toBe(true);
+
+    // There is no base yet, so the shot is refused — and the mode lets go, instead
+    // of turning every later tap into another refused shot.
+    const map = getMap(800);
+    const game = getChess();
+    const target = game?.pieces.find((piece) => piece.side === 1 && piece.kind === 'pawn');
+    if (!target) throw new Error('no black pawn');
+    const at = cellCentre(map.cols, map.rows, target.cell);
+    clickCell(at.x, at.y);
+
+    expect(fire.classList.contains('armed')).toBe(false);
+
+    // The next tap is a normal selection again.
+    const mine = game?.pieces.find((piece) => piece.side === 0 && piece.kind === 'pawn');
+    if (!mine) throw new Error('no white pawn');
+    const own = cellCentre(map.cols, map.rows, mine.cell);
+    clickCell(own.x, own.y);
+
+    const hints = getHints();
+    expect(hints.length).toBeGreaterThan(0);
+    expect(hints.every((hint) => hint.kind === 'move' || hint.kind === 'capture')).toBe(true);
+  });
+
   it('refuses a tower when the side cannot pay for one', async () => {
     const { getChess, getHints } = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(
