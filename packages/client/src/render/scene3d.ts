@@ -16,7 +16,7 @@ import {
   unitColor,
 } from './geometry';
 import { unitColour, unitGeometry, type UnitInstance } from './pieces';
-import { hintGeometry, hintMaterial, type MoveHint } from './hints';
+import { HINT_COLOURS, hintGeometry, hintMaterial, type MoveHint } from './hints';
 import {
   boardSize,
   CELL,
@@ -54,6 +54,8 @@ export interface View {
   setUnits(units: readonly UnitInstance[]): void;
   /** Chess mode: where the selected piece may go. Empty clears them. */
   setHints(hints: readonly MoveHint[]): void;
+  /** The 3x3 blast area under the pointer while a rocket is being aimed. */
+  setZone(cells: readonly ZoneCell[] | null): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -71,6 +73,12 @@ const GARRISON_OFFSET = 0.22;
 const ROCKET_MODEL_URL = 'models/rocket.glb';
 const ROCKET_WIDTH = 0.7;
 const ROCKET_HEIGHT = 1.45;
+
+/** A cell of the blast preview. `chance` is what a piece there would face. */
+export interface ZoneCell {
+  readonly cell: number;
+  readonly chance: number;
+}
 /** The sea plane is larger than the board so the horizon is water, not a cut edge. */
 const SEA_SCALE = 3.5;
 
@@ -118,6 +126,8 @@ export class Scene3D implements View {
   private seaLevel = 0;
   private unitMeshes: THREE.InstancedMesh[] = [];
   private hintMeshes: THREE.Mesh[] = [];
+  private zoneMeshes: THREE.Mesh[] = [];
+  private zoneGeometry: THREE.PlaneGeometry | null = null;
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
   private hoverRing: THREE.LineSegments | null = null;
@@ -649,6 +659,45 @@ export class Scene3D implements View {
     }
   }
 
+  /**
+   * The blast area of a rocket under the pointer: nine filled tiles, the centre
+   * one darker than the ring, so the 50/20 split is visible before the shot.
+   */
+  setZone(cells: readonly ZoneCell[] | null): void {
+    for (const mesh of this.zoneMeshes) {
+      this.scene.remove(mesh);
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.zoneMeshes = [];
+    if (!cells || cells.length === 0) return;
+
+    if (!this.zoneGeometry) {
+      const tile = new THREE.PlaneGeometry(0.96, 0.96);
+      tile.rotateX(-Math.PI / 2);
+      this.zoneGeometry = tile;
+    }
+
+    const centre = cells.reduce((best, cell) => Math.max(best, cell.chance), 0);
+    for (const { cell, chance } of cells) {
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(HINT_COLOURS.fire),
+        transparent: true,
+        // The centre is the good shot; the ring is a long one.
+        opacity: chance >= centre ? 0.34 : 0.16,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(this.zoneGeometry, material);
+      const { x, z } = cellToWorld(this.map, cell);
+      const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
+      mesh.position.set(x, ground + 0.015, z);
+      mesh.renderOrder = 4;
+      this.scene.add(mesh);
+      this.zoneMeshes.push(mesh);
+    }
+  }
+
   setSidePreview(preview: boolean): void {
     if (preview === this.sidePreview) return;
     this.sidePreview = preview;
@@ -1022,6 +1071,13 @@ export class Scene3D implements View {
       (mesh.material as THREE.Material).dispose();
     }
     this.hintMeshes = [];
+    for (const mesh of this.zoneMeshes) {
+      this.scene.remove(mesh);
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.zoneMeshes = [];
+    this.zoneGeometry?.dispose();
+    this.zoneGeometry = null;
     this.controls.dispose();
     this.renderer.dispose();
     this.depthTexture.dispose();

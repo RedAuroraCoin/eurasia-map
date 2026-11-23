@@ -659,6 +659,20 @@ describe('the rocket base', () => {
     expect(killed).toBeLessThan(200 * 0.32);
   });
 
+  it('charges the shot whether it hits or misses', () => {
+    const result = chessReduce(board(1, at(6, 6)), { k: 'fire', cell: at(6, 6) }, ctx8());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.coins[0]).toBe(500 - BALANCE.chess.rocketShotCost);
+  });
+
+  it('refuses to fire when the side cannot pay for the rockets', () => {
+    const poor = board(1, at(6, 6), { coins: [BALANCE.chess.rocketShotCost - 1, 0] });
+    const result = chessReduce(poor, { k: 'fire', cell: at(6, 6) }, ctx8());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe('no_coins');
+  });
+
   it('takes the turn whether it hits or misses', () => {
     const result = chessReduce(board(1, at(6, 6)), { k: 'fire', cell: at(6, 6) }, ctx8());
     expect(result.ok).toBe(true);

@@ -314,8 +314,8 @@ export class App {
 
     this.fireButton = h('button', {
       class: 'button build-action fire-action',
-      text: t.chess.fire,
-      attrs: { type: 'button', title: t.chess.fireTitle },
+      text: t.chess.fire(BALANCE.chess.rocketShotCost),
+      attrs: { type: 'button', title: t.chess.fireTitle(BALANCE.chess.rocketShotCost) },
       on: { click: () => this.onFire() },
     }) as HTMLButtonElement;
 
@@ -521,8 +521,11 @@ export class App {
     this.buildButton.classList.toggle('unaffordable', purse < BALANCE.chess.towerCost);
     this.rocketButton.classList.toggle('unaffordable', purse < BALANCE.chess.rocketCost);
     this.recruitButton.classList.toggle('unaffordable', purse < BALANCE.chess.pawnCost);
-    // Firing is free; it needs a base, and the engine says so if there is none.
-    this.fireButton.classList.toggle('unaffordable', info.rockets[info.turn] === 0);
+    // Firing needs a base and the price of the rockets.
+    this.fireButton.classList.toggle(
+      'unaffordable',
+      info.rockets[info.turn] === 0 || purse < BALANCE.chess.rocketShotCost,
+    );
     // The turn blocks are hidden here: two of them read "White to move" and
     // "Black to move" at the same time, which answers nothing. The turn is marked
     // once, on the side that has it.

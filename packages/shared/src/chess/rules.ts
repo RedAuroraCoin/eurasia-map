@@ -409,6 +409,7 @@ export function chessReduce(
   if (cmd.k === 'fire') {
     const mine = rocketCells(state, state.turn);
     if (mine.length === 0) return reject(state, 'no_rocket');
+    if (state.coins[state.turn] < BALANCE.chess.rocketShotCost) return reject(state, 'no_coins');
 
     const centre = spotOf(cmd.cell, ctx.cols);
     const distance = (cell: number): number => {
@@ -448,7 +449,11 @@ export function chessReduce(
       if (target.piece.kind === 'king') win = { side: state.turn, how: 'rocket' };
     }
 
-    const next = endTurn({ ...state, pieces }, ctx, events, win);
+    // A shot is paid for whether it hits or misses: the rockets left the tube.
+    const coins: [number, number] = [state.coins[0], state.coins[1]];
+    coins[state.turn] -= BALANCE.chess.rocketShotCost;
+
+    const next = endTurn({ ...state, pieces, coins }, ctx, events, win);
     return { ok: true, state: next, events };
   }
 

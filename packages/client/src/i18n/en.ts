@@ -39,9 +39,10 @@ export const en = {
     rocket: (cost: number) => `Rocket · ${cost}`,
     rocketTitle: (cost: number) =>
       `Spend the turn and ${cost} coins on a rocket base next to the king`,
-    fire: 'Fire',
-    fireTitle: 'Spend the turn shooting one enemy piece in a 3x3 zone within seven cells',
-    firing: 'Pick a target — 50% dead centre, 20% anywhere around it',
+    fire: (cost: number) => `Fire · ${cost}`,
+    fireTitle: (cost: number) =>
+      `Spend the turn and ${cost} coins shooting a 3x3 zone within seven cells`,
+    firing: (cost: number) => `Pick a target: ${cost} coins, 50% dead centre, 20% around it`,
     rocketBuilt: 'Rocket base built',
     rocketHit: 'Hit — the piece is gone',
     rocketMiss: 'Miss — the rockets fell wide',

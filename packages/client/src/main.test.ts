@@ -550,7 +550,7 @@ describe('single-player shell', () => {
     });
     localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 800 }));
 
-    const { getChess, getHints } = await boot();
+    const { getChess, getHints, getZone } = await boot();
     flushFrames();
 
     const labels = [...document.querySelectorAll('.build-bar .button')].map(
@@ -560,11 +560,11 @@ describe('single-player shell', () => {
       `Tower · ${BALANCE.chess.towerCost}`,
       `Rocket · ${BALANCE.chess.rocketCost}`,
       `Pawn · ${BALANCE.chess.pawnCost}`,
-      'Fire',
+      `Fire · ${BALANCE.chess.rocketShotCost}`,
     ]);
 
-    const fire = [...document.querySelectorAll('.build-bar .button')].find(
-      (button) => button.textContent === 'Fire',
+    const fire = [...document.querySelectorAll('.build-bar .button')].find((button) =>
+      button.textContent?.startsWith('Fire · '),
     ) as HTMLButtonElement;
     const game = getChess();
     if (!game) throw new Error('chess mode did not start');
@@ -585,6 +585,26 @@ describe('single-player shell', () => {
     const hints = getHints();
     expect(hints).toEqual([{ cell: quarry, kind: 'fire' }]);
     expect(inRange.has(quarry)).toBe(true);
+
+    // The blast area follows the pointer: nine tiles, the middle one the good shot.
+    const middle = 12 * map.cols + 20;
+    const at = cellCentre(map.cols, map.rows, middle);
+    document.querySelector('canvas')?.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: at.x,
+        clientY: at.y,
+        pointerType: 'mouse',
+        bubbles: true,
+      }),
+    );
+    flushFrames();
+
+    const zone = getZone();
+    expect(zone).toHaveLength(9);
+    expect(zone.filter((tile) => tile.chance === BALANCE.chess.rocketCentreChance)).toHaveLength(1);
+    expect(zone.find((tile) => tile.chance === BALANCE.chess.rocketCentreChance)?.cell).toBe(
+      middle,
+    );
   });
 
   it('refuses a tower when the side cannot pay for one', async () => {

@@ -58,8 +58,9 @@ ground, back rank behind.
 - A turn is **one action**: move a piece, or spend it on a building instead.
   - *Tower* — 50 coins, on a dry empty cell next to the king. It blocks movement
     for both sides and can be taken by landing on it.
-  - *Rocket* — 50 coins, on a dry empty cell next to the king, like a tower. It
-    blocks movement and can be taken. **Instead of a move** it fires: pick a cell
+  - *Rocket* — 500 coins, on a dry empty cell next to the king, like a tower. It
+    blocks movement and can be taken. **Instead of a move** it fires for **200
+    coins a shot**, hit or miss — the rockets leave the tube either way. Pick a cell
     within **seven** cells of the base, and it shells the **3x3 zone** around it.
     One enemy piece in the zone is the target — the one nearest the centre — and
     the chance to kill it depends on where it stands: **50 % dead centre, 20 % on
@@ -107,9 +108,9 @@ where the metres are.
 
 Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `floodExponent`,
 `campMinElevation`, `campLat`, `campLon`, `startCoins`, `coinsPerRound`,
-`towerCost`, `pawnCost`, `towerIncome`, `rocketCost`, `rocketRange`,
-`rocketCentreChance`, `rocketRingChance`, and `SLIDE_LIMIT` in `chess/moves.ts`
-for the long vectors.
+`towerCost`, `pawnCost`, `towerIncome`, `rocketCost`, `rocketShotCost`,
+`rocketRange`, `rocketCentreChance`, `rocketRingChance`, and `SLIDE_LIMIT` in
+`chess/moves.ts` for the long vectors.
 
 ## Saving
 

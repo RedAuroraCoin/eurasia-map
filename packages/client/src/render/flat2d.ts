@@ -9,7 +9,7 @@ import {
 import { buildBuildings, ownerTint } from './geometry';
 import { SIDE_COLOURS, TOWER_COLOURS, type UnitInstance, type UnitRole } from './pieces';
 import { HINT_COLOURS, type MoveHint } from './hints';
-import type { View } from './scene3d';
+import type { View, ZoneCell } from './scene3d';
 import type { Lighting } from './palette';
 
 /** One character per piece, so the flat view still says what is standing there. */
@@ -43,6 +43,7 @@ export class Flat2D implements View {
   private layout = { cell: 1, ox: 0, oy: 0 };
   private units: readonly UnitInstance[] = [];
   private hints: readonly MoveHint[] = [];
+  private zone: readonly ZoneCell[] = [];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -65,6 +66,10 @@ export class Flat2D implements View {
 
   setHints(hints: readonly MoveHint[]): void {
     this.hints = hints;
+  }
+
+  setZone(cells: readonly ZoneCell[] | null): void {
+    this.zone = cells ?? [];
   }
 
   setState(state: GameState): void {
@@ -165,6 +170,20 @@ export class Flat2D implements View {
           120 * shade + 40 * night,
         )} ${Math.round(60 * shade)})`;
         ctx.fillRect(ox + col * cell + inset, oy + row * cell + inset, size, size);
+      }
+
+      // The blast area sits below the hints: a filled tile per cell, the centre
+      // one darker, so the 50/20 split is visible while aiming.
+      if (this.zone.length > 0) {
+        const top = this.zone.reduce((best, tile) => Math.max(best, tile.chance), 0);
+        for (const tile of this.zone) {
+          const col = tile.cell % map.cols;
+          const row = Math.floor(tile.cell / map.cols);
+          ctx.globalAlpha = tile.chance >= top ? 0.34 : 0.16;
+          ctx.fillStyle = HINT_COLOURS.fire;
+          ctx.fillRect(ox + col * cell, oy + row * cell, cell, cell);
+        }
+        ctx.globalAlpha = 1;
       }
 
       // Hints go under the pieces: a dot for a step, a ring for a capture, a

@@ -71,7 +71,8 @@ export const BalanceSchema = z.object({
     towerCost: z.number().int().positive().max(100),
     pawnCost: z.number().int().positive().max(1000),
     towerIncome: z.number().int().min(0).max(1000),
-    rocketCost: z.number().int().positive().max(1000),
+    rocketCost: z.number().int().positive().max(5000),
+    rocketShotCost: z.number().int().min(0).max(5000),
     rocketRange: z.number().int().positive().max(20),
     rocketCentreChance: z.number().min(0).max(1),
     rocketRingChance: z.number().min(0).max(1),
@@ -186,7 +187,9 @@ const RAW = {
      * a 3x3 square around the aimed cell; the chance to kill depends on where the
      * target stands inside it.
      */
-    rocketCost: 50,
+    rocketCost: 500,
+    /** A shot costs money whether it hits or misses: the rockets are spent. */
+    rocketShotCost: 200,
     rocketRange: 7,
     rocketCentreChance: 0.5,
     rocketRingChance: 0.2,

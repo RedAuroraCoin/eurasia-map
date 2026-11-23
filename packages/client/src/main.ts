@@ -36,6 +36,7 @@ import {
 } from '@eurasia/shared';
 import type { UnitInstance } from './render/pieces';
 import type { MoveHint } from './render/hints';
+import type { ZoneCell } from './render/scene3d';
 import { App, type AppHandlers } from './ui/app';
 
 /**
@@ -77,6 +78,8 @@ let chessSelected: number | null = null;
 let chessAction: 'none' | 'tower' | 'rocket' | 'pawn' | 'fire' = 'none';
 /** What the last refresh told the view to draw, kept for the tests. */
 let hints: MoveHint[] = [];
+/** The blast area under the pointer while a rocket is armed. */
+let zone: ZoneCell[] = [];
 let selected = 0;
 let saveTimer = 0;
 
@@ -189,7 +192,12 @@ const handlers: AppHandlers = {
     chessAction = chessAction === 'fire' ? 'none' : 'fire';
     chessSelected = null;
     app.setAction(chessAction);
-    app.setMessage(chessAction === 'fire' ? t.chess.firing : t.chess.fire, 'info');
+    app.setMessage(
+      chessAction === 'fire'
+        ? t.chess.firing(BALANCE.chess.rocketShotCost)
+        : t.chess.fire(BALANCE.chess.rocketShotCost),
+      'info',
+    );
     refreshHints();
   },
   onSides: (both) => {
@@ -742,6 +750,8 @@ function leaveChess(): void {
   view.setUnits([]);
   hints = [];
   view.setHints([]);
+  zone = [];
+  view.setZone(null);
   // Back to whatever map the building game was playing before chess.
   if (map.land !== settings.size) switchSize(settings.size, false);
   view.setState(state, clock());
@@ -755,7 +765,16 @@ function refreshHints(): void {
       hints = [];
       view.setHints([]);
     }
+    if (zone.length > 0) {
+      zone = [];
+      view.setZone(null);
+    }
     return;
+  }
+
+  if (chessAction !== 'fire' && zone.length > 0) {
+    zone = [];
+    view.setZone(null);
   }
 
   if (chessAction === 'tower') {
@@ -777,6 +796,7 @@ function refreshHints(): void {
   }
 
   if (chessAction === 'fire') {
+    previewZone(selected);
     // Aiming is clicked on a piece, so the targets offered are the enemy pieces a
     // base can reach. Any other cell still works: it is the centre of a 3x3 zone.
     const bases = rocketCells(chess, chess.turn);
@@ -816,6 +836,39 @@ function refreshHints(): void {
   view.setHints(hints);
 }
 
+/**
+ * The 3x3 a shot at this cell would hit, with the chance each cell gives. Null
+ * clears the preview: it only means anything while a rocket is armed.
+ */
+function previewZone(cell: number | null): void {
+  if (!chess || mp || settings.mode !== 'chess' || chessAction !== 'fire' || cell === null) {
+    if (zone.length > 0) {
+      zone = [];
+      view.setZone(null);
+    }
+    return;
+  }
+
+  const col = cell % map.cols;
+  const row = Math.floor(cell / map.cols);
+  const cells: ZoneCell[] = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const r = row + dr;
+      const c = col + dc;
+      if (r < 0 || c < 0 || r >= map.rows || c >= map.cols) continue;
+      cells.push({
+        cell: r * map.cols + c,
+        chance:
+          dr === 0 && dc === 0 ? BALANCE.chess.rocketCentreChance : BALANCE.chess.rocketRingChance,
+      });
+    }
+  }
+
+  zone = cells;
+  view.setZone(cells);
+}
+
 /** One click: pick a piece, then a destination — or place a tower when armed. */
 function chessClick(cell: number): void {
   if (!chess || mp) return;
@@ -844,7 +897,7 @@ function chessClick(cell: number): void {
   }
 
   if (chessAction === 'fire') {
-    applyChess(chessReduce(chess, { k: 'fire', cell }, chessCtx()));
+    applyChess(chessReduce(chess, { k: 'fire', cell }, chessCtx()), BALANCE.chess.rocketShotCost);
     return;
   }
 
@@ -890,10 +943,17 @@ app.canvas.addEventListener('pointerup', (event) => {
 
 app.canvas.addEventListener('pointermove', (event) => {
   if (event.pointerType !== 'mouse') return;
-  view.setHovered(view.pick(event.clientX, event.clientY));
+  const cell = view.pick(event.clientX, event.clientY);
+  view.setHovered(cell);
+  // The blast area follows the pointer, which is how a player sees the 50/20 split
+  // before spending 200 coins on a shot.
+  if (settings.mode === 'chess' && chessAction === 'fire') previewZone(cell < 0 ? null : cell);
 });
 
-app.canvas.addEventListener('pointerleave', () => view.setHovered(-1));
+app.canvas.addEventListener('pointerleave', () => {
+  view.setHovered(-1);
+  previewZone(null);
+});
 
 app.canvas.addEventListener('keydown', (event) => {
   let row = Math.floor(selected / map.cols);
@@ -928,6 +988,8 @@ app.canvas.addEventListener('keydown', (event) => {
   selected = row * map.cols + col;
   view.setSelected(selected);
   view.setHovered(-1);
+  // The keyboard walks the aim around; the blast area follows it.
+  if (settings.mode === 'chess' && chessAction === 'fire') previewZone(selected);
 });
 
 const observer = new ResizeObserver(() => view.resize());
@@ -1203,6 +1265,7 @@ export const __eurasia: {
   getState: () => GameState;
   getChess: () => ChessState | null;
   getHints: () => readonly MoveHint[];
+  getZone: () => readonly ZoneCell[];
   getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
@@ -1212,6 +1275,7 @@ export const __eurasia: {
   getState: () => active(),
   getChess: () => chess,
   getHints: () => hints,
+  getZone: () => zone,
   getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,
