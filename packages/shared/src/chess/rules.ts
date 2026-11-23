@@ -418,40 +418,47 @@ export function chessReduce(
     };
 
     // The nearest base that can reach the zone does the firing; the range is
-    // measured to the centre of the zone, not to the piece that may die in it.
+    // measured to the centre of the zone, not to the pieces that may die in it.
     const from = mine
       .filter((cell) => distance(cell) <= BALANCE.chess.rocketRange)
       .sort((a, b) => distance(a) - distance(b) || a - b)[0];
     if (from === undefined) return reject(state, 'out_of_range');
 
-    const target = pickTarget(state, cmd.cell, ctx);
-    if (!target) return reject(state, 'no_target');
+    const inZone = piecesInZone(state, cmd.cell, ctx);
+    if (inZone.length === 0) return reject(state, 'no_target');
 
-    // Dead centre is the good shot; the eight cells around it are a long shot.
-    const chance =
-      target.ring === 0 ? BALANCE.chess.rocketCentreChance : BALANCE.chess.rocketRingChance;
-    const hit = rollFor(state, from, cmd.cell, target.piece.id) < chance;
+    // Every piece in the zone rolls for itself, its own side's included: a rocket
+    // is an area weapon, and a zone that only ever killed the nearest enemy let a
+    // player park their own troops in it for free.
+    const hits: { piece: Piece; kind: PieceKind; side: Side }[] = [];
+    for (const { piece, ring } of inZone) {
+      const chance = ring === 0 ? BALANCE.chess.rocketCentreChance : BALANCE.chess.rocketRingChance;
+      if (rollFor(state, from, cmd.cell, piece.id) < chance) {
+        hits.push({ piece, kind: piece.kind, side: piece.side });
+      }
+    }
 
     events.push({
       t: 'fired',
       side: state.turn,
       from,
       cell: cmd.cell,
-      target: target.piece.id,
-      kind: target.piece.kind,
-      targetSide: target.piece.side,
-      hit,
+      hits: hits.map(({ piece, kind, side }) => ({ piece: piece.id, kind, side })),
+      risked: inZone.length,
     });
 
-    let pieces = state.pieces;
+    const killed = new Set(hits.map((entry) => entry.piece.id));
+    const pieces = killed.size === 0 ? state.pieces : state.pieces.filter((p) => !killed.has(p.id));
+
+    // A king killed by a rocket loses, whoever fired it. If one shot takes both
+    // kings, the shooter is the one who pulled the trigger: they lose.
+    const kings = hits.filter((entry) => entry.kind === 'king');
     let win: { side: Side; how: WinHow } | null = null;
-    if (hit) {
-      pieces = pieces.filter((piece) => piece.id !== target.piece.id);
-      // A king killed by a rocket loses, whoever fired it: hitting your own king is
-      // a loss, and the winner is the side that still has one.
-      if (target.piece.kind === 'king') {
-        win = { side: target.piece.side === 0 ? 1 : 0, how: 'rocket' };
-      }
+    if (kings.length === 1) {
+      const dead = (kings[0] as { side: Side }).side;
+      win = { side: dead === 0 ? 1 : 0, how: 'rocket' };
+    } else if (kings.length > 1) {
+      win = { side: state.turn === 0 ? 1 : 0, how: 'rocket' };
     }
 
     // A shot is paid for whether it hits or misses: the rockets left the tube.
@@ -490,32 +497,30 @@ export function chessReduce(
 }
 
 /**
- * Who a shot lands on: the enemy nearest the centre of the zone, ties going to the
- * older piece. Deterministic on purpose — the engine may not consult a clock or a
- * random source, and a replay has to make the same choices.
+ * Every piece inside the 3x3 zone, with its distance from the centre.
+ *
+ * All of them are shot at: a rocket is an area weapon, and a zone that only ever
+ * killed the nearest enemy let a player park their own troops in it for free. The
+ * ring decides the odds — dead centre is the good hit, the eight cells around it
+ * are a long shot — and the roll for each piece is its own.
  */
-function pickTarget(
+function piecesInZone(
   state: ChessState,
   cell: number,
   ctx: ChessCtx,
-): { piece: Piece; ring: number } | null {
+): { piece: Piece; ring: number }[] {
   const centre = spotOf(cell, ctx.cols);
-  let best: { piece: Piece; ring: number } | null = null;
+  const out: { piece: Piece; ring: number }[] = [];
 
-  // Both sides are in the zone: a rocket does not check uniforms, and firing over
-  // your own piece is a way to lose it.
   for (const piece of state.pieces) {
     const spot = spotOf(piece.cell, ctx.cols);
     const dr = Math.abs(spot.row - centre.row);
     const dc = Math.abs(spot.col - centre.col);
     if (dr > 1 || dc > 1) continue;
-    const ring = Math.max(dr, dc);
-    if (!best || ring < best.ring || (ring === best.ring && piece.id < best.piece.id)) {
-      best = { piece, ring };
-    }
+    out.push({ piece, ring: Math.max(dr, dc) });
   }
 
-  return best;
+  return out.sort((a, b) => a.ring - b.ring || a.piece.id - b.piece.id);
 }
 
 /**

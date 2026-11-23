@@ -44,8 +44,10 @@ export const en = {
       `Spend the turn and ${cost} coins shooting a 3x3 zone within seven cells`,
     firing: (cost: number) => `Pick a target: ${cost} coins, 50% dead centre, 20% around it`,
     rocketBuilt: 'Rocket base built',
-    rocketHit: 'Hit — the piece is gone',
-    friendlyHit: 'Friendly fire — your own piece is gone',
+    rocketHits: (total: number) =>
+      total === 1 ? 'Hit — 1 piece gone' : `Hit — ${total} pieces gone`,
+    rocketHitsOwn: (total: number, own: number) =>
+      `${total} gone, ${own} of them yours — friendly fire`,
     rocketMiss: 'Miss — the rockets fell wide',
     noRocket: 'No rocket base to fire from',
     outOfRange: 'Out of range: a base reaches seven cells',

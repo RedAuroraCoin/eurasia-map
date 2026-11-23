@@ -694,6 +694,35 @@ describe('the rocket base', () => {
     expect(lost).toBe(true);
   });
 
+  it('rolls for every piece in the zone, its own included', () => {
+    // The reported bug: an enemy dead centre at 50 % was the only piece ever rolled
+    // for, so a player's own troops on the ring never died. Every piece now rolls.
+    let own = 0;
+    let enemy = 0;
+
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = state(
+        [
+          piece(1, 0, 'king', at(0, 0)),
+          piece(2, 1, 'king', at(7, 0)),
+          piece(3, 0, 'rook', at(6, 7)),
+          piece(4, 1, 'rook', at(6, 6)),
+        ],
+        { seed, turn: 0, coins: [500, 500], rockets: { [String(at(3, 3))]: 0 } },
+      );
+      const result = chessReduce(s, { k: 'fire', cell: at(6, 6) }, ctx8());
+      if (!result.ok) continue;
+      if (!result.state.pieces.some((p) => p.id === 3)) own++;
+      if (!result.state.pieces.some((p) => p.id === 4)) enemy++;
+    }
+
+    // Roughly 20 % and 50 % of 200, and crucially neither is zero.
+    expect(own).toBeGreaterThan(20);
+    expect(own).toBeLessThan(70);
+    expect(enemy).toBeGreaterThan(70);
+    expect(enemy).toBeLessThan(130);
+  });
+
   it('charges the shot whether it hits or misses', () => {
     const result = chessReduce(board(1, at(6, 6)), { k: 'fire', cell: at(6, 6) }, ctx8());
     expect(result.ok).toBe(true);

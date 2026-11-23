@@ -674,15 +674,16 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
     if (event.t === 'recruited') app.setMessage(t.chess.recruited, 'good');
     if (event.t === 'rocketBuilt') app.setMessage(t.chess.rocketBuilt, 'good');
     if (event.t === 'fired') {
-      // Hitting your own piece is worth saying out loud: it is the one shot that
-      // can cost a piece you meant to keep.
-      const friendly = event.targetSide !== null && event.targetSide === event.side;
-      const text = event.hit
-        ? friendly
-          ? t.chess.friendlyHit
-          : t.chess.rocketHit
-        : t.chess.rocketMiss;
-      app.setMessage(text, event.hit && !friendly ? 'good' : 'error');
+      // The zone rolls for every piece in it, so a shot can take several at once —
+      // and some of them can be yours, which is worth saying out loud.
+      const own = event.hits.filter((hit) => hit.side === event.side).length;
+      const text =
+        event.hits.length === 0
+          ? t.chess.rocketMiss
+          : own > 0
+            ? t.chess.rocketHitsOwn(event.hits.length, own)
+            : t.chess.rocketHits(event.hits.length);
+      app.setMessage(text, own > 0 ? 'error' : event.hits.length > 0 ? 'good' : 'info');
     }
     if (event.t === 'drowned') app.setMessage(t.chess.drowned(event.pieces), 'error');
     if (event.t === 'won') {

@@ -62,12 +62,13 @@ ground, back rank behind.
     blocks movement and can be taken. **Instead of a move** it fires for **200
     coins a shot**, hit or miss — the rockets leave the tube either way. Pick a cell
     within **seven** cells of the base, and it shells the **3x3 zone** around it.
-    One piece in the zone is the target — the one nearest the centre, **either
-    side's**: a rocket does not check uniforms, so shelling a cell next to your own
-    knight can cost you the knight, and a rocket that kills its own king loses the
-    game. The chance to kill depends on where the target stands: **50 % dead
-    centre, 20 % on the other eight cells**. The roll is a hash of the position
-    (seed, round, side, base, zone, target), never a stored die, so a replay or a
+    **Every piece in the zone rolls for itself**, its own side's included: a shot
+    can take several pieces at once, and a rocket does not check uniforms, so
+    shelling a cell next to your own knight can cost you the knight. A rocket that
+    kills its own king loses the game, and a shot that takes both kings loses it for
+    the shooter. The odds depend on where a piece stands: **50 % dead centre, 20 %
+    on the other eight cells**, each rolled separately. The dice are a hash of the
+    position (seed, round, side, base, zone, piece), never stored, so a replay or a
     save makes the same shot.
   - *Pawn* — 250 coins, recruited **into one of your own towers**. It steps out on
     later turns and walks like any other pawn.

@@ -99,12 +99,14 @@ export type ChessEvent =
       readonly side: Side;
       readonly from: number;
       readonly cell: number;
-      /** The piece that was shot at, and whether it died. */
-      readonly target: number | null;
-      readonly kind: PieceKind | null;
-      /** Whose piece it was: a base can shell its own side. */
-      readonly targetSide: Side | null;
-      readonly hit: boolean;
+      /** Every piece the shot killed: a zone hits each piece in it, by the odds. */
+      readonly hits: readonly {
+        readonly piece: number;
+        readonly kind: PieceKind;
+        readonly side: Side;
+      }[];
+      /** How many pieces stood in the zone, hit or not. */
+      readonly risked: number;
     }
   | { readonly t: 'built'; readonly cell: number; readonly side: Side; readonly cost: number }
   | {
