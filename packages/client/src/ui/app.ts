@@ -21,6 +21,10 @@ export interface AppHandlers {
   onBuild: () => void;
   /** Recruit a pawn into one of your towers, instead of moving a piece. */
   onRecruit: () => void;
+  /** Chess only: arm a rocket base for the next click. */
+  onRocket: () => void;
+  /** Chess only: arm the rockets for a shot at the next click. */
+  onFire: () => void;
   /** Single-player only: create a room and go there. */
   onInvite: () => void;
   onConnectionStatus?: (
@@ -73,8 +77,12 @@ export class App {
   private readonly invite: (() => void) | undefined;
   private readonly onBuild: () => void;
   private readonly onRecruit: () => void;
+  private readonly onRocket: () => void;
+  private readonly onFire: () => void;
   private buildButton!: HTMLButtonElement;
   private recruitButton!: HTMLButtonElement;
+  private rocketButton!: HTMLButtonElement;
+  private fireButton!: HTMLButtonElement;
   /** Always on screen in chess: building is the other half of a turn. */
   private buildBar!: HTMLElement;
   /** Hidden in chess mode: a turn-based game has no world clock to speed up. */
@@ -86,6 +94,8 @@ export class App {
     this.invite = handlers.onInvite;
     this.onBuild = handlers.onBuild;
     this.onRecruit = handlers.onRecruit;
+    this.onRocket = handlers.onRocket;
+    this.onFire = handlers.onFire;
     // --- canvas + stage -------------------------------------------------
     this.canvas = h('canvas', {
       attrs: {
@@ -295,6 +305,20 @@ export class App {
       on: { click: () => this.onRecruit() },
     }) as HTMLButtonElement;
 
+    this.rocketButton = h('button', {
+      class: 'button build-action',
+      text: t.chess.rocket(BALANCE.chess.rocketCost),
+      attrs: { type: 'button', title: t.chess.rocketTitle(BALANCE.chess.rocketCost) },
+      on: { click: () => this.onRocket() },
+    }) as HTMLButtonElement;
+
+    this.fireButton = h('button', {
+      class: 'button build-action fire-action',
+      text: t.chess.fire,
+      attrs: { type: 'button', title: t.chess.fireTitle },
+      on: { click: () => this.onFire() },
+    }) as HTMLButtonElement;
+
     this.demoButton = h('button', {
       class: 'button',
       text: t.settings.demoOn,
@@ -425,7 +449,9 @@ export class App {
       { class: 'build-bar hidden' },
       h('span', { class: 'build-bar-label', text: t.panel.build }),
       this.buildButton,
+      this.rocketButton,
       this.recruitButton,
+      this.fireButton,
     );
     this.stage.append(this.buildBar);
 
@@ -461,9 +487,11 @@ export class App {
    * Which "instead of a move" action is armed, if any: building a tower and
    * recruiting a pawn are both turns, so only one can be picked at a time.
    */
-  setAction(action: 'none' | 'tower' | 'pawn'): void {
+  setAction(action: 'none' | 'tower' | 'rocket' | 'pawn' | 'fire'): void {
     this.buildButton.classList.toggle('armed', action === 'tower');
+    this.rocketButton.classList.toggle('armed', action === 'rocket');
     this.recruitButton.classList.toggle('armed', action === 'pawn');
+    this.fireButton.classList.toggle('armed', action === 'fire');
   }
 
   /** Turn, round, both wallets and the sea: everything the mode needs at a glance. */
@@ -473,6 +501,8 @@ export class App {
     coins: readonly [number, number];
     /** Coins each side is paid when the round closes: base rate plus towers. */
     income: readonly [number, number];
+    /** Rocket bases each side holds; firing needs at least one. */
+    rockets: readonly [number, number];
     seaLevel: number;
     winner: 0 | 1 | null;
   }): void {
@@ -489,7 +519,10 @@ export class App {
     // of the decision, and the click still explains itself.
     const purse = info.coins[info.turn];
     this.buildButton.classList.toggle('unaffordable', purse < BALANCE.chess.towerCost);
+    this.rocketButton.classList.toggle('unaffordable', purse < BALANCE.chess.rocketCost);
     this.recruitButton.classList.toggle('unaffordable', purse < BALANCE.chess.pawnCost);
+    // Firing is free; it needs a base, and the engine says so if there is none.
+    this.fireButton.classList.toggle('unaffordable', info.rockets[info.turn] === 0);
     // The turn blocks are hidden here: two of them read "White to move" and
     // "Black to move" at the same time, which answers nothing. The turn is marked
     // once, on the side that has it.

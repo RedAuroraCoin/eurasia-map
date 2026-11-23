@@ -30,6 +30,7 @@ import {
   createChessGame,
   legalTargets,
   recruitSpots,
+  rocketCells,
   type ChessErrorCode,
   type ChessState,
 } from '@eurasia/shared';
@@ -73,7 +74,7 @@ let lastWorldDay = Number.NEGATIVE_INFINITY;
 let chess: ChessState | null = null;
 let chessSelected: number | null = null;
 /** Both are a turn instead of a move, so only one can be armed at a time. */
-let chessAction: 'none' | 'tower' | 'pawn' = 'none';
+let chessAction: 'none' | 'tower' | 'rocket' | 'pawn' | 'fire' = 'none';
 /** What the last refresh told the view to draw, kept for the tests. */
 let hints: MoveHint[] = [];
 let selected = 0;
@@ -170,6 +171,25 @@ const handlers: AppHandlers = {
       chessAction === 'pawn' ? t.chess.recruiting : t.chess.recruit(BALANCE.chess.pawnCost),
       'info',
     );
+    refreshHints();
+  },
+  onRocket: () => {
+    if (!chess) return;
+    chessAction = chessAction === 'rocket' ? 'none' : 'rocket';
+    chessSelected = null;
+    app.setAction(chessAction);
+    app.setMessage(
+      chessAction === 'rocket' ? t.chess.building : t.chess.rocket(BALANCE.chess.rocketCost),
+      'info',
+    );
+    refreshHints();
+  },
+  onFire: () => {
+    if (!chess) return;
+    chessAction = chessAction === 'fire' ? 'none' : 'fire';
+    chessSelected = null;
+    app.setAction(chessAction);
+    app.setMessage(chessAction === 'fire' ? t.chess.firing : t.chess.fire, 'info');
     refreshHints();
   },
   onSides: (both) => {
@@ -571,6 +591,9 @@ const unitsOf = (game: ChessState): UnitInstance[] => {
   Object.entries(game.towers).forEach(([cell, side], index) => {
     out.push({ id: 10_000 + index, role: 'tower', side, cell: Number(cell) });
   });
+  Object.entries(game.rockets).forEach(([cell, side], index) => {
+    out.push({ id: 20_000 + index, role: 'rocket', side, cell: Number(cell) });
+  });
   return out;
 };
 
@@ -594,12 +617,15 @@ function syncChess(): void {
     Object.values(game.towers).filter((owner) => owner === side).length;
   const perSide = (side: 0 | 1): number =>
     BALANCE.chess.coinsPerRound + BALANCE.chess.towerIncome * towerCount(side);
+  const rocketCount = (side: 0 | 1): number =>
+    Object.values(game.rockets).filter((owner) => owner === side).length;
 
   app.updateChess({
     turn: chess.turn,
     round: chess.round,
     coins: chess.coins,
     income: [perSide(0), perSide(1)],
+    rockets: [rocketCount(0), rocketCount(1)],
     seaLevel: chess.seaLevel,
     winner: chess.winner,
   });
@@ -611,6 +637,12 @@ function describeChessError(code: ChessErrorCode, cost = BALANCE.chess.towerCost
       return t.chess.noCoins(cost);
     case 'no_tower':
       return t.chess.noTower;
+    case 'no_rocket':
+      return t.chess.noRocket;
+    case 'out_of_range':
+      return t.chess.outOfRange;
+    case 'no_target':
+      return t.chess.noTarget;
     case 'occupied':
       return t.chess.illegal;
     case 'not_yours':
@@ -632,6 +664,13 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
     if (event.t === 'captured') app.setMessage(t.messages.taken, 'info');
     if (event.t === 'built') app.setMessage(t.chess.built, 'good');
     if (event.t === 'recruited') app.setMessage(t.chess.recruited, 'good');
+    if (event.t === 'rocketBuilt') app.setMessage(t.chess.rocketBuilt, 'good');
+    if (event.t === 'fired') {
+      app.setMessage(
+        event.hit ? t.chess.rocketHit : t.chess.rocketMiss,
+        event.hit ? 'good' : 'info',
+      );
+    }
     if (event.t === 'drowned') app.setMessage(t.chess.drowned(event.pieces), 'error');
     if (event.t === 'won') {
       app.setMessage(
@@ -725,8 +764,32 @@ function refreshHints(): void {
     return;
   }
 
+  if (chessAction === 'rocket') {
+    hints = buildSpots(chess, chessCtx()).map((cell) => ({ cell, kind: 'build' as const }));
+    view.setHints(hints);
+    return;
+  }
+
   if (chessAction === 'pawn') {
     hints = recruitSpots(chess, chessCtx()).map((cell) => ({ cell, kind: 'recruit' as const }));
+    view.setHints(hints);
+    return;
+  }
+
+  if (chessAction === 'fire') {
+    // Aiming is clicked on a piece, so the targets offered are the enemy pieces a
+    // base can reach. Any other cell still works: it is the centre of a 3x3 zone.
+    const bases = rocketCells(chess, chess.turn);
+    const reach = BALANCE.chess.rocketRange;
+    const near = (a: number, b: number): number => {
+      const pa = { row: Math.floor(a / map.cols), col: a % map.cols };
+      const pb = { row: Math.floor(b / map.cols), col: b % map.cols };
+      return Math.max(Math.abs(pa.row - pb.row), Math.abs(pa.col - pb.col));
+    };
+    hints = chess.pieces
+      .filter((piece) => piece.side !== chess?.turn)
+      .filter((piece) => bases.some((base) => near(base, piece.cell) <= reach))
+      .map((piece) => ({ cell: piece.cell, kind: 'fire' as const }));
     view.setHints(hints);
     return;
   }
@@ -767,8 +830,21 @@ function chessClick(cell: number): void {
     return;
   }
 
+  if (chessAction === 'rocket') {
+    applyChess(
+      chessReduce(chess, { k: 'build', cell, kind: 'rocket' }, chessCtx()),
+      BALANCE.chess.rocketCost,
+    );
+    return;
+  }
+
   if (chessAction === 'pawn') {
     applyChess(chessReduce(chess, { k: 'recruit', cell }, chessCtx()), BALANCE.chess.pawnCost);
+    return;
+  }
+
+  if (chessAction === 'fire') {
+    applyChess(chessReduce(chess, { k: 'fire', cell }, chessCtx()));
     return;
   }
 

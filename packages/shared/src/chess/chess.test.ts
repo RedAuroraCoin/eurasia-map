@@ -45,6 +45,7 @@ const state = (pieces: Piece[], extra: Partial<ChessState> = {}): ChessState => 
   round: 0,
   seaLevel: 0,
   towers: {},
+  rockets: {},
   coins: [BALANCE.chess.startCoins, BALANCE.chess.startCoins],
   winner: null,
   lastMove: null,
@@ -557,6 +558,167 @@ describe('towers pay their owner', () => {
     expect(result.state.towers[String(low)]).toBeUndefined();
     // Base rate only: the drowned tower earns nothing.
     expect(result.state.coins[0]).toBe(BALANCE.chess.coinsPerRound);
+  });
+});
+
+describe('the rocket base', () => {
+  /**
+   * A board with a white rocket at (3,3) and one black piece to shoot at. The black
+   * king sits at (7,0), well outside any zone these tests aim at, so the rook is
+   * the piece the shot lands on.
+   */
+  const board = (seed: number, target: number, extra: Partial<ChessState> = {}): ChessState =>
+    state(
+      [piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 0)), piece(3, 1, 'rook', target)],
+      {
+        seed,
+        turn: 0,
+        coins: [500, 500],
+        rockets: { [String(at(3, 3))]: 0 },
+        ...extra,
+      },
+    );
+
+  /** How many of `trials` seeds kill the piece standing on `target`. */
+  const hits = (target: number, zone: number, trials = 200): number => {
+    let killed = 0;
+    for (let seed = 1; seed <= trials; seed++) {
+      const result = chessReduce(board(seed, target), { k: 'fire', cell: zone }, ctx8());
+      if (result.ok && !result.state.pieces.some((piece) => piece.id === 3)) killed++;
+    }
+    return killed;
+  };
+
+  it('is built for fifty coins and blocks like a tower', () => {
+    const s = state([piece(1, 0, 'king', at(3, 3)), piece(2, 1, 'king', at(7, 7))], {
+      coins: [BALANCE.chess.rocketCost, 0],
+    });
+    const result = chessReduce(s, { k: 'build', cell: at(3, 4), kind: 'rocket' }, ctx8());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.rockets[String(at(3, 4))]).toBe(0);
+    expect(result.state.towers[String(at(3, 4))]).toBeUndefined();
+    expect(result.state.coins[0]).toBe(0);
+    expect(result.state.turn).toBe(1);
+  });
+
+  it('refuses to fire without a base, out of range, or at an empty zone', () => {
+    const noBase = chessReduce(
+      state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'rook', at(4, 4))], { coins: [500, 0] }),
+      { k: 'fire', cell: at(4, 4) },
+      ctx8(),
+    );
+    expect(noBase.ok).toBe(false);
+    if (!noBase.ok) expect(noBase.code).toBe('no_rocket');
+
+    // A zone with no enemy in it is not a shot.
+    const empty = chessReduce(board(1, at(7, 5)), { k: 'fire', cell: at(0, 0) }, ctx8());
+    expect(empty.ok).toBe(false);
+    if (!empty.ok) expect(empty.code).toBe('no_target');
+  });
+
+  it('cannot reach past its range of seven', () => {
+    // An 8x8 board is only seven cells across from a corner, so the range needs a
+    // wider board to be exceeded at all.
+    const ctx12: ChessCtx = {
+      isLand: () => true,
+      elev: Array.from({ length: 144 }, (_, cell) => 150 + cell * 5),
+      rows: 12,
+      cols: 12,
+      cellCount: 144,
+    };
+    const at12 = (row: number, col: number): number => row * 12 + col;
+    const s = state(
+      [
+        piece(1, 0, 'king', at12(0, 0)),
+        piece(2, 1, 'king', at12(11, 11)),
+        piece(3, 1, 'rook', at12(0, 8)),
+      ],
+      { turn: 0, coins: [500, 500], rockets: { [String(at12(0, 0))]: 0 } },
+    );
+
+    // Nine cells from the base: out of reach.
+    const tooFar = chessReduce(s, { k: 'fire', cell: at12(0, 9) }, ctx12);
+    expect(tooFar.ok).toBe(false);
+    if (!tooFar.ok) expect(tooFar.code).toBe('out_of_range');
+
+    // Seven cells: the same board, in range.
+    const inRange = chessReduce(s, { k: 'fire', cell: at12(0, 7) }, ctx12);
+    expect(inRange.ok).toBe(true);
+  });
+
+  it('kills the piece dead centre about half the time', () => {
+    const killed = hits(at(6, 6), at(6, 6));
+    expect(killed).toBeGreaterThan(200 * 0.35);
+    expect(killed).toBeLessThan(200 * 0.65);
+  });
+
+  it('kills a piece on the ring about one time in five', () => {
+    const killed = hits(at(6, 7), at(6, 6));
+    expect(killed).toBeGreaterThan(200 * 0.08);
+    expect(killed).toBeLessThan(200 * 0.32);
+  });
+
+  it('takes the turn whether it hits or misses', () => {
+    const result = chessReduce(board(1, at(6, 6)), { k: 'fire', cell: at(6, 6) }, ctx8());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.state.turn).toBe(1);
+    expect(result.events.some((event) => event.t === 'fired')).toBe(true);
+  });
+
+  it('wins the game when the shot kills the king', () => {
+    let won = false;
+    for (let seed = 1; seed <= 40 && !won; seed++) {
+      const s = state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(6, 6))], {
+        seed,
+        turn: 0,
+        coins: [500, 500],
+        rockets: { [String(at(3, 3))]: 0 },
+      });
+      const result = chessReduce(s, { k: 'fire', cell: at(6, 6) }, ctx8());
+      if (result.ok && result.state.winner === 0) {
+        won = true;
+        const event = result.events.find((item) => item.t === 'won');
+        expect(event?.t === 'won' && event.how).toBe('rocket');
+      }
+    }
+    expect(won).toBe(true);
+  });
+
+  it('can be taken by landing on it, and drowns with the tide', () => {
+    const taken = chessReduce(
+      state(
+        [
+          piece(1, 1, 'rook', at(1, 3)),
+          piece(2, 0, 'king', at(0, 0)),
+          piece(3, 1, 'king', at(7, 7)),
+        ],
+        { turn: 1, coins: [0, 0], rockets: { [String(at(3, 3))]: 0 } },
+      ),
+      { k: 'move', piece: 1, to: at(3, 3) },
+      ctx8(),
+    );
+    expect(taken.ok).toBe(true);
+    if (taken.ok) {
+      expect(taken.state.rockets[String(at(3, 3))]).toBeUndefined();
+      expect(taken.events.some((event) => event.t === 'rocketTaken')).toBe(true);
+    }
+
+    const drowned = chessReduce(
+      state(
+        [
+          piece(1, 0, 'king', at(3, 3)),
+          piece(2, 1, 'king', at(7, 7)),
+          piece(3, 1, 'rook', at(6, 6)),
+        ],
+        { turn: 1, round: 100, coins: [0, 0], rockets: { [String(at(0, 0))]: 0 } },
+      ),
+      { k: 'move', piece: 3, to: at(6, 7) },
+      ctx8(),
+    );
+    expect(drowned.ok).toBe(true);
+    if (drowned.ok) expect(drowned.state.rockets[String(at(0, 0))]).toBeUndefined();
   });
 });
 

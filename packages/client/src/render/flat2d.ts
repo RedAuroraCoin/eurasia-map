@@ -21,6 +21,7 @@ const GLYPHS: Record<UnitRole, string> = {
   knight: 'N',
   pawn: 'P',
   tower: '',
+  rocket: 'M',
 };
 
 const glyphFor = (role: UnitRole): string => GLYPHS[role];

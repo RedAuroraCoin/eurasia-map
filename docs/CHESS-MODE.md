@@ -58,6 +58,14 @@ ground, back rank behind.
 - A turn is **one action**: move a piece, or spend it on a building instead.
   - *Tower* — 50 coins, on a dry empty cell next to the king. It blocks movement
     for both sides and can be taken by landing on it.
+  - *Rocket* — 50 coins, on a dry empty cell next to the king, like a tower. It
+    blocks movement and can be taken. **Instead of a move** it fires: pick a cell
+    within **seven** cells of the base, and it shells the **3x3 zone** around it.
+    One enemy piece in the zone is the target — the one nearest the centre — and
+    the chance to kill it depends on where it stands: **50 % dead centre, 20 % on
+    the other eight cells**. The roll is a hash of the position (seed, round, side,
+    base, zone, target), never a stored die, so a replay or a save makes the same
+    shot. A king hit this way loses the game.
   - *Pawn* — 250 coins, recruited **into one of your own towers**. It steps out on
     later turns and walks like any other pawn.
     Your own pieces cannot enter your tower, but an enemy landing on the tower
@@ -99,8 +107,9 @@ where the metres are.
 
 Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `floodExponent`,
 `campMinElevation`, `campLat`, `campLon`, `startCoins`, `coinsPerRound`,
-`towerCost`, `pawnCost`, and `SLIDE_LIMIT` in `chess/moves.ts` for the long
-vectors.
+`towerCost`, `pawnCost`, `towerIncome`, `rocketCost`, `rocketRange`,
+`rocketCentreChance`, `rocketRingChance`, and `SLIDE_LIMIT` in `chess/moves.ts`
+for the long vectors.
 
 ## Saving
 
@@ -114,6 +123,8 @@ version inside the file, structural validation on the way in, and no guessing.
   treated as corruption, not repaired
 - a tower with a pawn inside it is legal, because that is what recruiting does;
   the piece count is capped at 64 rather than at the opening 32
+- rocket bases are optional in the file: saves written before they existed load as
+  games with none, rather than as corrupt
 - a decided game is a result, not something to resume: it starts fresh
 - the sea level is **not** trusted from the file. It is derived from the round,
   so a save made before a balance change still loads onto a board whose water is

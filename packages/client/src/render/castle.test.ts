@@ -144,6 +144,32 @@ describe('chess towers', () => {
   });
 });
 
+describe('the rocket base model', () => {
+  it('loads, keeps its own colours and fits a unit box', async () => {
+    const buffer = readFileSync(new URL('../../public/models/rocket.glb', import.meta.url));
+    const gltf = await new GLTFLoader().parseAsync(
+      buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer,
+      '',
+    );
+    const merged = mergeObject(gltf.scene);
+    expect(merged).not.toBeNull();
+    if (!merged) return;
+
+    // The export is dense: more vertices than a box, which is what makes it read
+    // as a launcher rather than a cube.
+    expect(merged.getAttribute('position').count).toBeGreaterThan(500);
+    expect(merged.getAttribute('color')).toBeDefined();
+    expect(merged.getAttribute('normal')).toBeDefined();
+
+    normalizeToUnitBox(merged);
+    merged.computeBoundingBox();
+    const box = merged.boundingBox;
+    if (!box) throw new Error('no bounds');
+    expect(box.min.y).toBeCloseTo(0, 3);
+    expect(box.max.y).toBeLessThanOrEqual(1.001);
+  });
+});
+
 describe('the two sides', () => {
   const positionOf = (variant: CastleVariant): THREE.BufferAttribute =>
     createCastleGeometry(variant).getAttribute('position') as THREE.BufferAttribute;

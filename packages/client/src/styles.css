@@ -711,6 +711,12 @@ body {
   display: none;
 }
 
+/* Firing is not a purchase: it spends the turn and no money. */
+.fire-action {
+  border-color: color-mix(in srgb, #ff7a45 45%, var(--line));
+  color: color-mix(in srgb, #ff7a45 80%, var(--fg));
+}
+
 /* Two blocks used to read "White to move" and "Black to move" at once. The turn
    now lives on the side that has it, so the duplicate blocks go. */
 .app.chess .turn-stat {
@@ -742,8 +748,14 @@ body {
     display: none;
   }
 
+  /* Four actions, two rows: thumb-sized halves, nothing to aim at. */
+  .build-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
   .build-action {
-    flex: 1;
     min-height: 44px;
     justify-content: center;
     display: inline-flex;

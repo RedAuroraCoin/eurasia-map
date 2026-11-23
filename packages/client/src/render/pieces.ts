@@ -13,7 +13,7 @@ import type { PieceKind } from '@eurasia/shared';
  * head on the same turned foot.
  */
 
-export type UnitRole = PieceKind | 'tower';
+export type UnitRole = PieceKind | 'tower' | 'rocket';
 
 /** What the scene needs to draw one piece or tower. */
 export interface UnitInstance {
@@ -226,6 +226,18 @@ function build(role: UnitRole): THREE.BufferGeometry {
       break;
     }
 
+    case 'rocket': {
+      // The fallback when models/rocket.glb is missing: a squat base with a tube
+      // tipped towards the enemy, which reads as artillery and not as a keep.
+      parts.push(lathe([...FOOT, [0.1, 0.12], [0.17, 0.2], [0.14, 0.34], [0, 0.34]]));
+      parts.push(...battlements(0.1, 0.36, 4));
+      const tube = new THREE.CylinderGeometry(0.045, 0.06, 0.4, 10);
+      tube.rotateZ(Math.PI / 2.6);
+      tube.translate(0.02, 0.44, 0);
+      parts.push(tube);
+      break;
+    }
+
     default:
       break;
   }
@@ -265,10 +277,14 @@ export const SIDE_COLOURS = ['#efe6d2', '#2f3742'] as const;
  * the flat view and a missing model stay readable.
  */
 export const TOWER_COLOURS = ['#8f7fa8', '#c9a86a'] as const;
+/** A rocket base is military grey on both sides; the owner tint tells them apart. */
+export const ROCKET_COLOUR = '#6f7a72';
 /** Kept for the flat view's shadow and any single-colour use. */
 export const TOWER_COLOUR = TOWER_COLOURS[0];
 
 /** Colour of a piece, with the dark side lifted a little so it is not a hole. */
 export function unitColour(role: UnitRole, side: 0 | 1): string {
-  return role === 'tower' ? TOWER_COLOURS[side] : SIDE_COLOURS[side];
+  if (role === 'tower') return TOWER_COLOURS[side];
+  if (role === 'rocket') return ROCKET_COLOUR;
+  return SIDE_COLOURS[side];
 }

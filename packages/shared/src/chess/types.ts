@@ -13,6 +13,9 @@
 /** Who is who. Side 0 starts in the west, side 1 in the east. */
 export type Side = 0 | 1;
 
+/** How a game ended: a king taken, a king drowned, or a king hit by a rocket. */
+export type WinHow = 'king' | 'drowned' | 'rocket';
+
 export type PieceKind = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';
 
 export interface Piece {
@@ -43,6 +46,8 @@ export interface ChessState {
   readonly seaLevel: number;
   /** Fortifications: cell index -> owner. They block movement and can be taken. */
   readonly towers: Readonly<Record<string, Side>>;
+  /** Rocket bases: cell index -> owner. They block like towers and can be taken. */
+  readonly rockets: Readonly<Record<string, Side>>;
   readonly coins: readonly [number, number];
   /** Set once a king is taken or drowned; the loser is the other side. */
   readonly winner: Side | null;
@@ -51,7 +56,14 @@ export interface ChessState {
 
 export type ChessCommand =
   | { readonly k: 'move'; readonly piece: number; readonly to: number }
-  | { readonly k: 'build'; readonly cell: number }
+  | {
+      readonly k: 'build';
+      readonly cell: number;
+      /** A tower (default) or a rocket base; both cost the turn. */
+      readonly kind?: 'tower' | 'rocket';
+    }
+  /** Fire a rocket at a 3x3 zone: `cell` is the centre of the zone. */
+  | { readonly k: 'fire'; readonly cell: number }
   /** Recruit a pawn into one of your own towers, instead of moving a piece. */
   | { readonly k: 'recruit'; readonly cell: number };
 
@@ -80,6 +92,18 @@ export type ChessEvent =
       readonly cell: number;
     }
   | { readonly t: 'towerTaken'; readonly cell: number; readonly side: Side }
+  | { readonly t: 'rocketBuilt'; readonly cell: number; readonly side: Side; readonly cost: number }
+  | { readonly t: 'rocketTaken'; readonly cell: number; readonly side: Side }
+  | {
+      readonly t: 'fired';
+      readonly side: Side;
+      readonly from: number;
+      readonly cell: number;
+      /** The piece that was shot at, and whether it died. */
+      readonly target: number | null;
+      readonly kind: PieceKind | null;
+      readonly hit: boolean;
+    }
   | { readonly t: 'built'; readonly cell: number; readonly side: Side; readonly cost: number }
   | {
       readonly t: 'recruited';
@@ -92,7 +116,7 @@ export type ChessEvent =
   | { readonly t: 'drowned'; readonly pieces: number; readonly towers: number }
   | { readonly t: 'sea'; readonly level: number }
   | { readonly t: 'turn'; readonly side: Side; readonly round: number }
-  | { readonly t: 'won'; readonly side: Side; readonly how: 'king' | 'drowned' }
+  | { readonly t: 'won'; readonly side: Side; readonly how: WinHow }
   | { readonly t: 'rejected'; readonly code: ChessErrorCode };
 
 export type ChessErrorCode =
@@ -104,6 +128,9 @@ export type ChessErrorCode =
   | 'not_adjacent'
   | 'no_coins'
   | 'no_tower'
+  | 'no_rocket'
+  | 'out_of_range'
+  | 'no_target'
   | 'flooded'
   | 'unknown';
 

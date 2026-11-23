@@ -71,6 +71,10 @@ export const BalanceSchema = z.object({
     towerCost: z.number().int().positive().max(100),
     pawnCost: z.number().int().positive().max(1000),
     towerIncome: z.number().int().min(0).max(1000),
+    rocketCost: z.number().int().positive().max(1000),
+    rocketRange: z.number().int().positive().max(20),
+    rocketCentreChance: z.number().min(0).max(1),
+    rocketRingChance: z.number().min(0).max(1),
     /**
      * The round at which the sea covers the last cell. A game cannot outlast it,
      * and an average game — 40 to 45 moves each — ends on the highlands rather
@@ -177,6 +181,15 @@ const RAW = {
     pawnCost: 250,
     /** Every tower a side owns pays this at the end of each round. */
     towerIncome: 10,
+    /**
+     * A rocket base: a structure that fires instead of moving a piece. The zone is
+     * a 3x3 square around the aimed cell; the chance to kill depends on where the
+     * target stands inside it.
+     */
+    rocketCost: 50,
+    rocketRange: 7,
+    rocketCentreChance: 0.5,
+    rocketRingChance: 0.2,
     fullFloodRound: 200,
     floodExponent: 2,
     campMinElevation: 250,

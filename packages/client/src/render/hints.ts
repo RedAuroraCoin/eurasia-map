@@ -9,7 +9,7 @@ import * as THREE from 'three';
  * tower a pawn could be recruited into.
  */
 
-export type HintKind = 'move' | 'capture' | 'build' | 'recruit';
+export type HintKind = 'move' | 'capture' | 'build' | 'recruit' | 'fire';
 
 export interface MoveHint {
   readonly cell: number;
@@ -21,6 +21,7 @@ export const HINT_COLOURS: Record<HintKind, string> = {
   capture: '#e2564b',
   build: '#63a4f0',
   recruit: '#6cc46a',
+  fire: '#ff7a45',
 };
 
 const cache = new Map<HintKind, THREE.BufferGeometry>();
@@ -33,6 +34,9 @@ export function hintGeometry(kind: HintKind): THREE.BufferGeometry {
   let made: THREE.BufferGeometry;
   if (kind === 'capture') {
     made = new THREE.RingGeometry(0.16, 0.23, 24);
+  } else if (kind === 'fire') {
+    // A cross is not offered by any other hint: this one is a target, not a place.
+    made = new THREE.RingGeometry(0.19, 0.24, 4);
   } else if (kind === 'recruit') {
     made = new THREE.RingGeometry(0.1, 0.15, 20);
   } else if (kind === 'build') {

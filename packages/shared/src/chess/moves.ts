@@ -79,16 +79,20 @@ export function legalTargets(state: ChessState, piece: Piece, ctx: ChessCtx): nu
     if (other.id !== piece.id) occupied.set(other.cell, other);
   }
 
-  const towerOwner = (cell: number): Side | null =>
-    state.towers[String(cell)] === undefined ? null : (state.towers[String(cell)] as Side);
+  const structureOwner = (cell: number): Side | null => {
+    const side = state.towers[String(cell)] ?? state.rockets[String(cell)];
+    return side === undefined ? null : (side as Side);
+  };
 
   /** 0 = cannot enter, 1 = enter and stop (capture), 2 = free. */
   const entry = (cell: number): 0 | 1 | 2 => {
     if (!isDryLand(cell, state, ctx)) return 0;
     const other = occupied.get(cell);
     if (other) return other.side === piece.side ? 0 : 1;
-    const tower = towerOwner(cell);
-    if (tower !== null) return tower === piece.side ? 0 : 1;
+    // A tower and a rocket base are both structures: yours blocks, theirs can be
+    // taken by landing on it.
+    const structure = structureOwner(cell);
+    if (structure !== null) return structure === piece.side ? 0 : 1;
     return 2;
   };
 
@@ -163,8 +167,19 @@ export function buildSpots(state: ChessState, ctx: ChessCtx): number[] {
   const taken = new Set(state.pieces.map((p) => p.cell));
   return neighbours(king.cell, ctx).filter(
     (cell) =>
-      isDryLand(cell, state, ctx) && !taken.has(cell) && state.towers[String(cell)] === undefined,
+      isDryLand(cell, state, ctx) &&
+      !taken.has(cell) &&
+      state.towers[String(cell)] === undefined &&
+      state.rockets[String(cell)] === undefined,
   );
+}
+
+/** The side's own rocket bases. */
+export function rocketCells(state: ChessState, side: Side): number[] {
+  return Object.entries(state.rockets)
+    .filter(([, owner]) => owner === side)
+    .map(([cell]) => Number(cell))
+    .sort((a, b) => a - b);
 }
 
 /**
@@ -179,6 +194,11 @@ export function recruitSpots(state: ChessState, ctx: ChessCtx): number[] {
   return Object.entries(state.towers)
     .filter(([, side]) => side === state.turn)
     .map(([cell]) => Number(cell))
-    .filter((cell) => !taken.has(cell) && isDryLand(cell, state, ctx))
+    .filter(
+      (cell) =>
+        !taken.has(cell) &&
+        isDryLand(cell, state, ctx) &&
+        state.rockets[String(cell)] === undefined,
+    )
     .sort((a, b) => a - b);
 }

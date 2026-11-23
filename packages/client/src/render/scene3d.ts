@@ -4,7 +4,7 @@ import { stormPointAt, type GameState, type MapEntry, type StormPlan } from '@eu
 import { createCastleGeometry, towerFromCastle } from './castle';
 import { createKingGeometry } from './king';
 import { createStormLook, type StormLook } from './storm-look';
-import { loadSideModels } from './model';
+import { loadBuildingModel, loadSideModels } from './model';
 import {
   buildBuildings,
   buildingTint,
@@ -67,6 +67,10 @@ const FOV = 36;
  * it actually occupies.
  */
 const GARRISON_OFFSET = 0.22;
+/** One model for both sides; the owner tint is what tells the two apart. */
+const ROCKET_MODEL_URL = 'models/rocket.glb';
+const ROCKET_WIDTH = 0.7;
+const ROCKET_HEIGHT = 1.45;
 /** The sea plane is larger than the board so the horizon is water, not a cut edge. */
 const SEA_SCALE = 3.5;
 
@@ -131,6 +135,9 @@ export class Scene3D implements View {
     null,
   ];
   private lastUnits: readonly UnitInstance[] = [];
+  /** The rocket base model, one file for both sides: the tint says whose it is. */
+  private rocketModel: THREE.BufferGeometry | null = null;
+  private rocketChessGeometry: THREE.BufferGeometry | null = null;
 
   /** Review switch: alternate owners so both castle designs are visible. */
   private sidePreview = false;
@@ -142,6 +149,13 @@ export class Scene3D implements View {
   private loadCustomModelOnce(): void {
     if (this.modelRequested) return;
     this.modelRequested = true;
+    void loadBuildingModel(ROCKET_MODEL_URL).then((rocket) => {
+      if (!rocket) return;
+      this.rocketModel = rocket;
+      this.rocketChessGeometry?.dispose();
+      this.rocketChessGeometry = null;
+      if (this.lastUnits.some((unit) => unit.role === 'rocket')) this.setUnits(this.lastUnits);
+    });
     void loadSideModels().then((models) => {
       if (!models[0] && !models[1]) return;
       this.models = models;
@@ -526,11 +540,25 @@ export class Scene3D implements View {
     return copy;
   }
 
+  /** The rocket base model, scaled to a chess cell. Cached: one copy per view. */
+  private rocketGeometry(): THREE.BufferGeometry | null {
+    if (!this.rocketModel) return null;
+    const cached = this.rocketChessGeometry;
+    if (cached) return cached;
+    const copy = this.rocketModel.clone();
+    copy.scale(ROCKET_WIDTH, ROCKET_HEIGHT, ROCKET_WIDTH);
+    copy.computeBoundingBox();
+    this.rocketChessGeometry = copy;
+    return copy;
+  }
+
   setUnits(units: readonly UnitInstance[]): void {
     this.lastUnits = units;
     // Chess never builds a city, so the castles are requested from here too — and
     // a tower drawn before the file arrived is rebuilt by the loader callback.
-    if (units.some((unit) => unit.role === 'tower')) this.loadCustomModelOnce();
+    if (units.some((unit) => unit.role === 'tower' || unit.role === 'rocket')) {
+      this.loadCustomModelOnce();
+    }
     for (const mesh of this.unitMeshes) {
       this.scene.remove(mesh);
       (mesh.material as THREE.Material).dispose();
@@ -554,17 +582,19 @@ export class Scene3D implements View {
       // A tower prefers the side's castle model; without one it falls back to the
       // procedural drum, tinted per side so the two are still told apart.
       const castle = first.role === 'tower' ? this.towerGeometry(first.side) : null;
-      const tint = castle ? buildingTint(first.side, MODEL_TINT_STRENGTH) : null;
+      const rocket = first.role === 'rocket' ? this.rocketGeometry() : null;
+      const model = castle ?? rocket;
+      const tint = model ? buildingTint(first.side, MODEL_TINT_STRENGTH) : null;
       const material = new THREE.MeshLambertMaterial({
         // A tinted model keeps its own palette: only a light lean towards the
         // owner's colour, the same rule the buildings follow.
         color: tint
           ? new THREE.Color(tint[0] / 255, tint[1] / 255, tint[2] / 255)
           : new THREE.Color(unitColour(first.role, first.side)),
-        vertexColors: castle !== null,
+        vertexColors: model !== null,
       });
       const mesh = new THREE.InstancedMesh(
-        castle ?? unitGeometry(first.role),
+        model ?? unitGeometry(first.role),
         material,
         list.length,
       );
@@ -985,6 +1015,8 @@ export class Scene3D implements View {
       this.towerGeometries[side]?.dispose();
       this.towerGeometries[side] = null;
     }
+    this.rocketChessGeometry?.dispose();
+    this.rocketChessGeometry = null;
     for (const mesh of this.hintMeshes) {
       this.scene.remove(mesh);
       (mesh.material as THREE.Material).dispose();

@@ -36,11 +36,27 @@ export const en = {
     building: 'Pick a cell next to the king',
     recruiting: 'Pick one of your towers',
     recruited: 'Pawn recruited',
+    rocket: (cost: number) => `Rocket · ${cost}`,
+    rocketTitle: (cost: number) =>
+      `Spend the turn and ${cost} coins on a rocket base next to the king`,
+    fire: 'Fire',
+    fireTitle: 'Spend the turn shooting one enemy piece in a 3x3 zone within seven cells',
+    firing: 'Pick a target — 50% dead centre, 20% anywhere around it',
+    rocketBuilt: 'Rocket base built',
+    rocketHit: 'Hit — the piece is gone',
+    rocketMiss: 'Miss — the rockets fell wide',
+    noRocket: 'No rocket base to fire from',
+    outOfRange: 'Out of range: a base reaches seven cells',
+    noTarget: 'Nothing to hit in that zone',
     turn: (side: string) => `${side} to move`,
     white: 'White',
     black: 'Black',
-    won: (side: string, how: 'king' | 'drowned') =>
-      how === 'king' ? `${side} takes the king and wins` : `${side} wins — the other king drowned`,
+    won: (side: string, how: 'king' | 'drowned' | 'rocket') =>
+      how === 'king'
+        ? `${side} takes the king and wins`
+        : how === 'rocket'
+          ? `${side} wins — a rocket hit the other king`
+          : `${side} wins — the other king drowned`,
     drowned: (n: number) => (n === 1 ? '1 piece drowned' : `${n} pieces drowned`),
     built: 'Tower built',
     noCoins: (cost: number) => `That costs ${cost} coins`,

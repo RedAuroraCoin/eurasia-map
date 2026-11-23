@@ -1,5 +1,6 @@
 import { BALANCE } from '../balance';
-import { buildSpots, legalTargets, neighbours, recruitSpots, spotOf } from './moves';
+import { hashString } from '../rng';
+import { buildSpots, legalTargets, neighbours, recruitSpots, rocketCells, spotOf } from './moves';
 import type {
   ChessCommand,
   ChessCtx,
@@ -9,6 +10,7 @@ import type {
   Piece,
   PieceKind,
   Side,
+  WinHow,
 } from './types';
 
 /**
@@ -193,6 +195,7 @@ export function createChessGame(
     round: 0,
     seaLevel: BALANCE.flood.startLevel,
     towers: {},
+    rockets: {},
     coins: [start, start],
     winner: null,
     lastMove: null,
@@ -247,7 +250,7 @@ function endTurn(
   state: ChessState,
   ctx: ChessCtx,
   events: ChessEvent[],
-  winner: { side: Side; how: 'king' | 'drowned' } | null,
+  winner: { side: Side; how: WinHow } | null,
 ): ChessState {
   const turn: Side = state.turn === 0 ? 1 : 0;
   const round = turn === 0 ? state.round + 1 : state.round;
@@ -261,6 +264,10 @@ function endTurn(
   for (const [cell, side] of Object.entries(state.towers)) {
     if (ground(Number(cell)) >= seaLevel) towers[cell] = side;
   }
+  const rockets: Record<string, Side> = {};
+  for (const [cell, side] of Object.entries(state.rockets)) {
+    if (ground(Number(cell)) >= seaLevel) rockets[cell] = side;
+  }
 
   // Income is paid once a round, and only for the towers that survived the tide:
   // a drowned tower stops earning, so the player has to build inland instead.
@@ -273,7 +280,12 @@ function endTurn(
   }
 
   const drowned = state.pieces.length - pieces.length;
-  const towersLost = Object.keys(state.towers).length - Object.keys(towers).length;
+  // A structure is a structure: the report counts towers and rocket bases together.
+  const towersLost =
+    Object.keys(state.towers).length +
+    Object.keys(state.rockets).length -
+    Object.keys(towers).length -
+    Object.keys(rockets).length;
   if (drowned > 0 || towersLost > 0)
     events.push({ t: 'drowned', pieces: drowned, towers: towersLost });
   if (seaLevel !== state.seaLevel) events.push({ t: 'sea', level: seaLevel });
@@ -299,6 +311,7 @@ function endTurn(
     coins,
     pieces,
     towers,
+    rockets,
     winner: decided ? decided.side : null,
   };
 
@@ -343,6 +356,12 @@ export function chessReduce(
       delete towers[String(cmd.to)];
       events.push({ t: 'towerTaken', cell: cmd.to, side: towerSide });
     }
+    const rockets = { ...state.rockets };
+    const rocketSide = state.rockets[String(cmd.to)];
+    if (rocketSide !== undefined) {
+      delete rockets[String(cmd.to)];
+      events.push({ t: 'rocketTaken', cell: cmd.to, side: rocketSide });
+    }
 
     events.push({ t: 'moved', piece: piece.id, from: piece.cell, to: cmd.to });
     if (victim) events.push({ t: 'captured', piece: victim.id, kind: victim.kind, cell: cmd.to });
@@ -354,6 +373,7 @@ export function chessReduce(
         ...state,
         pieces: remaining,
         towers,
+        rockets,
         lastMove: { piece: piece.id, from: piece.cell, to: cmd.to },
       },
       ctx,
@@ -364,16 +384,71 @@ export function chessReduce(
   }
 
   if (cmd.k === 'build') {
-    const cost = BALANCE.chess.towerCost;
+    const kind = cmd.kind ?? 'tower';
+    const cost = kind === 'rocket' ? BALANCE.chess.rocketCost : BALANCE.chess.towerCost;
     if (state.coins[state.turn] < cost) return reject(state, 'no_coins');
     if (!buildSpots(state, ctx).includes(cmd.cell)) return reject(state, 'not_adjacent');
 
-    const towers = { ...state.towers, [String(cmd.cell)]: state.turn };
     const coins: [number, number] = [state.coins[0], state.coins[1]];
     coins[state.turn] -= cost;
+
+    if (kind === 'rocket') {
+      const rockets = { ...state.rockets, [String(cmd.cell)]: state.turn };
+      events.push({ t: 'rocketBuilt', cell: cmd.cell, side: state.turn, cost });
+      const next = endTurn({ ...state, rockets, coins }, ctx, events, null);
+      return { ok: true, state: next, events };
+    }
+
+    const towers = { ...state.towers, [String(cmd.cell)]: state.turn };
     events.push({ t: 'built', cell: cmd.cell, side: state.turn, cost });
 
     const next = endTurn({ ...state, towers, coins }, ctx, events, null);
+    return { ok: true, state: next, events };
+  }
+
+  if (cmd.k === 'fire') {
+    const mine = rocketCells(state, state.turn);
+    if (mine.length === 0) return reject(state, 'no_rocket');
+
+    const centre = spotOf(cmd.cell, ctx.cols);
+    const distance = (cell: number): number => {
+      const spot = spotOf(cell, ctx.cols);
+      return Math.max(Math.abs(spot.row - centre.row), Math.abs(spot.col - centre.col));
+    };
+
+    // The nearest base that can reach the zone does the firing; the range is
+    // measured to the centre of the zone, not to the piece that may die in it.
+    const from = mine
+      .filter((cell) => distance(cell) <= BALANCE.chess.rocketRange)
+      .sort((a, b) => distance(a) - distance(b) || a - b)[0];
+    if (from === undefined) return reject(state, 'out_of_range');
+
+    const target = pickTarget(state, cmd.cell, ctx);
+    if (!target) return reject(state, 'no_target');
+
+    // Dead centre is the good shot; the eight cells around it are a long shot.
+    const chance =
+      target.ring === 0 ? BALANCE.chess.rocketCentreChance : BALANCE.chess.rocketRingChance;
+    const hit = rollFor(state, from, cmd.cell, target.piece.id) < chance;
+
+    events.push({
+      t: 'fired',
+      side: state.turn,
+      from,
+      cell: cmd.cell,
+      target: target.piece.id,
+      kind: target.piece.kind,
+      hit,
+    });
+
+    let pieces = state.pieces;
+    let win: { side: Side; how: WinHow } | null = null;
+    if (hit) {
+      pieces = pieces.filter((piece) => piece.id !== target.piece.id);
+      if (target.piece.kind === 'king') win = { side: state.turn, how: 'rocket' };
+    }
+
+    const next = endTurn({ ...state, pieces }, ctx, events, win);
     return { ok: true, state: next, events };
   }
 
@@ -402,6 +477,47 @@ export function chessReduce(
   }
 
   return reject(state, 'unknown');
+}
+
+/**
+ * Who a shot lands on: the enemy nearest the centre of the zone, ties going to the
+ * older piece. Deterministic on purpose — the engine may not consult a clock or a
+ * random source, and a replay has to make the same choices.
+ */
+function pickTarget(
+  state: ChessState,
+  cell: number,
+  ctx: ChessCtx,
+): { piece: Piece; ring: number } | null {
+  const centre = spotOf(cell, ctx.cols);
+  let best: { piece: Piece; ring: number } | null = null;
+
+  for (const piece of state.pieces) {
+    if (piece.side === state.turn) continue;
+    const spot = spotOf(piece.cell, ctx.cols);
+    const dr = Math.abs(spot.row - centre.row);
+    const dc = Math.abs(spot.col - centre.col);
+    if (dr > 1 || dc > 1) continue;
+    const ring = Math.max(dr, dc);
+    if (!best || ring < best.ring || (ring === best.ring && piece.id < best.piece.id)) {
+      best = { piece, ring };
+    }
+  }
+
+  return best;
+}
+
+/**
+ * The die for one shot, derived from the position instead of stored.
+ *
+ * The engine is a pure reducer: no clock, no Math.random. A hash of the seed, the
+ * round, the side, the base, the zone and the target gives the same shot the same
+ * result on a replay or in a save, and the round always moves on after a shot, so
+ * two shots can never share a key.
+ */
+function rollFor(state: ChessState, from: number, cell: number, target: number): number {
+  const key = `fire:${state.seed}:${state.round}:${state.turn}:${from}:${cell}:${target}`;
+  return hashString(key) / 0x1_0000_0000;
 }
 
 /**

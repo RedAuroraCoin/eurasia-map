@@ -475,7 +475,7 @@ describe('single-player shell', () => {
     flushFrames();
 
     const buttons = [...document.querySelectorAll('.build-bar .button')] as HTMLButtonElement[];
-    const [, recruit] = buttons;
+    const recruit = buttons.find((button) => button.textContent?.startsWith('Pawn · '));
     if (!recruit) throw new Error('the recruit action is missing');
     expect(recruit.textContent).toBe(`Pawn · ${BALANCE.chess.pawnCost}`);
     expect(getChess()?.towers[String(whiteTower)]).toBe(0);
@@ -498,6 +498,93 @@ describe('single-player shell', () => {
     const hints = getHints();
     // Only your own tower, and only the one of them: the enemy's is not yours.
     expect(hints).toEqual([{ cell: whiteTower, kind: 'recruit' }]);
+  });
+
+  it('offers the rocket base and aims it at enemy pieces in range', async () => {
+    const map = getMap(800);
+    const base = createChessGame(800, 11, {
+      isLand: (cell) => map.mask[cell] === '#',
+      elev: map.elev,
+      rows: map.rows,
+      cols: map.cols,
+      cellCount: map.mask.length,
+    });
+    const taken = new Set(base.pieces.map((piece) => piece.cell));
+    const freeNeighbour = (cell: number): number => {
+      const col = cell % map.cols;
+      const row = Math.floor(cell / map.cols);
+      for (const [dr, dc] of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
+        const next = (row + dr) * map.cols + (col + dc);
+        if (map.mask[next] === '#' && !taken.has(next)) return next;
+      }
+      throw new Error('the king is boxed in');
+    };
+    const whiteKing = base.pieces.find((piece) => piece.side === 0 && piece.kind === 'king');
+    if (!whiteKing) throw new Error('no white king');
+    const rocketCell = freeNeighbour(whiteKing.cell);
+
+    // One enemy close enough to shoot at: the two camps are a continent apart,
+    // so a rocket in Europe has nothing of Black's within seven cells.
+    const row = Math.floor(rocketCell / map.cols);
+    const col = rocketCell % map.cols;
+    let quarry = -1;
+    for (let step = 2; step <= 5 && quarry < 0; step++) {
+      const next = row * map.cols + (col + step);
+      if (col + step < map.cols && map.mask[next] === '#' && !taken.has(next)) quarry = next;
+    }
+    if (quarry < 0) throw new Error('no room for a target');
+
+    saveChessGame(localStorage, {
+      ...base,
+      coins: [0, 0],
+      rockets: { [String(rocketCell)]: 0 },
+      pieces: [
+        ...base.pieces,
+        { id: 900, side: 1, kind: 'rook', cell: quarry, promoted: false, moved: true },
+      ],
+    });
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 800 }));
+
+    const { getChess, getHints } = await boot();
+    flushFrames();
+
+    const labels = [...document.querySelectorAll('.build-bar .button')].map(
+      (button) => button.textContent,
+    );
+    expect(labels).toEqual([
+      `Tower · ${BALANCE.chess.towerCost}`,
+      `Rocket · ${BALANCE.chess.rocketCost}`,
+      `Pawn · ${BALANCE.chess.pawnCost}`,
+      'Fire',
+    ]);
+
+    const fire = [...document.querySelectorAll('.build-bar .button')].find(
+      (button) => button.textContent === 'Fire',
+    ) as HTMLButtonElement;
+    const game = getChess();
+    if (!game) throw new Error('chess mode did not start');
+    const inRange = new Set(
+      game.pieces
+        .filter((piece) => piece.side === 1)
+        .filter((piece) => {
+          const a = { row: Math.floor(rocketCell / map.cols), col: rocketCell % map.cols };
+          const b = { row: Math.floor(piece.cell / map.cols), col: piece.cell % map.cols };
+          return Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) <= 7;
+        })
+        .map((piece) => piece.cell),
+    );
+
+    fire.click();
+    flushFrames();
+
+    const hints = getHints();
+    expect(hints).toEqual([{ cell: quarry, kind: 'fire' }]);
+    expect(inRange.has(quarry)).toBe(true);
   });
 
   it('refuses a tower when the side cannot pay for one', async () => {
