@@ -9,7 +9,7 @@ import {
 import { buildBuildings, ownerTint } from './geometry';
 import { SIDE_COLOURS, TOWER_COLOURS, type UnitInstance, type UnitRole } from './pieces';
 import { HINT_COLOURS, ZONE_COLOURS, type MoveHint } from './hints';
-import type { View, ZoneCell } from './scene3d';
+import { BLAST_MS, type View, type ZoneCell } from './scene3d';
 import type { Lighting } from './palette';
 
 /** One character per piece, so the flat view still says what is standing there. */
@@ -44,6 +44,7 @@ export class Flat2D implements View {
   private units: readonly UnitInstance[] = [];
   private hints: readonly MoveHint[] = [];
   private zone: readonly ZoneCell[] = [];
+  private blast: { readonly cells: readonly ZoneCell[]; start: number } | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -70,6 +71,10 @@ export class Flat2D implements View {
 
   setZone(cells: readonly ZoneCell[] | null): void {
     this.zone = cells ?? [];
+  }
+
+  playBlast(cells: readonly ZoneCell[]): void {
+    this.blast = cells.length > 0 ? { cells, start: -1 } : null;
   }
 
   setState(state: GameState): void {
@@ -299,6 +304,63 @@ export class Flat2D implements View {
     }
     outline(this.selected, 'rgba(0,0,0,0.6)', 3);
     outline(this.selected, 'rgba(255,255,255,0.95)', 1.5);
+
+    this.drawBlast(ctx, map, cell, ox, oy, now);
+  }
+
+  /** The explosion in the flat view: a white flash core inside a red shockwave. */
+  private drawBlast(
+    ctx: CanvasRenderingContext2D,
+    map: MapEntry,
+    cell: number,
+    ox: number,
+    oy: number,
+    now: number,
+  ): void {
+    const blast = this.blast;
+    if (!blast) return;
+    if (blast.start < 0) blast.start = now;
+
+    const t = Math.min(1, (now - blast.start) / BLAST_MS);
+    const centre = blast.cells.reduce((best, tile) => (tile.chance > best.chance ? tile : best));
+    const col = centre.cell % map.cols;
+    const row = Math.floor(centre.cell / map.cols);
+    const cx = ox + col * cell + cell / 2;
+    const cy = oy + row * cell + cell / 2;
+    const ease = 1 - Math.pow(1 - t, 3);
+
+    // Scorch: the cells stay dark for a moment, then fade with the rest.
+    ctx.globalAlpha = 0.45 * Math.min(1, t * 4) * (1 - t);
+    ctx.fillStyle = '#1a0d08';
+    for (const tile of blast.cells) {
+      const tileCol = tile.cell % map.cols;
+      const tileRow = Math.floor(tile.cell / map.cols);
+      ctx.fillRect(ox + tileCol * cell, oy + tileRow * cell, cell, cell);
+    }
+
+    // Shockwave out to the edge of the zone.
+    ctx.globalAlpha = 0.9 * (1 - t);
+    ctx.strokeStyle = '#ffd8a8';
+    ctx.lineWidth = Math.max(2, cell * 0.22 * (1 - t));
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.4 + ease * cell * 1.7, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Fireball: bright in the middle, gone quickly.
+    ctx.globalAlpha = 0.95 * Math.max(0, 1 - t * 1.6);
+    ctx.fillStyle = '#ff7a1f';
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * (0.35 + ease * 0.9), 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.9 * Math.max(0, 1 - t * 2.4);
+    ctx.fillStyle = '#fff3d6';
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * (0.2 + ease * 0.4), 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    if (t >= 1) this.blast = null;
   }
 
   dispose(): void {

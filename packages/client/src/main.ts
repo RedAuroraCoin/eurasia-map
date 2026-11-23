@@ -82,6 +82,8 @@ let hints: MoveHint[] = [];
 let zone: ZoneCell[] = [];
 /** The cell whose zone was shown and would be fired at by the next tap. */
 let aimCell: number | null = null;
+/** The last explosion, kept for the tests: the view animates it and forgets it. */
+let blast: ZoneCell[] = [];
 let selected = 0;
 let saveTimer = 0;
 
@@ -685,6 +687,9 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
     if (event.t === 'recruited') app.setMessage(t.chess.recruited, 'good');
     if (event.t === 'rocketBuilt') app.setMessage(t.chess.rocketBuilt, 'good');
     if (event.t === 'fired') {
+      // The explosion plays over the zone that was hit, whatever it killed.
+      blast = zoneCells(event.cell);
+      view.playBlast(blast);
       // The zone rolls for every piece in it, so a shot can take several at once —
       // and some of them can be yours, which is worth saying out loud.
       const own = event.hits.filter((hit) => hit.side === event.side).length;
@@ -869,6 +874,12 @@ function previewZone(cell: number | null): void {
     return;
   }
 
+  zone = zoneCells(cell);
+  view.setZone(zone);
+}
+
+/** The 3x3 a shot at this cell would hit, clipped to the board. */
+function zoneCells(cell: number): ZoneCell[] {
   const col = cell % map.cols;
   const row = Math.floor(cell / map.cols);
   const cells: ZoneCell[] = [];
@@ -884,9 +895,7 @@ function previewZone(cell: number | null): void {
       });
     }
   }
-
-  zone = cells;
-  view.setZone(cells);
+  return cells;
 }
 
 /** One click: pick a piece, then a destination — or place a tower when armed. */
@@ -1299,6 +1308,7 @@ export const __eurasia: {
   getChess: () => ChessState | null;
   getHints: () => readonly MoveHint[];
   getZone: () => readonly ZoneCell[];
+  getBlast: () => readonly ZoneCell[];
   getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
@@ -1309,6 +1319,7 @@ export const __eurasia: {
   getChess: () => chess,
   getHints: () => hints,
   getZone: () => zone,
+  getBlast: () => blast,
   getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,

@@ -661,7 +661,7 @@ describe('single-player shell', () => {
     });
     localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 800 }));
 
-    const { getChess, getZone } = await boot();
+    const { getChess, getZone, getBlast } = await boot();
     flushFrames();
 
     const fire = [...document.querySelectorAll('.build-bar .button')].find((button) =>
@@ -669,6 +669,8 @@ describe('single-player shell', () => {
     ) as HTMLButtonElement;
     fire.click();
     flushFrames();
+
+    expect(getBlast()).toHaveLength(0);
 
     const at = cellCentre(map.cols, map.rows, quarry);
     clickCell(at.x, at.y);
@@ -682,6 +684,13 @@ describe('single-player shell', () => {
     clickCell(at.x, at.y);
     expect(getChess()?.coins[0]).toBe(BALANCE.chess.rocketShotCost);
     expect(getChess()?.turn).toBe(1);
+
+    // And the explosion is played over the zone that was hit.
+    const blast = getBlast();
+    expect(blast).toHaveLength(9);
+    expect(blast.find((tile) => tile.chance === BALANCE.chess.rocketCentreChance)?.cell).toBe(
+      quarry,
+    );
   });
 
   it('recovers after a refused shot instead of swallowing the next tap', async () => {

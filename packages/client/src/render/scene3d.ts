@@ -56,6 +56,8 @@ export interface View {
   setHints(hints: readonly MoveHint[]): void;
   /** The 3x3 blast area under the pointer while a rocket is being aimed. */
   setZone(cells: readonly ZoneCell[] | null): void;
+  /** One explosion over a fired zone: flash, shockwave and fireball, then gone. */
+  playBlast(cells: readonly ZoneCell[]): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -79,6 +81,8 @@ export interface ZoneCell {
   readonly cell: number;
   readonly chance: number;
 }
+/** How long an explosion lives, in milliseconds. Short enough to feel like a hit. */
+export const BLAST_MS = 900;
 /** The sea plane is larger than the board so the horizon is water, not a cut edge. */
 const SEA_SCALE = 3.5;
 
@@ -128,6 +132,13 @@ export class Scene3D implements View {
   private hintMeshes: THREE.Mesh[] = [];
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
+  private blast: {
+    readonly group: THREE.Group;
+    readonly ring: THREE.Mesh;
+    readonly fireball: THREE.Mesh;
+    readonly scorch: THREE.Mesh;
+    start: number;
+  } | null = null;
   private glow: THREE.Points | null = null;
   private selection: THREE.LineSegments | null = null;
   private hoverRing: THREE.LineSegments | null = null;
@@ -548,6 +559,95 @@ export class Scene3D implements View {
     const copy = towerFromCastle(model);
     this.towerGeometries[side] = copy;
     return copy;
+  }
+
+  /**
+   * The explosion: a white flash, a red fireball that rises, and a shockwave ring
+   * that runs out to the edge of the zone. Animated in `render`, removed when spent.
+   */
+  playBlast(cells: readonly ZoneCell[]): void {
+    this.clearBlast();
+    if (cells.length === 0) return;
+
+    const centre = cells.reduce(
+      (best, cell) => (cell.chance > best.chance ? cell : best),
+      cells[0]!,
+    );
+    const { x, z } = cellToWorld(this.map, centre.cell);
+    const ground = elevationToHeight(this.map.elev[centre.cell] ?? 0, this.relief);
+
+    const group = new THREE.Group();
+    group.position.set(x, ground + 0.02, z);
+
+    const scorch = new THREE.Mesh(
+      new THREE.PlaneGeometry(CELL * 3, CELL * 3).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#1a0d08'),
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+      }),
+    );
+    scorch.position.y = 0.01;
+
+    const fireball = new THREE.Mesh(
+      new THREE.SphereGeometry(CELL * 0.9, 16, 12),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#ff7a1f'),
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+      }),
+    );
+    fireball.position.y = CELL * 0.5;
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(CELL * 0.6, CELL * 0.78, 40).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        color: new THREE.Color('#ffd8a8'),
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    ring.position.y = 0.03;
+
+    group.add(scorch, fireball, ring);
+    group.renderOrder = 6;
+    this.scene.add(group);
+    this.blast = { group, ring, fireball, scorch, start: -1 };
+  }
+
+  /** One explosion, three parts: shockwave out, fireball up, scorch in. */
+  private updateBlast(now: number): void {
+    const blast = this.blast;
+    if (!blast) return;
+    if (blast.start < 0) blast.start = now;
+
+    const t = Math.min(1, (now - blast.start) / BLAST_MS);
+    const ease = 1 - Math.pow(1 - t, 3);
+
+    blast.ring.scale.setScalar(0.35 + ease * 3.2);
+    (blast.ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);
+
+    blast.fireball.scale.setScalar(0.3 + ease * 1.6);
+    blast.fireball.position.y = CELL * 0.4 + ease * CELL * 1.1;
+    (blast.fireball.material as THREE.MeshBasicMaterial).opacity = 0.95 * (1 - t) ** 1.4;
+
+    (blast.scorch.material as THREE.MeshBasicMaterial).opacity = 0.55 * Math.min(1, t * 4);
+
+    if (t >= 1) this.clearBlast();
+  }
+
+  private clearBlast(): void {
+    if (!this.blast) return;
+    this.scene.remove(this.blast.group);
+    for (const mesh of [this.blast.ring, this.blast.fireball, this.blast.scorch]) {
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.blast = null;
   }
 
   /** The rocket base model, scaled to a chess cell. Cached: one copy per view. */
@@ -1034,6 +1134,7 @@ export class Scene3D implements View {
   }
 
   render(now: number): void {
+    this.updateBlast(now);
     this.updateStorms(now);
     const delta = this.reducedMotion ? 0 : 1 / 60;
     this.waterTime += delta;
@@ -1067,6 +1168,7 @@ export class Scene3D implements View {
     }
     this.rocketChessGeometry?.dispose();
     this.rocketChessGeometry = null;
+    this.clearBlast();
     for (const mesh of this.hintMeshes) {
       this.scene.remove(mesh);
       (mesh.material as THREE.Material).dispose();
