@@ -611,8 +611,8 @@ describe('the rocket base', () => {
     expect(noBase.ok).toBe(false);
     if (!noBase.ok) expect(noBase.code).toBe('no_rocket');
 
-    // A zone with no enemy in it is not a shot.
-    const empty = chessReduce(board(1, at(7, 5)), { k: 'fire', cell: at(0, 0) }, ctx8());
+    // A zone with no piece in it — either side — is not a shot.
+    const empty = chessReduce(board(1, at(7, 5)), { k: 'fire', cell: at(4, 3) }, ctx8());
     expect(empty.ok).toBe(false);
     if (!empty.ok) expect(empty.code).toBe('no_target');
   });
@@ -657,6 +657,41 @@ describe('the rocket base', () => {
     const killed = hits(at(6, 7), at(6, 6));
     expect(killed).toBeGreaterThan(200 * 0.08);
     expect(killed).toBeLessThan(200 * 0.32);
+  });
+
+  it('can kill its own side, and a own king loses the game', () => {
+    // A white rook stands one cell from the aim point, in front of the black one:
+    // the shot takes whichever is nearer the centre, uniform or not.
+    const s = state(
+      [
+        piece(1, 0, 'king', at(0, 0)),
+        piece(2, 1, 'king', at(7, 0)),
+        piece(3, 0, 'rook', at(6, 6)),
+        piece(4, 1, 'rook', at(6, 7)),
+      ],
+      { seed: 3, turn: 0, coins: [500, 500], rockets: { [String(at(3, 3))]: 0 } },
+    );
+
+    let friendly: { hit: boolean } | null = null;
+    for (let seed = 1; seed <= 40 && !friendly; seed++) {
+      const result = chessReduce({ ...s, seed }, { k: 'fire', cell: at(6, 6) }, ctx8());
+      if (result.ok && !result.state.pieces.some((p) => p.id === 3)) friendly = { hit: true };
+    }
+    expect(friendly).not.toBeNull();
+
+    // And a rocket that kills its own king loses the game for the shooter.
+    let lost = false;
+    for (let seed = 1; seed <= 60 && !lost; seed++) {
+      const own = state([piece(1, 0, 'king', at(6, 6)), piece(2, 1, 'king', at(7, 0))], {
+        seed,
+        turn: 0,
+        coins: [500, 500],
+        rockets: { [String(at(3, 3))]: 0 },
+      });
+      const result = chessReduce(own, { k: 'fire', cell: at(6, 6) }, ctx8());
+      if (result.ok && result.state.winner === 1) lost = true;
+    }
+    expect(lost).toBe(true);
   });
 
   it('charges the shot whether it hits or misses', () => {

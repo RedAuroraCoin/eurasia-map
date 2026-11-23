@@ -16,7 +16,7 @@ import {
   unitColor,
 } from './geometry';
 import { unitColour, unitGeometry, type UnitInstance } from './pieces';
-import { HINT_COLOURS, hintGeometry, hintMaterial, type MoveHint } from './hints';
+import { ZONE_COLOURS, hintGeometry, hintMaterial, type MoveHint } from './hints';
 import {
   boardSize,
   CELL,
@@ -679,11 +679,12 @@ export class Scene3D implements View {
 
     const centre = cells.reduce((best, cell) => Math.max(best, cell.chance), 0);
     for (const { cell, chance } of cells) {
+      const best = chance >= centre;
       const material = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(HINT_COLOURS.fire),
+        // Red where pieces die: the centre is a bright red, the ring a dark one.
+        color: new THREE.Color(best ? ZONE_COLOURS.centre : ZONE_COLOURS.ring),
         transparent: true,
-        // The centre is the good shot; the ring is a long one.
-        opacity: chance >= centre ? 0.34 : 0.16,
+        opacity: best ? 0.42 : 0.22,
         depthTest: false,
         depthWrite: false,
         side: THREE.DoubleSide,

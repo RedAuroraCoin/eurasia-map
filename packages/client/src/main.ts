@@ -674,10 +674,15 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
     if (event.t === 'recruited') app.setMessage(t.chess.recruited, 'good');
     if (event.t === 'rocketBuilt') app.setMessage(t.chess.rocketBuilt, 'good');
     if (event.t === 'fired') {
-      app.setMessage(
-        event.hit ? t.chess.rocketHit : t.chess.rocketMiss,
-        event.hit ? 'good' : 'info',
-      );
+      // Hitting your own piece is worth saying out loud: it is the one shot that
+      // can cost a piece you meant to keep.
+      const friendly = event.targetSide !== null && event.targetSide === event.side;
+      const text = event.hit
+        ? friendly
+          ? t.chess.friendlyHit
+          : t.chess.rocketHit
+        : t.chess.rocketMiss;
+      app.setMessage(text, event.hit && !friendly ? 'good' : 'error');
     }
     if (event.t === 'drowned') app.setMessage(t.chess.drowned(event.pieces), 'error');
     if (event.t === 'won') {
@@ -806,8 +811,9 @@ function refreshHints(): void {
       const pb = { row: Math.floor(b / map.cols), col: b % map.cols };
       return Math.max(Math.abs(pa.row - pb.row), Math.abs(pa.col - pb.col));
     };
+    // Every piece in reach is offered, its own included: a rocket does not check
+    // uniforms, so aiming next to your own knight is a way to lose the knight.
     hints = chess.pieces
-      .filter((piece) => piece.side !== chess?.turn)
       .filter((piece) => bases.some((base) => near(base, piece.cell) <= reach))
       .map((piece) => ({ cell: piece.cell, kind: 'fire' as const }));
     view.setHints(hints);

@@ -583,7 +583,13 @@ describe('single-player shell', () => {
     flushFrames();
 
     const hints = getHints();
-    expect(hints).toEqual([{ cell: quarry, kind: 'fire' }]);
+    // Every piece in reach is offered, its own side's included: a rocket does not
+    // check uniforms, so the list is "what could die here", not "what is hostile".
+    expect(hints.every((hint) => hint.kind === 'fire')).toBe(true);
+    expect(hints.map((hint) => hint.cell)).toContain(quarry);
+    const occupied = new Set(game.pieces.map((piece) => piece.cell));
+    for (const hint of hints) expect(occupied.has(hint.cell)).toBe(true);
+    expect(hints.length).toBeGreaterThan(1);
     expect(inRange.has(quarry)).toBe(true);
 
     // The blast area follows the pointer: nine tiles, the middle one the good shot.

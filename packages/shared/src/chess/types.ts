@@ -102,6 +102,8 @@ export type ChessEvent =
       /** The piece that was shot at, and whether it died. */
       readonly target: number | null;
       readonly kind: PieceKind | null;
+      /** Whose piece it was: a base can shell its own side. */
+      readonly targetSide: Side | null;
       readonly hit: boolean;
     }
   | { readonly t: 'built'; readonly cell: number; readonly side: Side; readonly cost: number }

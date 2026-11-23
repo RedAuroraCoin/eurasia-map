@@ -439,6 +439,7 @@ export function chessReduce(
       cell: cmd.cell,
       target: target.piece.id,
       kind: target.piece.kind,
+      targetSide: target.piece.side,
       hit,
     });
 
@@ -446,7 +447,11 @@ export function chessReduce(
     let win: { side: Side; how: WinHow } | null = null;
     if (hit) {
       pieces = pieces.filter((piece) => piece.id !== target.piece.id);
-      if (target.piece.kind === 'king') win = { side: state.turn, how: 'rocket' };
+      // A king killed by a rocket loses, whoever fired it: hitting your own king is
+      // a loss, and the winner is the side that still has one.
+      if (target.piece.kind === 'king') {
+        win = { side: target.piece.side === 0 ? 1 : 0, how: 'rocket' };
+      }
     }
 
     // A shot is paid for whether it hits or misses: the rockets left the tube.
@@ -497,8 +502,9 @@ function pickTarget(
   const centre = spotOf(cell, ctx.cols);
   let best: { piece: Piece; ring: number } | null = null;
 
+  // Both sides are in the zone: a rocket does not check uniforms, and firing over
+  // your own piece is a way to lose it.
   for (const piece of state.pieces) {
-    if (piece.side === state.turn) continue;
     const spot = spotOf(piece.cell, ctx.cols);
     const dr = Math.abs(spot.row - centre.row);
     const dc = Math.abs(spot.col - centre.col);

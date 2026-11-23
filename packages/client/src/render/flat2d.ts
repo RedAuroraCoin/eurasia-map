@@ -8,7 +8,7 @@ import {
 } from '@eurasia/shared';
 import { buildBuildings, ownerTint } from './geometry';
 import { SIDE_COLOURS, TOWER_COLOURS, type UnitInstance, type UnitRole } from './pieces';
-import { HINT_COLOURS, type MoveHint } from './hints';
+import { HINT_COLOURS, ZONE_COLOURS, type MoveHint } from './hints';
 import type { View, ZoneCell } from './scene3d';
 import type { Lighting } from './palette';
 
@@ -179,8 +179,9 @@ export class Flat2D implements View {
         for (const tile of this.zone) {
           const col = tile.cell % map.cols;
           const row = Math.floor(tile.cell / map.cols);
-          ctx.globalAlpha = tile.chance >= top ? 0.34 : 0.16;
-          ctx.fillStyle = HINT_COLOURS.fire;
+          const best = tile.chance >= top;
+          ctx.globalAlpha = best ? 0.42 : 0.22;
+          ctx.fillStyle = best ? ZONE_COLOURS.centre : ZONE_COLOURS.ring;
           ctx.fillRect(ox + col * cell, oy + row * cell, cell, cell);
         }
         ctx.globalAlpha = 1;

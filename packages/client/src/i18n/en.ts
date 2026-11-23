@@ -45,6 +45,7 @@ export const en = {
     firing: (cost: number) => `Pick a target: ${cost} coins, 50% dead centre, 20% around it`,
     rocketBuilt: 'Rocket base built',
     rocketHit: 'Hit — the piece is gone',
+    friendlyHit: 'Friendly fire — your own piece is gone',
     rocketMiss: 'Miss — the rockets fell wide',
     noRocket: 'No rocket base to fire from',
     outOfRange: 'Out of range: a base reaches seven cells',

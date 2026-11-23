@@ -16,6 +16,9 @@ export interface MoveHint {
   readonly kind: HintKind;
 }
 
+/** The blast area is red on purpose: it is where pieces die, whoever owns them. */
+export const ZONE_COLOURS = { centre: '#ff2d1a', ring: '#8e1d14' } as const;
+
 export const HINT_COLOURS: Record<HintKind, string> = {
   move: '#f4d06f',
   capture: '#e2564b',
