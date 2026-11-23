@@ -81,8 +81,12 @@ export interface ZoneCell {
   readonly cell: number;
   readonly chance: number;
 }
-/** How long an explosion lives, in milliseconds. Short enough to feel like a hit. */
-export const BLAST_MS = 900;
+/**
+ * How long an explosion lives, in milliseconds. The first attempt was 900 ms and
+ * players on a phone did not see it at all — a small screen and a thumb still on
+ * the glass eat a second. Long enough to read, short enough not to block the turn.
+ */
+export const BLAST_MS = 1700;
 /** The sea plane is larger than the board so the horizon is water, not a cut edge. */
 const SEA_SCALE = 3.5;
 
@@ -591,7 +595,7 @@ export class Scene3D implements View {
     scorch.position.y = 0.01;
 
     const fireball = new THREE.Mesh(
-      new THREE.SphereGeometry(CELL * 0.9, 16, 12),
+      new THREE.SphereGeometry(CELL * 1.15, 16, 12),
       new THREE.MeshBasicMaterial({
         color: new THREE.Color('#ff7a1f'),
         transparent: true,
@@ -619,7 +623,7 @@ export class Scene3D implements View {
     this.blast = { group, ring, fireball, scorch, start: -1 };
   }
 
-  /** One explosion, three parts: shockwave out, fireball up, scorch in. */
+  /** One explosion: shockwave out, fireball up, a bright flash, then the scorch. */
   private updateBlast(now: number): void {
     const blast = this.blast;
     if (!blast) return;
@@ -627,15 +631,19 @@ export class Scene3D implements View {
 
     const t = Math.min(1, (now - blast.start) / BLAST_MS);
     const ease = 1 - Math.pow(1 - t, 3);
+    // A short hold at full strength before anything fades: on a phone the first
+    // frames are the ones a player actually sees.
+    const alpha = t < 0.12 ? 1 : 1 - (t - 0.12) / 0.88;
 
-    blast.ring.scale.setScalar(0.35 + ease * 3.2);
-    (blast.ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);
+    blast.ring.scale.setScalar(0.3 + ease * 3.6);
+    (blast.ring.material as THREE.MeshBasicMaterial).opacity = 0.95 * alpha;
 
-    blast.fireball.scale.setScalar(0.3 + ease * 1.6);
-    blast.fireball.position.y = CELL * 0.4 + ease * CELL * 1.1;
-    (blast.fireball.material as THREE.MeshBasicMaterial).opacity = 0.95 * (1 - t) ** 1.4;
+    blast.fireball.scale.setScalar(0.35 + ease * 1.8);
+    blast.fireball.position.y = CELL * 0.45 + ease * CELL * 1.4;
+    (blast.fireball.material as THREE.MeshBasicMaterial).opacity = 0.95 * Math.min(1, alpha * 1.6);
 
-    (blast.scorch.material as THREE.MeshBasicMaterial).opacity = 0.55 * Math.min(1, t * 4);
+    (blast.scorch.material as THREE.MeshBasicMaterial).opacity =
+      0.55 * Math.min(1, t * 5) * (t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1);
 
     if (t >= 1) this.clearBlast();
   }

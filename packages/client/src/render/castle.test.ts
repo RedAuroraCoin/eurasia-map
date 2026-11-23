@@ -10,6 +10,7 @@ import {
   towerFromCastle,
 } from './castle';
 import { mergeObject, normalizeToUnitBox } from './model';
+import { BLAST_MS } from './scene3d';
 import { unitColour } from './pieces';
 
 /**
@@ -141,6 +142,14 @@ describe('chess towers', () => {
 
   it('tells the sides apart even when a model is missing', () => {
     expect(unitColour('tower', 0)).not.toBe(unitColour('tower', 1));
+  });
+});
+
+describe('the explosion', () => {
+  it('lasts long enough to be seen on a phone', () => {
+    // The first version ran for 900 ms and vanished before a thumb left the glass.
+    expect(BLAST_MS).toBeGreaterThanOrEqual(1500);
+    expect(BLAST_MS).toBeLessThanOrEqual(3000);
   });
 });
 

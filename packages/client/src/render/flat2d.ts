@@ -328,6 +328,8 @@ export class Flat2D implements View {
     const cx = ox + col * cell + cell / 2;
     const cy = oy + row * cell + cell / 2;
     const ease = 1 - Math.pow(1 - t, 3);
+    // Same hold as the 3D scene: full strength for the first frames, then fade.
+    const alpha = t < 0.12 ? 1 : 1 - (t - 0.12) / 0.88;
 
     // Scorch: the cells stay dark for a moment, then fade with the rest.
     ctx.globalAlpha = 0.45 * Math.min(1, t * 4) * (1 - t);
@@ -339,24 +341,24 @@ export class Flat2D implements View {
     }
 
     // Shockwave out to the edge of the zone.
-    ctx.globalAlpha = 0.9 * (1 - t);
+    ctx.globalAlpha = 0.95 * alpha;
     ctx.strokeStyle = '#ffd8a8';
-    ctx.lineWidth = Math.max(2, cell * 0.22 * (1 - t));
+    ctx.lineWidth = Math.max(2, cell * 0.26 * alpha);
     ctx.beginPath();
-    ctx.arc(cx, cy, cell * 0.4 + ease * cell * 1.7, 0, Math.PI * 2);
+    ctx.arc(cx, cy, cell * 0.4 + ease * cell * 2.1, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Fireball: bright in the middle, gone quickly.
-    ctx.globalAlpha = 0.95 * Math.max(0, 1 - t * 1.6);
+    // Fireball: bright in the middle, fades with the rest.
+    ctx.globalAlpha = 0.95 * Math.min(1, alpha * 1.6);
     ctx.fillStyle = '#ff7a1f';
     ctx.beginPath();
-    ctx.arc(cx, cy, cell * (0.35 + ease * 0.9), 0, Math.PI * 2);
+    ctx.arc(cx, cy, cell * (0.4 + ease * 1.1), 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.globalAlpha = 0.9 * Math.max(0, 1 - t * 2.4);
+    ctx.globalAlpha = 0.95 * alpha;
     ctx.fillStyle = '#fff3d6';
     ctx.beginPath();
-    ctx.arc(cx, cy, cell * (0.2 + ease * 0.4), 0, Math.PI * 2);
+    ctx.arc(cx, cy, cell * (0.25 + ease * 0.6), 0, Math.PI * 2);
     ctx.fill();
 
     ctx.globalAlpha = 1;
