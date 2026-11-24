@@ -35,7 +35,14 @@ function recordingContext(): CanvasRenderingContext2D {
       return true;
     },
   };
-  return new Proxy({} as Record<string, unknown>, handler) as unknown as CanvasRenderingContext2D;
+  // Gradient factories must return something with addColorStop: fire and blast
+  // drawing build gradients, and a stub that returns undefined throws.
+  const gradient = { addColorStop: () => undefined };
+  const seeded: Record<string, unknown> = {
+    createRadialGradient: () => gradient,
+    createLinearGradient: () => gradient,
+  };
+  return new Proxy(seeded, handler) as unknown as CanvasRenderingContext2D;
 }
 
 let rafQueue: FrameRequestCallback[] = [];

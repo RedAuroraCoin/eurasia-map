@@ -316,27 +316,35 @@ export class Flat2D implements View {
     outline(this.selected, 'rgba(0,0,0,0.6)', 3);
     outline(this.selected, 'rgba(255,255,255,0.95)', 1.5);
 
-    // The bases that are about to fire: a warm ring that breathes.
+    // The bases that are about to fire: a pool of fire on the ground under each,
+    // drawn additively so it reads as light rather than paint.
     if (this.glow.length > 0) {
-      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 320));
+      const pulse = 0.5 + 0.5 * Math.abs(Math.sin(now / 220));
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
       for (const index of this.glow) {
         const col = index % map.cols;
         const row = Math.floor(index / map.cols);
         const cx = ox + col * cell + cell / 2;
         const cy = oy + row * cell + cell / 2;
-        ctx.globalAlpha = 0.35 + 0.45 * pulse;
-        ctx.strokeStyle = '#ff7a1f';
-        ctx.lineWidth = Math.max(2, cell * 0.14);
+
+        // The pool: bright at the centre, gone by the cell edge.
+        const pool = ctx.createRadialGradient(cx, cy, 0, cx, cy, cell * 0.62);
+        pool.addColorStop(0, `rgba(255, 209, 102, ${(0.75 + 0.25 * pulse).toFixed(3)})`);
+        pool.addColorStop(0.45, `rgba(255, 122, 31, ${(0.5 + 0.2 * pulse).toFixed(3)})`);
+        pool.addColorStop(1, 'rgba(255, 90, 18, 0)');
+        ctx.fillStyle = pool;
         ctx.beginPath();
-        ctx.arc(cx, cy, cell * (0.4 + 0.1 * pulse), 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 0.2 + 0.3 * pulse;
-        ctx.fillStyle = '#ffb066';
-        ctx.beginPath();
-        ctx.arc(cx, cy, cell * 0.2, 0, Math.PI * 2);
+        ctx.arc(cx, cy, cell * 0.62, 0, Math.PI * 2);
         ctx.fill();
+
+        ctx.strokeStyle = '#ff9a3c';
+        ctx.lineWidth = Math.max(2, cell * 0.12);
+        ctx.beginPath();
+        ctx.arc(cx, cy, cell * (0.34 + 0.06 * pulse), 0, Math.PI * 2);
+        ctx.stroke();
       }
-      ctx.globalAlpha = 1;
+      ctx.restore();
     }
 
     this.drawBlast(ctx, map, cell, ox, oy, now);

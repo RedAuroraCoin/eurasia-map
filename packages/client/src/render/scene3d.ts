@@ -6,6 +6,7 @@ import { createKingGeometry } from './king';
 import { createStormLook, type StormLook } from './storm-look';
 import { loadSideModels } from './model';
 import { createRocketGeometry } from './rocket';
+import { FIRE_PARTS, HALO_OUTER, firePartY } from './fire';
 import {
   buildBuildings,
   buildingTint,
@@ -142,8 +143,8 @@ export class Scene3D implements View {
   private hintMeshes: THREE.Mesh[] = [];
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
-  private rocketGlow: { group: THREE.Group; flames: THREE.Mesh[]; halos: THREE.Mesh[] } | null =
-    null;
+  /** The fire under the bases that are about to shoot; one group, many cones. */
+  private rocketGlow: THREE.Group | null = null;
   private focus: {
     readonly fromTarget: THREE.Vector3;
     readonly toTarget: THREE.Vector3;
@@ -590,74 +591,84 @@ export class Scene3D implements View {
     if (!cells || cells.length === 0) return;
 
     const group = new THREE.Group();
-    const flames: THREE.Mesh[] = [];
-    const halos: THREE.Mesh[] = [];
+    group.renderOrder = 8;
 
     for (const cell of cells) {
       const { x, z } = cellToWorld(this.map, cell);
       const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
 
-      const flame = new THREE.Mesh(
-        new THREE.ConeGeometry(CELL * 0.16, CELL * 1.1, 10, 1, true),
-        new THREE.MeshBasicMaterial({
-          color: new THREE.Color('#ff7a1f'),
-          transparent: true,
-          opacity: 0.75,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-        }),
-      );
-      flame.position.set(x, ground + ROCKET_HEIGHT + CELL * 0.35, z);
-      flame.userData.phase = cell * 0.7;
-      group.add(flame);
-      flames.push(flame);
+      for (const part of FIRE_PARTS) {
+        const geometry =
+          part.kind === 'halo'
+            ? new THREE.RingGeometry(CELL * part.radius, CELL * HALO_OUTER, 28).rotateX(
+                -Math.PI / 2,
+              )
+            : new THREE.ConeGeometry(CELL * part.radius, CELL * part.height, 12, 1, true);
 
-      const halo = new THREE.Mesh(
-        new THREE.RingGeometry(CELL * 0.42, CELL * 0.58, 24).rotateX(-Math.PI / 2),
-        new THREE.MeshBasicMaterial({
-          color: new THREE.Color('#ffb066'),
-          transparent: true,
-          opacity: 0.5,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending,
-        }),
-      );
-      halo.position.set(x, ground + 0.04, z);
-      halo.userData.phase = cell * 0.7;
-      group.add(halo);
-      halos.push(halo);
+        const mesh = new THREE.Mesh(
+          geometry,
+          new THREE.MeshBasicMaterial({
+            color: new THREE.Color(part.colour),
+            transparent: true,
+            opacity: part.opacity,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+          }),
+        );
+
+        const dx = Math.cos(part.angle) * CELL * part.distance;
+        const dz = Math.sin(part.angle) * CELL * part.distance;
+        mesh.position.set(x + dx, ground + CELL * firePartY(part), z + dz);
+        mesh.userData.baseOpacity = part.opacity;
+        mesh.userData.phase = cell * 0.7 + part.angle * 2.4;
+        mesh.userData.baseY = mesh.position.y;
+        mesh.userData.isHalo = part.kind === 'halo';
+        group.add(mesh);
+      }
     }
 
-    group.renderOrder = 7;
     this.scene.add(group);
-    this.rocketGlow = { group, flames, halos };
+    this.rocketGlow = group;
   }
 
-  /** Flicker: two different speeds, so the flames do not pulse in lockstep. */
+  /**
+   * Flicker. Each cone breathes on its own phase — a row of flames pulsing in
+   * lockstep reads as a blink — and the halo swells against them, so the base looks
+   * like it is burning rather than blinking.
+   */
   private updateRocketGlow(now: number): void {
     const glow = this.rocketGlow;
     if (!glow) return;
 
-    for (const flame of glow.flames) {
-      const phase = (flame.userData.phase as number) ?? 0;
-      const pulse = 0.8 + 0.2 * Math.sin(now / 90 + phase);
-      flame.scale.setScalar(pulse);
-      (flame.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.3 * pulse;
-      flame.rotation.y = now / 700 + phase;
-    }
-    for (const halo of glow.halos) {
-      const phase = (halo.userData.phase as number) ?? 0;
-      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 320 + phase));
-      (halo.material as THREE.MeshBasicMaterial).opacity = 0.25 + 0.45 * pulse;
-      halo.scale.setScalar(0.9 + 0.12 * pulse);
+    for (const child of glow.children) {
+      const mesh = child as THREE.Mesh;
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      const phase = (mesh.userData.phase as number) ?? 0;
+      const base = (mesh.userData.baseOpacity as number) ?? 0.8;
+
+      if (mesh.userData.isHalo as boolean) {
+        const swell = 0.5 + 0.5 * Math.abs(Math.sin(now / 260 + phase));
+        mesh.scale.setScalar(0.92 + 0.16 * swell);
+        material.opacity = base * (0.55 + 0.45 * swell);
+        continue;
+      }
+
+      // Taller and brighter together, quicker than the halo: real fire is nervous.
+      const flicker = 0.5 + 0.5 * Math.sin(now / 110 + phase * 3.1);
+      mesh.scale.set(1 + 0.12 * flicker, 0.86 + 0.34 * flicker, 1 + 0.12 * flicker);
+      material.opacity = base * (0.62 + 0.38 * flicker);
+      // Grow from the ground, never from the middle: the base stays planted.
+      mesh.position.y = (mesh.userData.baseY as number) * (0.94 + 0.12 * flicker);
     }
   }
 
   private clearRocketGlow(): void {
-    if (!this.rocketGlow) return;
-    this.scene.remove(this.rocketGlow.group);
-    for (const mesh of [...this.rocketGlow.flames, ...this.rocketGlow.halos]) {
+    const glow = this.rocketGlow;
+    if (!glow) return;
+    this.scene.remove(glow);
+    for (const child of glow.children) {
+      const mesh = child as THREE.Mesh;
       mesh.geometry.dispose();
       (mesh.material as THREE.Material).dispose();
     }

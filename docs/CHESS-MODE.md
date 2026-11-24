@@ -65,8 +65,10 @@ ground, back rank behind.
     and scaled to 3.2 units, the tallest thing on the board. **Instead of a move** it fires for **200
     coins a shot**, hit or miss — the rockets leave the tube either way. Pick a cell
     within **seven** cells of the base, and it shells the **3x3 zone** around it.
-    Arming **Fire** lights the tips of the firing side's bases — a flame and a
-    pulsing halo — so it is clear which base will shoot. Firing is **two taps**:
+    Arming **Fire** sets the firing side's bases alight **at the foot only** — a
+    broad ground halo, a flame around the skirt of the missile, a bright core and a
+    ring of six tongues, all below three quarters of a cell — so it is clear which
+    base will shoot. Firing is **two taps**:
     the first shows the zone and what stands in it, the
     second on the same cell fires. A shot costs 200 coins and can kill your own
     pieces, so it should not be one stray tap away — on a phone there is no hover to
