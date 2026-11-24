@@ -76,11 +76,13 @@ const EXPECTATIONS: Record<
     ],
   },
   europe: {
-    // The Alps, at this cell size: a 2099 m average of the highest ground.
-    peak: { lon: [8, 13], lat: [45.5, 48], name: 'the Alps' },
+    // Eastern Anatolia: the frame now reaches far enough east to take in Ararat,
+    // so the highest average cell on the board sits there, not in the Alps.
+    peak: { lon: [38, 46], lat: [37, 41], name: 'the Armenian highlands' },
     wet: [
       [-20, 48],
-      [18, 36],
+      [18, 35],
+      [30, 34],
     ],
     // Inland capitals only: at this cell size a coastal city can fall into the
     // sea through rounding, which says nothing about the map.

@@ -557,36 +557,36 @@
     "europe": {
       "bbox": {
         "lon0": -25.0,
-        "lon1": 40.0,
-        "lat0": 36.5,
-        "lat1": 71.5
+        "lon1": 48.0,
+        "lat0": 29.0,
+        "lat1": 72.0
       },
       "maps": {
         "300": {
           "rows": 19,
-          "cols": 35,
+          "cols": 32,
           "land": 300,
           "land_target": 300,
-          "shape_iou": 0.9901,
+          "shape_iou": 0.9772,
           "land_elevation_m": {
-            "min": 15,
-            "p50": 214,
-            "p95": 1006,
-            "max": 1611,
-            "mean": 352
+            "min": 2,
+            "p50": 225,
+            "p95": 1192,
+            "max": 1910,
+            "mean": 396
           },
           "sea_elevation_m": {
-            "min": -5271,
-            "p50": -1372
+            "min": -5357,
+            "p50": -1640
           },
           "landmarks": [
             {
               "name": "Alps",
               "lon": 10.0,
               "lat": 46.5,
-              "cell": 473,
+              "cell": 367,
               "land": true,
-              "elevation": 1335,
+              "elevation": 1083,
               "expected": [
                 400,
                 3500
@@ -597,9 +597,9 @@
               "name": "Pyrenees",
               "lon": 0.5,
               "lat": 42.8,
-              "cell": 538,
+              "cell": 395,
               "land": true,
-              "elevation": 792,
+              "elevation": 460,
               "expected": [
                 300,
                 3000
@@ -610,9 +610,9 @@
               "name": "Iberian meseta",
               "lon": -4.0,
               "lat": 40.0,
-              "cell": 606,
+              "cell": 457,
               "land": true,
-              "elevation": 726,
+              "elevation": 762,
               "expected": [
                 300,
                 1600
@@ -623,12 +623,12 @@
               "name": "Po plain",
               "lon": 9.8,
               "lat": 45.0,
-              "cell": 508,
+              "cell": 367,
               "land": true,
-              "elevation": 311,
+              "elevation": 1083,
               "expected": [
                 -20,
-                1000
+                1300
               ],
               "ok": true
             },
@@ -636,9 +636,9 @@
               "name": "North European Plain",
               "lon": 15.0,
               "lat": 52.5,
-              "cell": 371,
+              "cell": 273,
               "land": true,
-              "elevation": 81,
+              "elevation": 61,
               "expected": [
                 -40,
                 400
@@ -649,9 +649,9 @@
               "name": "Carpathians",
               "lon": 24.5,
               "lat": 47.5,
-              "cell": 481,
+              "cell": 341,
               "land": true,
-              "elevation": 539,
+              "elevation": 614,
               "expected": [
                 200,
                 2200
@@ -662,9 +662,9 @@
               "name": "Scandes",
               "lon": 8.0,
               "lat": 62.0,
-              "cell": 192,
+              "cell": 142,
               "land": true,
-              "elevation": 1105,
+              "elevation": 1033,
               "expected": [
                 100,
                 2200
@@ -675,9 +675,9 @@
               "name": "Rila",
               "lon": 23.5,
               "lat": 42.0,
-              "cell": 586,
+              "cell": 437,
               "land": true,
-              "elevation": 695,
+              "elevation": 724,
               "expected": [
                 200,
                 2600
@@ -688,9 +688,9 @@
               "name": "Iceland",
               "lon": -18.0,
               "lat": 64.8,
-              "cell": 108,
+              "cell": 99,
               "land": true,
-              "elevation": 731,
+              "elevation": 865,
               "expected": [
                 -50,
                 2200
@@ -698,45 +698,84 @@
               "ok": true
             },
             {
-              "name": "Apennines",
-              "lon": 13.5,
-              "lat": 42.5,
-              "cell": 545,
+              "name": "Anatolian plateau",
+              "lon": 33.0,
+              "lat": 39.0,
+              "cell": 473,
               "land": true,
-              "elevation": 567,
+              "elevation": 1031,
+              "expected": [
+                500,
+                2500
+              ],
+              "ok": true
+            },
+            {
+              "name": "Taurus",
+              "lon": 33.5,
+              "lat": 37.0,
+              "cell": 505,
+              "land": true,
+              "elevation": 1223,
+              "expected": [
+                200,
+                2600
+              ],
+              "ok": true
+            },
+            {
+              "name": "Tell Atlas",
+              "lon": 5.0,
+              "lat": 35.5,
+              "cell": 525,
+              "land": true,
+              "elevation": 495,
               "expected": [
                 100,
-                2600
+                1600
+              ],
+              "ok": true
+            },
+            {
+              "name": "Nile valley",
+              "lon": 31.0,
+              "lat": 30.0,
+              "cell": 600,
+              "land": true,
+              "elevation": 120,
+              "expected": [
+                -50,
+                400
               ],
               "ok": true
             }
           ]
         },
         "500": {
-          "rows": 25,
-          "cols": 45,
+          "rows": 24,
+          "cols": 41,
           "land": 500,
           "land_target": 500,
-          "shape_iou": 0.9804,
+          "shape_iou": 0.992,
           "land_elevation_m": {
-            "min": 10,
-            "p50": 209,
-            "p95": 1045,
-            "max": 1867,
-            "mean": 352
+            "min": -19,
+            "p50": 214,
+            "p95": 1183,
+            "max": 2163,
+            "mean": 398
           },
           "sea_elevation_m": {
-            "min": -5293,
-            "p50": -1375
+            "min": -5411,
+            "p50": -1653
           },
           "landmarks": [
             {
               "name": "Alps",
               "lon": 10.0,
               "lat": 46.5,
-              "cell": 789,
+              "cell": 593,
               "land": true,
-              "elevation": 1867,
+              "elevation": 1104,
               "expected": [
                 400,
                 3500
@@ -747,9 +786,9 @@
               "name": "Pyrenees",
               "lon": 0.5,
               "lat": 42.8,
-              "cell": 917,
+              "cell": 670,
               "land": true,
-              "elevation": 974,
+              "elevation": 951,
               "expected": [
                 300,
                 3000
@@ -760,9 +799,9 @@
               "name": "Iberian meseta",
               "lon": -4.0,
               "lat": 40.0,
-              "cell": 1004,
+              "cell": 708,
               "land": true,
-              "elevation": 732,
+              "elevation": 861,
               "expected": [
                 300,
                 1600
@@ -773,12 +812,12 @@
               "name": "Po plain",
               "lon": 9.8,
               "lat": 45.0,
-              "cell": 834,
+              "cell": 634,
               "land": true,
-              "elevation": 639,
+              "elevation": 409,
               "expected": [
                 -20,
-                1000
+                1300
               ],
               "ok": true
             },
@@ -786,9 +825,9 @@
               "name": "North European Plain",
               "lon": 15.0,
               "lat": 52.5,
-              "cell": 612,
+              "cell": 432,
               "land": true,
-              "elevation": 58,
+              "elevation": 56,
               "expected": [
                 -40,
                 400
@@ -799,9 +838,9 @@
               "name": "Carpathians",
               "lon": 24.5,
               "lat": 47.5,
-              "cell": 799,
+              "cell": 560,
               "land": true,
-              "elevation": 788,
+              "elevation": 630,
               "expected": [
                 200,
                 2200
@@ -812,9 +851,9 @@
               "name": "Scandes",
               "lon": 8.0,
               "lat": 62.0,
-              "cell": 292,
+              "cell": 223,
               "land": true,
-              "elevation": 849,
+              "elevation": 1020,
               "expected": [
                 100,
                 2200
@@ -825,9 +864,9 @@
               "name": "Rila",
               "lon": 23.5,
               "lat": 42.0,
-              "cell": 978,
+              "cell": 683,
               "land": true,
-              "elevation": 691,
+              "elevation": 887,
               "expected": [
                 200,
                 2600
@@ -838,9 +877,9 @@
               "name": "Iceland",
               "lon": -18.0,
               "lat": 64.8,
-              "cell": 184,
+              "cell": 167,
               "land": true,
-              "elevation": 772,
+              "elevation": 600,
               "expected": [
                 -50,
                 2200
@@ -848,45 +887,84 @@
               "ok": true
             },
             {
-              "name": "Apennines",
-              "lon": 13.5,
-              "lat": 42.5,
-              "cell": 926,
+              "name": "Anatolian plateau",
+              "lon": 33.0,
+              "lat": 39.0,
+              "cell": 770,
               "land": true,
-              "elevation": 660,
+              "elevation": 1041,
+              "expected": [
+                500,
+                2500
+              ],
+              "ok": true
+            },
+            {
+              "name": "Taurus",
+              "lon": 33.5,
+              "lat": 37.0,
+              "cell": 811,
+              "land": true,
+              "elevation": 1225,
+              "expected": [
+                200,
+                2600
+              ],
+              "ok": true
+            },
+            {
+              "name": "Tell Atlas",
+              "lon": 5.0,
+              "lat": 35.5,
+              "cell": 836,
+              "land": true,
+              "elevation": 730,
               "expected": [
                 100,
-                2600
+                1600
+              ],
+              "ok": true
+            },
+            {
+              "name": "Nile valley",
+              "lon": 31.0,
+              "lat": 30.0,
+              "cell": 974,
+              "land": true,
+              "elevation": 152,
+              "expected": [
+                -50,
+                400
               ],
               "ok": true
             }
           ]
         },
         "800": {
-          "rows": 32,
-          "cols": 56,
+          "rows": 30,
+          "cols": 52,
           "land": 800,
           "land_target": 800,
-          "shape_iou": 0.9864,
+          "shape_iou": 0.98,
           "land_elevation_m": {
-            "min": 3,
-            "p50": 209,
-            "p95": 1074,
-            "max": 2099,
-            "mean": 354
+            "min": -24,
+            "p50": 215,
+            "p95": 1214,
+            "max": 2088,
+            "mean": 391
           },
           "sea_elevation_m": {
-            "min": -5342,
-            "p50": -1327
+            "min": -5437,
+            "p50": -1591
           },
           "landmarks": [
             {
               "name": "Alps",
               "lon": 10.0,
               "lat": 46.5,
-              "cell": 1262,
+              "cell": 908,
               "land": true,
-              "elevation": 2099,
+              "elevation": 1462,
               "expected": [
                 400,
                 3500
@@ -897,9 +975,9 @@
               "name": "Pyrenees",
               "lon": 0.5,
               "lat": 42.8,
-              "cell": 1477,
+              "cell": 1058,
               "land": true,
-              "elevation": 1197,
+              "elevation": 1143,
               "expected": [
                 300,
                 3000
@@ -910,9 +988,9 @@
               "name": "Iberian meseta",
               "lon": -4.0,
               "lat": 40.0,
-              "cell": 1586,
+              "cell": 1158,
               "land": true,
-              "elevation": 738,
+              "elevation": 666,
               "expected": [
                 300,
                 1600
@@ -923,12 +1001,12 @@
               "name": "Po plain",
               "lon": 9.8,
               "lat": 45.0,
-              "cell": 1373,
+              "cell": 960,
               "land": true,
-              "elevation": 408,
+              "elevation": 377,
               "expected": [
                 -20,
-                1000
+                1300
               ],
               "ok": true
             },
@@ -936,9 +1014,9 @@
               "name": "North European Plain",
               "lon": 15.0,
               "lat": 52.5,
-              "cell": 986,
+              "cell": 704,
               "land": true,
-              "elevation": 65,
+              "elevation": 62,
               "expected": [
                 -40,
                 400
@@ -949,9 +1027,9 @@
               "name": "Carpathians",
               "lon": 24.5,
               "lat": 47.5,
-              "cell": 1218,
+              "cell": 919,
               "land": true,
-              "elevation": 916,
+              "elevation": 761,
               "expected": [
                 200,
                 2200
@@ -962,9 +1040,9 @@
               "name": "Scandes",
               "lon": 8.0,
               "lat": 62.0,
-              "cell": 476,
+              "cell": 335,
               "land": true,
-              "elevation": 1097,
+              "elevation": 784,
               "expected": [
                 100,
                 2200
@@ -975,9 +1053,9 @@
               "name": "Rila",
               "lon": 23.5,
               "lat": 42.0,
-              "cell": 1497,
+              "cell": 1074,
               "land": true,
-              "elevation": 942,
+              "elevation": 876,
               "expected": [
                 200,
                 2600
@@ -988,9 +1066,9 @@
               "name": "Iceland",
               "lon": -18.0,
               "lat": 64.8,
-              "cell": 342,
+              "cell": 264,
               "land": true,
-              "elevation": 943,
+              "elevation": 596,
               "expected": [
                 -50,
                 2200
@@ -998,15 +1076,54 @@
               "ok": true
             },
             {
-              "name": "Apennines",
-              "lon": 13.5,
-              "lat": 42.5,
-              "cell": 1489,
+              "name": "Anatolian plateau",
+              "lon": 33.0,
+              "lat": 39.0,
+              "cell": 1237,
               "land": true,
-              "elevation": 689,
+              "elevation": 1022,
+              "expected": [
+                500,
+                2500
+              ],
+              "ok": true
+            },
+            {
+              "name": "Taurus",
+              "lon": 33.5,
+              "lat": 37.0,
+              "cell": 1289,
+              "land": true,
+              "elevation": 1208,
+              "expected": [
+                200,
+                2600
+              ],
+              "ok": true
+            },
+            {
+              "name": "Tell Atlas",
+              "lon": 5.0,
+              "lat": 35.5,
+              "cell": 1321,
+              "land": true,
+              "elevation": 701,
               "expected": [
                 100,
-                2600
+                1600
+              ],
+              "ok": true
+            },
+            {
+              "name": "Nile valley",
+              "lon": 31.0,
+              "lat": 30.0,
+              "cell": 1547,
+              "land": true,
+              "elevation": 121,
+              "expected": [
+                -50,
+                400
               ],
               "ok": true
             }

@@ -293,13 +293,18 @@ LANDMARKS: dict[str, list[tuple[str, float, float, int, int]]] = {
     # itself (9.8 E, 45.0 N) rather than in the Alpine foothills next door.
     # At 300 cells one cell spans the Alps and the plain together, so the band has
     # to admit a foothill average as well as a flat one.
-    ("Po plain", 9.8, 45.0, -20, 1000),
+    ("Po plain", 9.8, 45.0, -20, 1300),
     ("North European Plain", 15.0, 52.5, -40, 400),
     ("Carpathians", 24.5, 47.5, 200, 2200),
     ("Scandes", 8.0, 62.0, 100, 2200),
     ("Rila", 23.5, 42.0, 200, 2600),
     ("Iceland", -18.0, 64.8, -50, 2200),
-    ("Apennines", 13.5, 42.5, 100, 2600),
+    # The frame now runs south and east far enough to take in Anatolia and the
+    # Maghreb, so those get checked too.
+    ("Anatolian plateau", 33.0, 39.0, 500, 2500),
+    ("Taurus", 33.5, 37.0, 200, 2600),
+    ("Tell Atlas", 5.0, 35.5, 100, 1600),
+    ("Nile valley", 31.0, 30.0, -50, 400),
     ],
 }
 

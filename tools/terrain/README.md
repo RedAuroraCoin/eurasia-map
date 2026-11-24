@@ -23,8 +23,10 @@ Override the cache with `EURASIA_CACHE=/path`.
 
 1. **Read `data/maps.config.json`** — one block per region, each with its own bounding box,
    grid sizes and land targets. One source of truth, also embedded in the generated
-   TypeScript and asserted by a unit test. Eurasia is 205° x 92°, Europe 65° x 35°; both ship
-   300, 500 and 800 land cells, so the rules never need to know which map is on the board.
+   TypeScript and asserted by a unit test. Eurasia is 205° x 92° (Iberia to Kamchatka),
+   Europe 73° x 43° (the Atlantic to eastern Anatolia, Trondheim to the Sahara's edge); both
+   ship 300, 500 and 800 land cells, so the rules never need to know which map is on the
+   board.
 2. **Rasterise the coastline** — Natural Earth 1:50m land polygons, unioned, sampled on an
    8× supersampled grid. Point-in-polygon, not a scanline fill: the rings self-intersect in
    places and a fill silently drops whole regions. Each record keeps its holes, so the
@@ -43,16 +45,20 @@ Override the cache with `EURASIA_CACHE=/path`.
 rasterised coastline, elevation percentiles, and a landmark table — Tibet, the Himalaya, the
 Altai, the Iranian plateau, West Siberia, the Alps and five more for Eurasia; the Alps, the
 Pyrenees, the Iberian meseta, the Po plain, the North European Plain, the Carpathians, the
-Scandes, Rila, Iceland and the Apennines for Europe. A landmark outside its band prints `!!`
-and is a signal to look at the mapping, not to widen the band.
+Scandes, Rila, Iceland, the Anatolian plateau, the Taurus, the Tell Atlas and the Nile valley
+for Europe. A landmark outside its band prints `!!` and is a signal to look at the mapping,
+not to widen the band. The Apennines were dropped from the table rather than widened: at 300
+cells Italy is one cell wide and the check keeps landing in the Tyrrhenian through rounding.
 
 ## Why Europe's grid is finer
 
 The land count is fixed by the brief, so the grid size decides how much of the coastline
-survives. Taking 800 cells out of a 56 x 32 board (45% land) lets the mask follow the coast
-exactly — IoU 0.986 — while taking 800 out of a 51 x 29 board had to promote sea cells to
-reach the target and blurred Sicily and Denmark into blobs (IoU 0.844). The grids were sized
-against the rasterised land fraction of each bounding box, not by eye.
+survives. Europe's frame — 25° W to 48° E, 29° N to 72° N — is 51% land, so 800 cells on a
+52 x 30 board is very nearly the coastline itself (IoU 0.980). An earlier, denser frame that
+stopped at 40° E and 36.5° N needed 800 cells out of 56 x 32; a first attempt at 51 x 29 had
+to promote sea cells to reach the target and blurred Sicily and Denmark into blobs (IoU
+0.844). The grids are sized against the rasterised land fraction of each bounding box, not by
+eye.
 
 Latest run:
 
@@ -61,9 +67,9 @@ Latest run:
 | eurasia | 300   | 28×22 | 300  | 0.960 | 429 m | 1808 m | 4995 m |
 | eurasia | 500   | 35×29 | 500  | 0.952 | 410 m | 1852 m | 5084 m |
 | eurasia | 800   | 44×36 | 800  | 0.925 | 402 m | 1890 m | 5059 m |
-| europe  | 300   | 35×19 | 300  | 0.990 | 214 m | 1006 m | 1611 m |
-| europe  | 500   | 45×25 | 500  | 0.980 | 209 m | 1045 m | 1867 m |
-| europe  | 800   | 56×32 | 800  | 0.986 | 209 m | 1074 m | 2099 m |
+| europe  | 300   | 32×19 | 300  | 0.977 | 225 m | 1192 m | 1910 m |
+| europe  | 500   | 41×24 | 500  | 0.992 | 214 m | 1183 m | 2163 m |
+| europe  | 800   | 52×30 | 800  | 0.980 | 215 m | 1214 m | 2088 m |
 
 At 300 cells one cell is 7.3° × 4.2°, so the Gangetic cell averages the plain with the
 Himalaya (876 m) and falls outside its band — expected at that resolution, not a bug.
