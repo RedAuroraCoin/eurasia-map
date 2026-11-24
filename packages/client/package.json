@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@eurasia/shared": "*",
+    "simplex-noise": "4.0.3",
     "three": "0.187.0"
   },
   "devDependencies": {

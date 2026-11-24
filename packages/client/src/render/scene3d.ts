@@ -12,6 +12,7 @@ import { loadSideModels } from './model';
 import { createRocketGeometry } from './rocket';
 import { FIRE_PARTS, HALO_OUTER, firePartY } from './fire';
 import { blastFrame } from './blast';
+import { createNoiseTexture } from './noise';
 import {
   buildBuildings,
   buildingTint,
@@ -165,6 +166,8 @@ export class Scene3D implements View {
   private hintMeshes: THREE.Mesh[] = [];
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
+  /** Seamless sea noise, built once and shared by every water material. */
+  private readonly noiseTexture = createNoiseTexture();
   /** Post-processing chain: only used while glow is on. */
   private composer: EffectComposer | null = null;
   private bloom: UnrealBloomPass | null = null;
@@ -364,6 +367,10 @@ export class Scene3D implements View {
         uSun: { value: new THREE.Vector3(0.5, 0.8, 0.4) },
         uFog: { value: new THREE.Color('#8fb4c9') },
         uFoam: { value: 1 },
+        uNoise: { value: this.noiseTexture },
+        // The composer's target is linear, the canvas is not; the shader encodes
+        // accordingly so the sea keeps its colour either way.
+        uLinear: { value: 1 },
         uFogNear: { value: this.fogNear },
         uFogFar: { value: this.fogFar },
         uRadius: { value: Math.hypot(width, depth) / 2 },
@@ -1323,6 +1330,10 @@ export class Scene3D implements View {
   /** Glow on or off. Off also means "render straight to the canvas", which is the cheap path. */
   setGlow(enabled: boolean): void {
     this.glowOn = enabled;
+    // The sea has to know where the frame is going: the composer's half-float
+    // target is linear, a direct draw to the canvas is not.
+    const uniforms = (this.water?.material as THREE.ShaderMaterial | undefined)?.uniforms;
+    if (uniforms?.uLinear) uniforms.uLinear.value = enabled ? 1 : 0;
   }
 
   resize(): void {
@@ -1433,6 +1444,7 @@ export class Scene3D implements View {
     this.zoneGeometry?.dispose();
     this.zoneGeometry = null;
     this.controls.dispose();
+    this.noiseTexture.dispose();
     this.composer?.dispose();
     this.composer = null;
     this.bloom = null;
