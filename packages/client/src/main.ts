@@ -140,6 +140,12 @@ const handlers: AppHandlers = {
     view.setState(active(), Date.now());
     app.setSettings(settings, demo);
   },
+  onGlow: (glow) => {
+    settings = { ...settings, glow };
+    saveSettings(storage, settings);
+    view.setGlow(glow);
+    app.setSettings(settings, demo);
+  },
   onHurricanes: (hurricanes) => {
     settings = { ...settings, hurricanes };
     saveSettings(storage, settings);
@@ -269,6 +275,7 @@ const { view, mode } = createView(
   sidePreview,
 );
 if (mode === '2d') app.setMessage(t.messages.noWebgl, 'info');
+view.setGlow(settings.glow);
 view.resize();
 
 // --------------------------------------------------------------------- state

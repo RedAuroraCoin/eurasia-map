@@ -9,6 +9,8 @@ export interface Settings {
   readonly quality: Quality;
   readonly relief: boolean;
   readonly hurricanes: boolean;
+  /** Bloom on explosions and the fire under armed rockets. Purely cosmetic. */
+  readonly glow: boolean;
   /** The daily water rise. A rule, so a room ignores this and always floods. */
   readonly flood: boolean;
   /** Which game is being played. They share the map and nothing else. */
@@ -40,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quality: 'auto',
   relief: true,
   hurricanes: true,
+  glow: true,
   flood: BALANCE.flood.enabledByDefault,
   speed: 0,
   size: 500,
@@ -72,6 +75,7 @@ export function parseSettings(raw: unknown): Settings {
     relief: typeof source.relief === 'boolean' ? source.relief : DEFAULT_SETTINGS.relief,
     hurricanes:
       typeof source.hurricanes === 'boolean' ? source.hurricanes : DEFAULT_SETTINGS.hurricanes,
+    glow: typeof source.glow === 'boolean' ? source.glow : DEFAULT_SETTINGS.glow,
     flood: typeof source.flood === 'boolean' ? source.flood : DEFAULT_SETTINGS.flood,
     mode,
     speed: Number.isInteger(speed) && speed >= 0 && speed < SPEEDS.length ? speed : 0,

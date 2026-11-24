@@ -88,6 +88,11 @@ export class Flat2D implements View {
     this.glow = cells ? [...cells] : [];
   }
 
+  /** There is no HDR buffer here: the flat view paints by hand and needs no glare. */
+  setGlow(_enabled: boolean): void {
+    // nothing to switch
+  }
+
   setState(state: GameState): void {
     this.state = state;
   }

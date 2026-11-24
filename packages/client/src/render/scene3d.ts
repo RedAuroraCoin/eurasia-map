@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { stormPointAt, type GameState, type MapEntry, type StormPlan } from '@eurasia/shared';
 import { createCastleGeometry, towerFromCastle } from './castle';
 import { createKingGeometry } from './king';
@@ -64,6 +68,8 @@ export interface View {
   focusCell(cell: number): void;
   /** Burning tips on the given rocket bases: the side that is about to fire. */
   setRocketGlow(cells: readonly number[] | null): void;
+  /** Bloom on explosions and fire. Off renders straight to the canvas. */
+  setGlow(enabled: boolean): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -86,6 +92,17 @@ export interface ZoneCell {
   readonly cell: number;
   readonly chance: number;
 }
+/**
+ * Bloom. Everything that is meant to be *light* — the explosion, the fire under an
+ * armed rocket, the selected-cell pulse — is drawn additively, so it pushes past
+ * white and only a bloom pass turns that into glare. The threshold is high on
+ * purpose: the sea and the snow line are bright, and a low one would smear the whole
+ * map into a haze.
+ */
+const BLOOM_STRENGTH = 0.85;
+const BLOOM_RADIUS = 0.5;
+const BLOOM_THRESHOLD = 0.82;
+
 /** How long the camera takes to glide to the side whose turn it is. */
 const FOCUS_MS = 750;
 /**
@@ -143,6 +160,10 @@ export class Scene3D implements View {
   private hintMeshes: THREE.Mesh[] = [];
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
+  /** Post-processing chain: only used while glow is on. */
+  private composer: EffectComposer | null = null;
+  private bloom: UnrealBloomPass | null = null;
+  private glowOn = true;
   /** The fire under the bases that are about to shoot; one group, many cones. */
   private rocketGlow: THREE.Group | null = null;
   private focus: {
@@ -275,6 +296,8 @@ export class Scene3D implements View {
       this.userMoved = true;
     });
     this.controls.update();
+
+    this.buildComposer();
 
     this.hemi = new THREE.HemisphereLight(0xbfd4e6, 0x2a2b25, 0.8);
     this.scene.add(this.hemi);
@@ -1260,6 +1283,45 @@ export class Scene3D implements View {
     return -1;
   }
 
+  /**
+   * The post chain. Half-float targets so an additive flame can actually exceed
+   * white — a clamped 8-bit buffer would put a hard ceiling on the glare — and MSAA
+   * only where the quality setting pays for it, because the composer renders into
+   * its own buffer and loses the canvas's antialiasing otherwise.
+   */
+  private buildComposer(): void {
+    const canvas = this.renderer.domElement;
+    const width = Math.max(1, canvas.clientWidth || 1);
+    const height = Math.max(1, canvas.clientHeight || 1);
+
+    const target = new THREE.WebGLRenderTarget(width, height, {
+      type: THREE.HalfFloatType,
+      samples: this.quality === 'high' ? 4 : 0,
+    });
+
+    const composer = new EffectComposer(this.renderer, target);
+    composer.addPass(new RenderPass(this.scene, this.camera));
+
+    const bloom = new UnrealBloomPass(
+      new THREE.Vector2(width, height),
+      BLOOM_STRENGTH,
+      BLOOM_RADIUS,
+      BLOOM_THRESHOLD,
+    );
+    composer.addPass(bloom);
+    // OutputPass does the linear-to-sRGB and tone-mapping step the canvas would
+    // have done, so the composer path and the plain path look the same.
+    composer.addPass(new OutputPass());
+
+    this.composer = composer;
+    this.bloom = bloom;
+  }
+
+  /** Glow on or off. Off also means "render straight to the canvas", which is the cheap path. */
+  setGlow(enabled: boolean): void {
+    this.glowOn = enabled;
+  }
+
   resize(): void {
     const canvas = this.renderer.domElement;
     const width = canvas.clientWidth || 1;
@@ -1267,6 +1329,12 @@ export class Scene3D implements View {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    if (this.composer) {
+      this.composer.setSize(width, height);
+      // Bloom is a blur: at half resolution nothing is lost, and it costs a quarter
+      // of the fill. This is the whole reason the effect is affordable on a phone.
+      this.bloom?.setSize(Math.max(1, Math.floor(width / 2)), Math.max(1, Math.floor(height / 2)));
+    }
 
     // The camera is built before the canvas has a size, so its fit was computed
     // for the wrong aspect. Re-fit until the player takes over the camera.
@@ -1322,7 +1390,11 @@ export class Scene3D implements View {
       this.selection.scale.z = pulse;
     }
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.glowOn && this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   dispose(): void {
@@ -1355,6 +1427,9 @@ export class Scene3D implements View {
     this.zoneGeometry?.dispose();
     this.zoneGeometry = null;
     this.controls.dispose();
+    this.composer?.dispose();
+    this.composer = null;
+    this.bloom = null;
     this.renderer.dispose();
     this.depthTexture.dispose();
   }

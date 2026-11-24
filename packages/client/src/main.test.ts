@@ -160,12 +160,31 @@ describe('single-player shell', () => {
     expect(mode?.getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('turns the glow off and remembers it', async () => {
+    await boot();
+
+    const row = [...document.querySelectorAll('.row')].find((element) =>
+      element.textContent?.includes('Glow'),
+    );
+    const off = [...(row?.querySelectorAll('button') ?? [])].find(
+      (button) => button.textContent === 'Off',
+    ) as HTMLButtonElement | undefined;
+    if (!off) throw new Error('no glow row');
+    off.click();
+
+    const saved = JSON.parse(localStorage.getItem('eurasia.settings.v2') ?? '{}');
+    expect(saved.glow).toBe(false);
+    expect(off.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('boots with a board, a panel and stats', async () => {
     await boot();
 
     expect(document.querySelector('h1')?.textContent).toBe('Eurasia Map');
     expect(document.querySelector('canvas')).not.toBeNull();
-    expect(document.querySelectorAll('.segmented')).toHaveLength(9);
+    // mode, size, relief, sides, hurricanes, glow, flood, speed, quality, theme
+    expect(document.querySelectorAll('.segmented')).toHaveLength(10);
+    expect(document.body.textContent).toContain('Glow');
     // The panel is positioned against the stage: inside the app grid it slid
     // under the topbar and ignored that row in its max-height.
     expect(document.querySelector('.stage > .panel')).not.toBeNull();
@@ -287,7 +306,8 @@ describe('single-player shell', () => {
       (element) => element.closest('.hidden') === null,
     );
     // Nine in the building game; chess drops the map size and the time speed.
-    expect(visibleSegments).toHaveLength(7);
+    // Chess hides the speed row and nothing else.
+    expect(visibleSegments).toHaveLength(8);
   });
 
   it('opens the menu with the hamburger and deals a new game from it', async () => {

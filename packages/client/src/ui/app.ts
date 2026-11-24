@@ -11,6 +11,7 @@ export interface AppHandlers {
   onRelief(on: boolean): void;
   onSides(both: boolean): void;
   onHurricanes(on: boolean): void;
+  onGlow(on: boolean): void;
   onFlood(on: boolean): void;
   onSpeed(index: number): void;
   onDemo(): void;
@@ -68,6 +69,7 @@ export class App {
     quality: ReturnType<typeof segmented<Quality>>;
     relief: ReturnType<typeof segmented<string>>;
     hurricanes: ReturnType<typeof segmented<string>>;
+    glow: ReturnType<typeof segmented<string>>;
     flood: ReturnType<typeof segmented<string>>;
     speed: ReturnType<typeof segmented<number>>;
     sides: ReturnType<typeof segmented<string>>;
@@ -247,6 +249,15 @@ export class App {
       (value) => handlers.onFlood(value === 'on'),
       t.settings.flood,
     );
+    const glow = segmented<string>(
+      [
+        { value: 'on', label: t.settings.glowOn },
+        { value: 'off', label: t.settings.glowOff },
+      ],
+      settings.glow ? 'on' : 'off',
+      (value) => handlers.onGlow(value === 'on'),
+      t.settings.glow,
+    );
     const speed = segmented<number>(
       t.settings.speedOptions.map((label, index) => ({ value: index, label })),
       settings.speed,
@@ -281,6 +292,7 @@ export class App {
       quality,
       relief,
       hurricanes,
+      glow,
       flood,
       speed,
       sides,
@@ -361,6 +373,7 @@ export class App {
       row(t.settings.relief, relief.root),
       row(t.settings.sides, sides.root),
       row(t.settings.hurricanes, hurricanes.root),
+      row(t.settings.glow, glow.root),
       row(t.settings.flood, flood.root),
       this.speedRow,
       row(t.settings.quality, quality.root),
@@ -654,6 +667,7 @@ export class App {
     this.segments.quality.set(settings.quality);
     this.segments.relief.set(settings.relief ? 'on' : 'off');
     this.segments.hurricanes.set(settings.hurricanes ? 'on' : 'off');
+    this.segments.glow.set(settings.glow ? 'on' : 'off');
     this.segments.flood.set(settings.flood ? 'on' : 'off');
     this.segments.speed.set(settings.speed);
     this.demoButton.textContent = demo ? t.settings.demoOff : t.settings.demoOn;
