@@ -830,11 +830,16 @@ function refreshHints(): void {
       const pb = { row: Math.floor(b / map.cols), col: b % map.cols };
       return Math.max(Math.abs(pa.row - pb.row), Math.abs(pa.col - pb.col));
     };
-    // Every piece in reach is offered, its own included: a rocket does not check
-    // uniforms, so aiming next to your own knight is a way to lose the knight.
-    hints = chess.pieces
-      .filter((piece) => bases.some((base) => near(base, piece.cell) <= reach))
-      .map((piece) => ({ cell: piece.cell, kind: 'fire' as const }));
+    // Everything in reach is offered — pieces, towers, bases, its own side's
+    // included: a rocket does not check uniforms or construction.
+    const spots = [
+      ...chess.pieces.map((piece) => piece.cell),
+      ...Object.keys(chess.towers).map(Number),
+      ...Object.keys(chess.rockets).map(Number),
+    ];
+    hints = [...new Set(spots)]
+      .filter((cell) => bases.some((base) => near(base, cell) <= reach))
+      .map((cell) => ({ cell, kind: 'fire' as const }));
     view.setHints(hints);
     return;
   }

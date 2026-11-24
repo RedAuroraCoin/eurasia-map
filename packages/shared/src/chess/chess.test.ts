@@ -611,8 +611,8 @@ describe('the rocket base', () => {
     expect(noBase.ok).toBe(false);
     if (!noBase.ok) expect(noBase.code).toBe('no_rocket');
 
-    // A zone with no piece in it — either side — is not a shot.
-    const empty = chessReduce(board(1, at(7, 5)), { k: 'fire', cell: at(4, 3) }, ctx8());
+    // A zone with nothing in it — no piece, no structure — is not a shot.
+    const empty = chessReduce(board(1, at(7, 5)), { k: 'fire', cell: at(5, 6) }, ctx8());
     expect(empty.ok).toBe(false);
     if (!empty.ok) expect(empty.code).toBe('no_target');
   });
@@ -692,6 +692,38 @@ describe('the rocket base', () => {
       if (result.ok && result.state.winner === 1) lost = true;
     }
     expect(lost).toBe(true);
+  });
+
+  it('destroys towers and bases in the zone by the same odds', () => {
+    const deaths = (kind: 'tower' | 'rocket', cell: number, zone: number): number => {
+      let killed = 0;
+      for (let seed = 1; seed <= 200; seed++) {
+        const s = state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 0))], {
+          seed,
+          turn: 0,
+          coins: [500, 500],
+          rockets: { [String(at(3, 3))]: 0 },
+          ...(kind === 'tower'
+            ? { towers: { [String(cell)]: 1 } }
+            : { rockets: { [String(at(3, 3))]: 0, [String(cell)]: 1 } }),
+        });
+        const result = chessReduce(s, { k: 'fire', cell: zone }, ctx8());
+        if (!result.ok) continue;
+        const survived =
+          kind === 'tower'
+            ? result.state.towers[String(cell)] !== undefined
+            : result.state.rockets[String(cell)] !== undefined;
+        if (!survived) killed++;
+      }
+      return killed;
+    };
+
+    // Dead centre: about half. On the ring: about a fifth.
+    expect(deaths('tower', at(6, 6), at(6, 6))).toBeGreaterThan(70);
+    expect(deaths('tower', at(6, 6), at(6, 6))).toBeLessThan(130);
+    const onRing = deaths('rocket', at(6, 7), at(6, 6));
+    expect(onRing).toBeGreaterThan(20);
+    expect(onRing).toBeLessThan(70);
   });
 
   it('rolls for every piece in the zone, its own included', () => {

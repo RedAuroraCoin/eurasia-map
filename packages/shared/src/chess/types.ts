@@ -99,13 +99,18 @@ export type ChessEvent =
       readonly side: Side;
       readonly from: number;
       readonly cell: number;
-      /** Every piece the shot killed: a zone hits each piece in it, by the odds. */
+      /**
+       * Everything the shot destroyed: pieces, towers and rocket bases all roll,
+       * each by the odds of the cell it stands on.
+       */
       readonly hits: readonly {
-        readonly piece: number;
-        readonly kind: PieceKind;
+        readonly cell: number;
+        /** The piece that died, when a piece died there. */
+        readonly piece: number | null;
+        readonly kind: PieceKind | 'tower' | 'rocket';
         readonly side: Side;
       }[];
-      /** How many pieces stood in the zone, hit or not. */
+      /** How many things stood in the zone, hit or not. */
       readonly risked: number;
     }
   | { readonly t: 'built'; readonly cell: number; readonly side: Side; readonly cost: number }

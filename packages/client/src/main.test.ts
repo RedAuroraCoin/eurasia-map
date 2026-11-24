@@ -587,7 +587,12 @@ describe('single-player shell', () => {
     // check uniforms, so the list is "what could die here", not "what is hostile".
     expect(hints.every((hint) => hint.kind === 'fire')).toBe(true);
     expect(hints.map((hint) => hint.cell)).toContain(quarry);
-    const occupied = new Set(game.pieces.map((piece) => piece.cell));
+    // A hint is "something can die here": a piece, a tower or a base.
+    const occupied = new Set([
+      ...game.pieces.map((piece) => piece.cell),
+      ...Object.keys(game.towers).map(Number),
+      ...Object.keys(game.rockets).map(Number),
+    ]);
     for (const hint of hints) expect(occupied.has(hint.cell)).toBe(true);
     expect(hints.length).toBeGreaterThan(1);
     expect(inRange.has(quarry)).toBe(true);

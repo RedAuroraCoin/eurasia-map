@@ -425,16 +425,33 @@ export function chessReduce(
     if (from === undefined) return reject(state, 'out_of_range');
 
     const inZone = piecesInZone(state, cmd.cell, ctx);
-    if (inZone.length === 0) return reject(state, 'no_target');
+    // Structures stand in the zone too, and a rocket does not distinguish a keep
+    // from a knight: a tower or a base there rolls by the same odds.
+    const structures = structuresInZone(state, cmd.cell, ctx);
+    if (inZone.length === 0 && structures.length === 0) return reject(state, 'no_target');
 
-    // Every piece in the zone rolls for itself, its own side's included: a rocket
+    // Every target in the zone rolls for itself, its own side's included: a rocket
     // is an area weapon, and a zone that only ever killed the nearest enemy let a
     // player park their own troops in it for free.
-    const hits: { piece: Piece; kind: PieceKind; side: Side }[] = [];
+    const chanceAt = (ring: number): number =>
+      ring === 0 ? BALANCE.chess.rocketCentreChance : BALANCE.chess.rocketRingChance;
+
+    type Hit = {
+      cell: number;
+      piece: Piece | null;
+      kind: PieceKind | 'tower' | 'rocket';
+      side: Side;
+    };
+    const hits: Hit[] = [];
+
     for (const { piece, ring } of inZone) {
-      const chance = ring === 0 ? BALANCE.chess.rocketCentreChance : BALANCE.chess.rocketRingChance;
-      if (rollFor(state, from, cmd.cell, piece.id) < chance) {
-        hits.push({ piece, kind: piece.kind, side: piece.side });
+      if (rollFor(state, from, cmd.cell, `p${piece.id}`) < chanceAt(ring)) {
+        hits.push({ cell: piece.cell, piece, kind: piece.kind, side: piece.side });
+      }
+    }
+    for (const { cell, kind, ring, side } of structures) {
+      if (rollFor(state, from, cmd.cell, `${kind}${cell}`) < chanceAt(ring)) {
+        hits.push({ cell, piece: null, kind, side });
       }
     }
 
@@ -443,19 +460,36 @@ export function chessReduce(
       side: state.turn,
       from,
       cell: cmd.cell,
-      hits: hits.map(({ piece, kind, side }) => ({ piece: piece.id, kind, side })),
-      risked: inZone.length,
+      hits: hits.map((hit) => ({
+        cell: hit.cell,
+        piece: hit.piece ? hit.piece.id : null,
+        kind: hit.kind,
+        side: hit.side,
+      })),
+      risked: inZone.length + structures.length,
     });
 
-    const killed = new Set(hits.map((entry) => entry.piece.id));
-    const pieces = killed.size === 0 ? state.pieces : state.pieces.filter((p) => !killed.has(p.id));
+    const killedPieces = new Set(
+      hits.map((hit) => hit.piece?.id).filter((id): id is number => id !== undefined),
+    );
+    const pieces =
+      killedPieces.size === 0
+        ? state.pieces
+        : state.pieces.filter((piece) => !killedPieces.has(piece.id));
+
+    const towers = { ...state.towers };
+    const rockets = { ...state.rockets };
+    for (const hit of hits) {
+      if (hit.kind === 'tower') delete towers[String(hit.cell)];
+      if (hit.kind === 'rocket') delete rockets[String(hit.cell)];
+    }
 
     // A king killed by a rocket loses, whoever fired it. If one shot takes both
     // kings, the shooter is the one who pulled the trigger: they lose.
-    const kings = hits.filter((entry) => entry.kind === 'king');
+    const kings = hits.filter((hit) => hit.kind === 'king');
     let win: { side: Side; how: WinHow } | null = null;
     if (kings.length === 1) {
-      const dead = (kings[0] as { side: Side }).side;
+      const dead = (kings[0] as Hit).side;
       win = { side: dead === 0 ? 1 : 0, how: 'rocket' };
     } else if (kings.length > 1) {
       win = { side: state.turn === 0 ? 1 : 0, how: 'rocket' };
@@ -465,7 +499,7 @@ export function chessReduce(
     const coins: [number, number] = [state.coins[0], state.coins[1]];
     coins[state.turn] -= BALANCE.chess.rocketShotCost;
 
-    const next = endTurn({ ...state, pieces, coins }, ctx, events, win);
+    const next = endTurn({ ...state, pieces, towers, rockets, coins }, ctx, events, win);
     return { ok: true, state: next, events };
   }
 
@@ -524,6 +558,35 @@ function piecesInZone(
 }
 
 /**
+ * Towers and rocket bases inside the 3x3 zone, with their distance from the centre.
+ * They are targets like anything else: a rocket that can level a keep should.
+ */
+function structuresInZone(
+  state: ChessState,
+  cell: number,
+  ctx: ChessCtx,
+): { cell: number; kind: 'tower' | 'rocket'; ring: number; side: Side }[] {
+  const centre = spotOf(cell, ctx.cols);
+  const ringOf = (target: number): number => {
+    const spot = spotOf(target, ctx.cols);
+    return Math.max(Math.abs(spot.row - centre.row), Math.abs(spot.col - centre.col));
+  };
+
+  const out: { cell: number; kind: 'tower' | 'rocket'; ring: number; side: Side }[] = [];
+  for (const [key, side] of Object.entries(state.towers)) {
+    const target = Number(key);
+    const ring = ringOf(target);
+    if (ring <= 1) out.push({ cell: target, kind: 'tower', ring, side });
+  }
+  for (const [key, side] of Object.entries(state.rockets)) {
+    const target = Number(key);
+    const ring = ringOf(target);
+    if (ring <= 1) out.push({ cell: target, kind: 'rocket', ring, side });
+  }
+  return out;
+}
+
+/**
  * The die for one shot, derived from the position instead of stored.
  *
  * The engine is a pure reducer: no clock, no Math.random. A hash of the seed, the
@@ -531,7 +594,7 @@ function piecesInZone(
  * result on a replay or in a save, and the round always moves on after a shot, so
  * two shots can never share a key.
  */
-function rollFor(state: ChessState, from: number, cell: number, target: number): number {
+function rollFor(state: ChessState, from: number, cell: number, target: string): number {
   const key = `fire:${state.seed}:${state.round}:${state.turn}:${from}:${cell}:${target}`;
   return hashString(key) / 0x1_0000_0000;
 }

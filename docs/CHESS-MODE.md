@@ -66,9 +66,11 @@ ground, back rank behind.
     second on the same cell fires. A shot costs 200 coins and can kill your own
     pieces, so it should not be one stray tap away — on a phone there is no hover to
     preview it with.
-    **Every piece in the zone rolls for itself**, its own side's included: a shot
-    can take several pieces at once, and a rocket does not check uniforms, so
-    shelling a cell next to your own knight can cost you the knight. A rocket that
+    **Every target in the zone rolls for itself** — pieces, towers and rocket bases,
+    its own side's included: a shot can take several at once, and a rocket does not
+    check uniforms or construction, so shelling a cell next to your own knight can
+    cost you the knight, and a base shelled next to your own tower can cost you the
+    tower. A rocket that
     kills its own king loses the game, and a shot that takes both kings loses it for
     the shooter. The odds depend on where a piece stands: **50 % dead centre, 20 %
     on the other eight cells**, each rolled separately. The dice are a hash of the
