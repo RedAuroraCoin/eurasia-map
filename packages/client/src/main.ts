@@ -1350,7 +1350,9 @@ function frame(now: number): void {
   }
 
   updateStorms(world);
-  view.render(world);
+  // Two clocks on purpose: the world advances at the chosen speed, the picture
+  // advances with the screen. Chess stops the world and must not stop the picture.
+  view.render(world, now);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

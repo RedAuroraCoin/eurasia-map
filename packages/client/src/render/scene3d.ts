@@ -11,6 +11,7 @@ import { createStormLook, type StormLook } from './storm-look';
 import { loadSideModels } from './model';
 import { createRocketGeometry } from './rocket';
 import { FIRE_PARTS, HALO_OUTER, firePartY } from './fire';
+import { blastFrame } from './blast';
 import {
   buildBuildings,
   buildingTint,
@@ -72,7 +73,12 @@ export interface View {
   setGlow(enabled: boolean): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
-  render(now: number): void;
+  /**
+   * `worldNow` is simulated time (growth, storms, the sea); `frameNow` is real
+   * frame time. They are not the same thing: in chess the world clock can stand
+   * still, and anything animated on it — the explosion above all — would freeze.
+   */
+  render(worldNow: number, frameNow: number): void;
   dispose(): void;
 }
 
@@ -110,8 +116,7 @@ const FOCUS_MS = 750;
  * players on a phone did not see it at all — a small screen and a thumb still on
  * the glass eat a second. Long enough to read, short enough not to block the turn.
  */
-export const BLAST_MS = 1700;
-/** The sea plane is larger than the board so the horizon is water, not a cut edge. */
+export /** The sea plane is larger than the board so the horizon is water, not a cut edge. */
 const SEA_SCALE = 3.5;
 
 /** A three-quarter view from the south-east, at exactly `distance` from the target. */
@@ -800,23 +805,21 @@ export class Scene3D implements View {
     if (!blast) return;
     if (blast.start < 0) blast.start = now;
 
-    const t = Math.min(1, (now - blast.start) / BLAST_MS);
-    const ease = 1 - Math.pow(1 - t, 3);
-    // A short hold at full strength before anything fades: on a phone the first
-    // frames are the ones a player actually sees.
-    const alpha = t < 0.12 ? 1 : 1 - (t - 0.12) / 0.88;
+    // A clock that goes backwards (a reload, a jumped world) restarts the frame
+    // rather than freezing the explosion on screen forever.
+    if (now < blast.start) blast.start = now;
 
-    blast.ring.scale.setScalar(0.3 + ease * 3.6);
-    (blast.ring.material as THREE.MeshBasicMaterial).opacity = 0.95 * alpha;
+    const frame = blastFrame(now - blast.start);
+    blast.ring.scale.setScalar(frame.ringScale);
+    (blast.ring.material as THREE.MeshBasicMaterial).opacity = frame.ringOpacity;
 
-    blast.fireball.scale.setScalar(0.35 + ease * 1.8);
-    blast.fireball.position.y = CELL * 0.45 + ease * CELL * 1.4;
-    (blast.fireball.material as THREE.MeshBasicMaterial).opacity = 0.95 * Math.min(1, alpha * 1.6);
+    blast.fireball.scale.setScalar(frame.fireballScale);
+    blast.fireball.position.y = CELL * frame.fireballY;
+    (blast.fireball.material as THREE.MeshBasicMaterial).opacity = frame.fireballOpacity;
 
-    (blast.scorch.material as THREE.MeshBasicMaterial).opacity =
-      0.55 * Math.min(1, t * 5) * (t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1);
+    (blast.scorch.material as THREE.MeshBasicMaterial).opacity = frame.scorchOpacity;
 
-    if (t >= 1) this.clearBlast();
+    if (frame.done) this.clearBlast();
   }
 
   /**
@@ -1369,23 +1372,26 @@ export class Scene3D implements View {
     }
   }
 
-  render(now: number): void {
-    this.updateRocketGlow(now);
-    this.updateFocus(now);
-    this.updateBlast(now);
-    this.updateStorms(now);
+  render(worldNow: number, frameNow: number): void {
+    // Everything the player watches move runs on the real frame clock: the world
+    // clock stops when the save is ahead of it, and a stopped clock once left a
+    // fireball burning on the board forever.
+    this.updateRocketGlow(frameNow);
+    this.updateFocus(frameNow);
+    this.updateBlast(frameNow);
+    this.updateStorms(worldNow);
     const delta = this.reducedMotion ? 0 : 1 / 60;
     this.waterTime += delta;
     if (this.water) {
       const uniforms = (this.water.material as THREE.ShaderMaterial).uniforms;
       uniforms.uTime!.value = this.waterTime;
     }
-    this.updateBuildings(this.state, now, false);
+    this.updateBuildings(this.state, worldNow, false);
     this.controls.update();
     this.keepAboveGround();
 
     if (this.selection && this.selection.visible && !this.reducedMotion) {
-      const pulse = 1 + Math.sin(now / 420) * 0.012;
+      const pulse = 1 + Math.sin(frameNow / 420) * 0.012;
       this.selection.scale.x = pulse;
       this.selection.scale.z = pulse;
     }

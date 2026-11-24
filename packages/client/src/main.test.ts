@@ -160,6 +160,25 @@ describe('single-player shell', () => {
     expect(mode?.getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('hands the view the frame clock, not the world clock', async () => {
+    await boot();
+    const { Flat2D } = await import('./render/flat2d');
+    const spy = vi.spyOn(Flat2D.prototype, 'render');
+    flushFrames(3);
+
+    const calls = spy.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const [worldNow, frameNow] = calls[calls.length - 1]!;
+
+    // The regression: the explosion was animated on the world clock, which stands
+    // still in chess — the fireball froze on the cell and never left. The picture
+    // must run on frame time, which always moves.
+    expect(worldNow).toBeGreaterThan(1_000_000_000);
+    expect(frameNow).toBeLessThan(10_000);
+    const frames = calls.map((call) => call[1]);
+    expect(frames[frames.length - 1]).toBeGreaterThan(frames[0] ?? 0);
+  });
+
   it('turns the glow off and remembers it', async () => {
     await boot();
 

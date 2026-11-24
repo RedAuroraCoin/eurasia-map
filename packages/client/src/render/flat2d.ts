@@ -9,7 +9,8 @@ import {
 import { buildBuildings, ownerTint } from './geometry';
 import { SIDE_COLOURS, TOWER_COLOURS, type UnitInstance, type UnitRole } from './pieces';
 import { HINT_COLOURS, ZONE_COLOURS, type MoveHint } from './hints';
-import { BLAST_MS, type View, type ZoneCell } from './scene3d';
+import { blastFrame } from './blast';
+import type { View, ZoneCell } from './scene3d';
 import type { Lighting } from './palette';
 
 /** One character per piece, so the flat view still says what is standing there. */
@@ -143,7 +144,7 @@ export class Flat2D implements View {
     // sizes are derived at draw time
   }
 
-  render(now: number): void {
+  render(worldNow: number, frameNow: number): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const { canvas } = this;
@@ -180,7 +181,7 @@ export class Flat2D implements View {
 
     if (this.state) {
       const night = this.lighting?.night ?? 0;
-      const buildings = buildBuildings(map, this.state, now, this.relief);
+      const buildings = buildBuildings(map, this.state, worldNow, this.relief);
       for (const building of buildings) {
         const col = building.index % map.cols;
         const row = Math.floor(building.index / map.cols);
@@ -324,7 +325,7 @@ export class Flat2D implements View {
     // The bases that are about to fire: a pool of fire on the ground under each,
     // drawn additively so it reads as light rather than paint.
     if (this.glow.length > 0) {
-      const pulse = 0.5 + 0.5 * Math.abs(Math.sin(now / 220));
+      const pulse = 0.5 + 0.5 * Math.abs(Math.sin(frameNow / 220));
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (const index of this.glow) {
@@ -352,7 +353,7 @@ export class Flat2D implements View {
       ctx.restore();
     }
 
-    this.drawBlast(ctx, map, cell, ox, oy, now);
+    this.drawBlast(ctx, map, cell, ox, oy, frameNow);
   }
 
   /** The explosion in the flat view: a white flash core inside a red shockwave. */
@@ -368,7 +369,8 @@ export class Flat2D implements View {
     if (!blast) return;
     if (blast.start < 0) blast.start = now;
 
-    const t = Math.min(1, (now - blast.start) / BLAST_MS);
+    if (now < blast.start) blast.start = now;
+    const { t } = blastFrame(now - blast.start);
     const centre = blast.cells.reduce((best, tile) => (tile.chance > best.chance ? tile : best));
     const col = centre.cell % map.cols;
     const row = Math.floor(centre.cell / map.cols);

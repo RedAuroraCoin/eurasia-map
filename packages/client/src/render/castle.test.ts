@@ -10,7 +10,7 @@ import {
   towerFromCastle,
 } from './castle';
 import { mergeObject, normalizeToUnitBox } from './model';
-import { BLAST_MS } from './scene3d';
+import { BLAST_MS } from './blast';
 import { unitColour } from './pieces';
 
 /**
