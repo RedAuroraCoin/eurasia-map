@@ -648,6 +648,7 @@ function campCols(): readonly (readonly [number, number])[] {
 }
 
 const chessCtx = () => ({
+  size: CHESS_SIZE,
   isLand: (index: number) => map.mask[index] === '#',
   elev: map.elev,
   rows: map.rows,
@@ -786,7 +787,8 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
   else clearChessGame(storage);
 }
 
-const CHESS_SIZE: MapSize = 800;
+/** Chess is played on the big board: 1600 cells, on either map. */
+const CHESS_SIZE: MapSize = 1600;
 
 /** Starts over, discarding the saved game. */
 function newChessGame(): void {
@@ -825,12 +827,13 @@ function startChess(): void {
     return;
   }
 
-  if (saved.reason === 'corrupt' || saved.reason === 'newer') {
+  if (saved.reason === 'corrupt' || saved.reason === 'newer' || saved.reason === 'stale') {
     backupChessGame(storage, Date.now(), settings.region);
   }
   newChessGame();
   if (saved.reason === 'corrupt') app.setMessage(t.chess.saveCorrupt, 'error');
   else if (saved.reason === 'newer') app.setMessage(t.chess.saveNewer, 'error');
+  else if (saved.reason === 'stale') app.setMessage(t.chess.saveStale, 'info');
 }
 
 function leaveChess(): void {

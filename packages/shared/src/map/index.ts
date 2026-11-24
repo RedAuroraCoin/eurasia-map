@@ -8,7 +8,7 @@ export type { MapConfig, MapEntry, MapSize, RegionId };
 export const DEFAULT_REGION: RegionId = 'eurasia';
 
 /** The original map's sizes, kept for callers that predate regions. */
-export const MAP_SIZES: readonly MapSize[] = [300, 500, 800];
+export const MAP_SIZES: readonly MapSize[] = [300, 500, 800, 1600];
 
 /** Every size any region ships, smallest first. */
 export const ALL_MAP_SIZES: readonly MapSize[] = [300, 500, 800, 1200, 1600];

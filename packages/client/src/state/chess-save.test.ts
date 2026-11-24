@@ -42,6 +42,12 @@ const ctx: ChessCtx = {
 
 const fresh = (): ChessState => createChessGame(800, 7, ctx);
 
+/**
+ * The same board, declared with its size. The client always passes one, so the
+ * save can tell a game from this board from a game from another.
+ */
+const sized: ChessCtx = { ...ctx, size: 800 };
+
 /** A game that has actually been played a little. */
 function playedGame(): ChessState {
   let state = fresh();
@@ -55,6 +61,19 @@ function playedGame(): ChessState {
   const reply = chessReduce(state, { k: 'move', piece: enemy.id, to: enemy.cell - 1 }, ctx);
   return reply.ok ? reply.state : state;
 }
+
+describe('a game belongs to its board', () => {
+  it('is set aside when the board it was played on is gone', () => {
+    const storage = new MemoryStorage();
+    saveChessGame(storage, playedGame());
+
+    const onTheBigBoard = loadChessGame(storage, { ...ctx, size: 1600 });
+    expect(onTheBigBoard).toMatchObject({ ok: false, reason: 'stale' });
+
+    // And the same file still loads on the board it was written on.
+    expect(loadChessGame(storage, sized).ok).toBe(true);
+  });
+});
 
 describe('saving the chess game', () => {
   it('round-trips a game in progress', () => {

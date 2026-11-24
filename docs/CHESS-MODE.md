@@ -14,9 +14,14 @@ hard-coding a second answer that could drift from it.
 
 ## The board
 
-One size only: the **800-cell map**. The size control is hidden in this mode, and
-the building game's own map is restored when you switch back — playing chess does
-not change which board you build on.
+One size only: the **1600-cell map** — the largest board either region builds, so a
+north-south march is a real distance and a rocket's seven cells are a small part of
+the field. The size control is hidden in this mode, and the building game's own map
+is restored when you switch back — playing chess does not change which board you
+build on.
+
+A game is tied to its board: a position saved on the old 800-cell board is set aside
+rather than loaded onto 1600, because the same cell numbers are different ground.
 
 ## The opening position
 

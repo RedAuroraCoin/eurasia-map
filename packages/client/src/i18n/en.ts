@@ -71,6 +71,7 @@ export const en = {
     newGame: 'Restart the game',
     resumed: (round: number) => `Game resumed — round ${round}`,
     saveCorrupt: 'The saved game could not be read — a new one starts',
+    saveStale: 'The board grew: the old game was set aside and a new one started.',
     saveNewer: 'The saved game is from a newer version — a new one starts',
   },
   settings: {

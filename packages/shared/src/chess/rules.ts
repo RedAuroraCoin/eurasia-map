@@ -67,7 +67,12 @@ function cellAt(row: number, col: number, ctx: ChessCtx): number | null {
   return row * ctx.cols + col;
 }
 
-function findCamp(side: Side, ctx: ChessCtx, preferRow?: number): Camp | null {
+function findCamp(
+  side: Side,
+  ctx: ChessCtx,
+  preferRow?: number,
+  avoid?: ReadonlySet<number>,
+): Camp | null {
   const step = side === 0 ? 1 : -1;
   const elevation = (cell: number): number => ctx.elev[cell] ?? 0;
   const usable = (cell: number): boolean => ctx.isLand(cell) && elevation(cell) >= CAMP_FLOOR;
@@ -97,8 +102,18 @@ function findCamp(side: Side, ctx: ChessCtx, preferRow?: number): Camp | null {
 
       for (let file = 0; file < FILES && ok; file++) {
         const back = cellAt(row + file, col, ctx);
-        const pawn = cellAt(row + file, col + step, ctx);
+        const pawnCol = col + step;
+        // The pawns stay on the side's own ground. Without this the two armies
+        // could meet in the middle of a board and share cells: with no bands the
+        // halves touch, and a pawn one column into the neighbour's half is a camp
+        // that overlaps another.
+        const pawn =
+          pawnCol < firstCol || pawnCol > lastCol ? null : cellAt(row + file, pawnCol, ctx);
         if (back === null || pawn === null || !usable(back) || !usable(pawn)) {
+          ok = false;
+          break;
+        }
+        if (avoid && (avoid.has(back) || avoid.has(pawn))) {
           ok = false;
           break;
         }
@@ -137,8 +152,9 @@ export function createChessGame(size: MapSize, seed: number, ctx: ChessCtx, nowM
 
   const whiteCamp = findCamp(0, ctx);
   const whiteRow = whiteCamp ? Math.floor((whiteCamp.backs[0] as number) / ctx.cols) : undefined;
+  const whiteCells = whiteCamp ? new Set(campCells(whiteCamp)) : null;
   for (const side of [0, 1] as const) {
-    const camp = side === 0 ? whiteCamp : findCamp(1, ctx, whiteRow);
+    const camp = side === 0 ? whiteCamp : findCamp(1, ctx, whiteRow, whiteCells ?? undefined);
     if (camp) {
       const cells = campCells(camp);
       homes[side] = cells;

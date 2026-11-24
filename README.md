@@ -6,11 +6,13 @@ built to grow from a single-player clicker into a small strategy game.
 Both maps come out of the same pipeline (`tools/terrain/prepare.py`) from the same public
 data: Natural Earth coastlines and ETOPO 2022 elevations.
 
-- **Eurasia** — 300, 500 or 800 land cells, from Iberia to Kamchatka.
+- **Eurasia** — 300, 500, 800 or 1600 land cells, from Iberia to Kamchatka.
 - **Europe** — 800, 1200 or 1600 land cells, from the Atlantic to eastern Anatolia and from
   Trondheim to the edge of the Sahara, without Iceland. The boards start where Eurasia's end
   because the same cell count over a third of the ground is a coarser picture; each grid is
   sized to hold its target at very nearly the real coastline (IoU 0.98-0.99).
+
+Chess is played on the 1600-cell board of whichever map is chosen.
 
 The architecture decisions behind this repository are in
 [`docs/STAGE0-ARCHITECTURE.md`](docs/STAGE0-ARCHITECTURE.md).

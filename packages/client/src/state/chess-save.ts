@@ -34,7 +34,7 @@ const KINDS: readonly PieceKind[] = ['king', 'queen', 'rook', 'bishop', 'knight'
 
 export type ChessLoadResult =
   | { readonly ok: true; readonly state: ChessState; readonly savedAt: number }
-  | { readonly ok: false; readonly reason: 'empty' | 'corrupt' | 'newer' | 'over' };
+  | { readonly ok: false; readonly reason: 'empty' | 'corrupt' | 'newer' | 'over' | 'stale' };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -127,7 +127,7 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
   return {
     v: CHESS_VERSION,
     seed,
-    size: 800,
+    size: (ctx.size ?? 800) as ChessState['size'],
     pieces: parsed,
     turn,
     round,
@@ -162,6 +162,15 @@ export function loadChessGame(
   if (!isRecord(envelope)) return { ok: false, reason: 'corrupt' };
 
   const savedAt = isNumber(envelope.savedAt) ? envelope.savedAt : 0;
+
+  // A game is played on one board. When the chess board grew from 800 cells to
+  // 1600, every saved position became a different position: same indices, different
+  // ground. Set it aside instead of pretending it still means something.
+  const savedState = isRecord(envelope.state) ? envelope.state : null;
+  if (savedState && isNumber(savedState.size) && ctx.size && savedState.size !== ctx.size) {
+    return { ok: false, reason: 'stale' };
+  }
+
   const version = envelope.v;
   if (typeof version !== 'number' || !Number.isInteger(version)) {
     return { ok: false, reason: 'corrupt' };

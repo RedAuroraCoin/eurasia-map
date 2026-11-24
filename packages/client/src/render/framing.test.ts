@@ -122,7 +122,9 @@ describe('default framing', () => {
       // of the frame rather than a rounding error. Below ~8 % of the viewport
       // the board reads as a coloured plate.
       expect(median).toBeGreaterThan(12);
-      expect(peak).toBeGreaterThan(70);
+      // A taller board shows the same exaggerated relief across more cells, so a
+      // peak occupies a smaller share of the frame. The bar follows the size.
+      expect(peak).toBeGreaterThan(size > 800 ? 40 : 70);
     }
   });
 });

@@ -382,6 +382,49 @@ describe('movement', () => {
   });
 });
 
+describe('the opening on the big boards', () => {
+  const ctxOf = (size: 800 | 1600, region: 'eurasia' | 'europe' = 'eurasia'): ChessCtx => {
+    const map = getMap(size, region);
+    return {
+      size,
+      isLand: (cell) => map.mask[cell] === '#',
+      elev: map.elev,
+      rows: map.rows,
+      cols: map.cols,
+      cellCount: map.rows * map.cols,
+    };
+  };
+
+  it('never puts two pieces on one cell, whatever the seed', () => {
+    // The regression: on a board with no camp bands the two halves touch, and a
+    // pawn one column into the other half made both armies share cells — which
+    // then failed the save's own duplicate check.
+    for (const region of ['eurasia', 'europe'] as const) {
+      const ctx = ctxOf(1600, region);
+      for (let seed = 0; seed < 25; seed++) {
+        const game = createChessGame(1600, seed, ctx);
+        const cells = game.pieces.map((piece) => piece.cell);
+        expect(new Set(cells).size).toBe(cells.length);
+        expect(cells).toHaveLength(PIECES_PER_SIDE * 2);
+        for (const cell of cells) expect(ctx.isLand(cell)).toBe(true);
+      }
+    }
+  });
+
+  it('keeps the two kings far apart', () => {
+    const ctx = ctxOf(1600);
+    const game = createChessGame(1600, 3, ctx);
+    const kings = game.pieces.filter((piece) => piece.kind === 'king');
+    expect(kings).toHaveLength(2);
+    const [a, b] = kings.map((king) => ({
+      row: Math.floor(king.cell / ctx.cols),
+      col: king.cell % ctx.cols,
+    }));
+    if (!a || !b) return;
+    expect(Math.abs(a.col - b.col)).toBeGreaterThan(8);
+  });
+});
+
 describe('the tide is a clock', () => {
   const map800 = getMap(800);
   const big: ChessCtx = {

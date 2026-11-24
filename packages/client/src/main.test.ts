@@ -205,7 +205,7 @@ describe('single-player shell', () => {
         .filter((button) => button.style.display !== 'none')
         .map((button) => button.textContent ?? '');
 
-    expect(sizeButtons()).toEqual(['300', '500', '800']);
+    expect(sizeButtons()).toEqual(['300', '500', '800', '1600']);
 
     const click = (rowLabel: string, label: string): void => {
       const row = rowFor(rowLabel);
@@ -423,7 +423,7 @@ describe('single-player shell', () => {
     chessButton.click();
     flushFrames();
 
-    const map = getMap(800);
+    const map = getMap(1600);
     const game = getChess();
     if (!game) throw new Error('chess mode did not start');
     const pawn = game.pieces.find(
@@ -463,7 +463,7 @@ describe('single-player shell', () => {
     flushFrames();
     expect(getHints()).toHaveLength(0);
 
-    const map = getMap(800);
+    const map = getMap(1600);
     const game = getChess();
     if (!game) throw new Error('chess mode did not start');
     const pawn = game.pieces.find(
@@ -497,7 +497,7 @@ describe('single-player shell', () => {
     flushFrames();
     expect(getFocus()).toBeNull();
 
-    const map = getMap(800);
+    const map = getMap(1600);
     const game = getChess();
     if (!game) throw new Error('chess mode did not start');
     const pawn = game.pieces.find(
@@ -535,7 +535,7 @@ describe('single-player shell', () => {
     expect(body).not.toContain('to move');
 
     // Play a pawn two squares, and the marker moves to the other side.
-    const map = getMap(800);
+    const map = getMap(1600);
     const game = getChess();
     if (!game) throw new Error('chess mode did not start');
     const pawn = game.pieces.find(
@@ -575,8 +575,8 @@ describe('single-player shell', () => {
   it('arms the pawn recruit on your own tower', async () => {
     // Seeded rather than played: a tower now costs more than a side starts with,
     // so the position is written straight into the save.
-    const map = getMap(800);
-    const base = createChessGame(800, 7, {
+    const map = getMap(1600);
+    const base = createChessGame(1600, 7, {
       isLand: (cell) => map.mask[cell] === '#',
       elev: map.elev,
       rows: map.rows,
@@ -642,8 +642,8 @@ describe('single-player shell', () => {
   });
 
   it('offers the rocket base and aims it at enemy pieces in range', async () => {
-    const map = getMap(800);
-    const base = createChessGame(800, 11, {
+    const map = getMap(1600);
+    const base = createChessGame(1600, 11, {
       isLand: (cell) => map.mask[cell] === '#',
       elev: map.elev,
       rows: map.rows,
@@ -769,8 +769,8 @@ describe('single-player shell', () => {
   });
 
   it('fires only on the second tap at the same cell', async () => {
-    const map = getMap(800);
-    const base = createChessGame(800, 13, {
+    const map = getMap(1600);
+    const base = createChessGame(1600, 13, {
       isLand: (cell) => map.mask[cell] === '#',
       elev: map.elev,
       rows: map.rows,
@@ -866,7 +866,7 @@ describe('single-player shell', () => {
     // There is no base yet: the first tap only shows the zone, the second asks the
     // engine — which refuses, and the mode lets go instead of turning every later
     // tap into another refused shot.
-    const map = getMap(800);
+    const map = getMap(1600);
     const game = getChess();
     const target = game?.pieces.find((piece) => piece.side === 1 && piece.kind === 'pawn');
     if (!target) throw new Error('no black pawn');
@@ -905,7 +905,7 @@ describe('single-player shell', () => {
     build.click();
     const spot = getHints()[0];
     if (!spot) throw new Error('no build spot to try');
-    const map = getMap(800);
+    const map = getMap(1600);
     const at = cellCentre(map.cols, map.rows, spot.cell);
     clickCell(at.x, at.y);
 
@@ -942,7 +942,7 @@ describe('single-player shell', () => {
     chessButton.click();
     flushFrames();
 
-    const map = getMap(800);
+    const map = getMap(1600);
     const game = first.getChess();
     if (!game) throw new Error('chess mode did not start');
     const pawn = game.pieces.find(
@@ -981,7 +981,7 @@ describe('single-player shell', () => {
     flushFrames();
 
     // Chess is played on the 800-cell board whatever the building game uses.
-    const map = getMap(800);
+    const map = getMap(1600);
     const game = getChess();
     if (!game) throw new Error('chess mode did not start');
     const pawn = game.pieces.find(

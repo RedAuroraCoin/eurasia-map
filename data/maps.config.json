@@ -19,7 +19,8 @@
       "sizes": {
         "300": { "rows": 22, "cols": 28, "land": 300 },
         "500": { "rows": 29, "cols": 35, "land": 500 },
-        "800": { "rows": 36, "cols": 44, "land": 800 }
+        "800": { "rows": 36, "cols": 44, "land": 800 },
+        "1600": { "rows": 52, "cols": 66, "land": 1600 }
       }
     },
     "europe": {

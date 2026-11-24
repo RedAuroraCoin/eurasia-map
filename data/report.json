@@ -551,6 +551,182 @@
               "ok": true
             }
           ]
+        },
+        "1600": {
+          "rows": 52,
+          "cols": 66,
+          "land": 1600,
+          "land_target": 1600,
+          "shape_iou": 0.9944,
+          "land_elevation_m": {
+            "min": -22,
+            "p50": 407,
+            "p95": 2021,
+            "max": 5314,
+            "mean": 655
+          },
+          "sea_elevation_m": {
+            "min": -6245,
+            "p50": -3174
+          },
+          "landmarks": [
+            {
+              "name": "Tibet",
+              "lon": 88.0,
+              "lat": 32.5,
+              "cell": 1752,
+              "land": true,
+              "elevation": 5067,
+              "expected": [
+                3000,
+                5200
+              ],
+              "ok": true
+            },
+            {
+              "name": "Himalaya",
+              "lon": 84.0,
+              "lat": 28.5,
+              "cell": 1949,
+              "land": true,
+              "elevation": 2154,
+              "expected": [
+                800,
+                4500
+              ],
+              "ok": true
+            },
+            {
+              "name": "Altai",
+              "lon": 89.0,
+              "lat": 48.0,
+              "cell": 1224,
+              "land": true,
+              "elevation": 1085,
+              "expected": [
+                500,
+                3000
+              ],
+              "ok": true
+            },
+            {
+              "name": "Iranian plateau",
+              "lon": 54.0,
+              "lat": 31.0,
+              "cell": 1807,
+              "land": true,
+              "elevation": 1723,
+              "expected": [
+                700,
+                2500
+              ],
+              "ok": true
+            },
+            {
+              "name": "West Siberia",
+              "lon": 76.0,
+              "lat": 60.0,
+              "cell": 758,
+              "land": true,
+              "elevation": 84,
+              "expected": [
+                -50,
+                300
+              ],
+              "ok": true
+            },
+            {
+              "name": "Alps",
+              "lon": 10.0,
+              "lat": 46.5,
+              "cell": 1199,
+              "land": true,
+              "elevation": 1384,
+              "expected": [
+                400,
+                3500
+              ],
+              "ok": true
+            },
+            {
+              "name": "Arabia",
+              "lon": 45.0,
+              "lat": 23.0,
+              "cell": 2134,
+              "land": true,
+              "elevation": 854,
+              "expected": [
+                0,
+                1200
+              ],
+              "ok": true
+            },
+            {
+              "name": "Gobi",
+              "lon": 105.0,
+              "lat": 43.0,
+              "cell": 1361,
+              "land": true,
+              "elevation": 1517,
+              "expected": [
+                700,
+                2000
+              ],
+              "ok": true
+            },
+            {
+              "name": "Indo-Gangetic plain",
+              "lon": 80.0,
+              "lat": 26.0,
+              "cell": 2013,
+              "land": true,
+              "elevation": 189,
+              "expected": [
+                -30,
+                400
+              ],
+              "ok": true
+            },
+            {
+              "name": "Turan lowland",
+              "lon": 62.0,
+              "lat": 43.0,
+              "cell": 1348,
+              "land": true,
+              "elevation": 128,
+              "expected": [
+                -60,
+                400
+              ],
+              "ok": true
+            },
+            {
+              "name": "Deccan",
+              "lon": 78.0,
+              "lat": 18.0,
+              "cell": 2343,
+              "land": true,
+              "elevation": 342,
+              "expected": [
+                150,
+                1200
+              ],
+              "ok": true
+            },
+            {
+              "name": "North-east Siberia",
+              "lon": 128.0,
+              "lat": 65.0,
+              "cell": 577,
+              "land": true,
+              "elevation": 968,
+              "expected": [
+                100,
+                1500
+              ],
+              "ok": true
+            }
+          ]
         }
       }
     },

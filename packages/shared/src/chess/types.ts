@@ -71,6 +71,8 @@ export type ChessCommand =
 
 /** Terrain, not state: the same context the building game uses. */
 export interface ChessCtx {
+  /** The board's land count. A save from another board is not this game. */
+  readonly size?: MapSize;
   readonly isLand: (cell: number) => boolean;
   readonly elev: readonly number[];
   readonly rows: number;
