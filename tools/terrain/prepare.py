@@ -266,7 +266,10 @@ def sample_elevation(dem_path: Path, config: dict, size: dict, mask: np.ndarray,
 # ------------------------------------------------------------------------ checks
 
 
-LANDMARKS = [
+# One list per region: a landmark check that names Tibet is worthless on a map of
+# Europe, and the whole point of the check is that a real mountain shows up as one.
+LANDMARKS: dict[str, list[tuple[str, float, float, int, int]]] = {
+    "eurasia": [
     ("Tibet", 88.0, 32.5, 3000, 5200),
     # a cell is ~4.7 x 2.6 degrees, so a Himalayan cell averages the range with
     # the Ganges plain: 8 000 m peaks and 200 m plains in one number
@@ -281,7 +284,24 @@ LANDMARKS = [
     ("Turan lowland", 62.0, 43.0, -60, 400),
     ("Deccan", 78.0, 18.0, 150, 1200),
     ("North-east Siberia", 128.0, 65.0, 100, 1500),
-]
+    ],
+    "europe": [
+    ("Alps", 10.0, 46.5, 400, 3500),
+    ("Pyrenees", 0.5, 42.8, 300, 3000),
+    ("Iberian meseta", -4.0, 40.0, 300, 1600),
+    # Cell centres here are ~1.4 degrees apart, so the check sits on the plain
+    # itself (9.8 E, 45.0 N) rather than in the Alpine foothills next door.
+    # At 300 cells one cell spans the Alps and the plain together, so the band has
+    # to admit a foothill average as well as a flat one.
+    ("Po plain", 9.8, 45.0, -20, 1000),
+    ("North European Plain", 15.0, 52.5, -40, 400),
+    ("Carpathians", 24.5, 47.5, 200, 2200),
+    ("Scandes", 8.0, 62.0, 100, 2200),
+    ("Rila", 23.5, 42.0, 200, 2600),
+    ("Iceland", -18.0, 64.8, -50, 2200),
+    ("Apennines", 13.5, 42.5, 100, 2600),
+    ],
+}
 
 
 def landmark_cell(config: dict, size: dict, lon: float, lat: float) -> int:
@@ -295,11 +315,13 @@ def landmark_cell(config: dict, size: dict, lon: float, lat: float) -> int:
     return row * size["cols"] + col
 
 
-def check_landmarks(config: dict, size: dict, mask: np.ndarray, elevation: np.ndarray) -> list[dict]:
+def check_landmarks(
+    region: str, config: dict, size: dict, mask: np.ndarray, elevation: np.ndarray
+) -> list[dict]:
     flat_mask = mask.ravel()
     flat_elev = elevation.ravel()
     out = []
-    for name, lon, lat, low, high in LANDMARKS:
+    for name, lon, lat, low, high in LANDMARKS.get(region, []):
         cell = landmark_cell(config, size, lon, lat)
         value = int(flat_elev[cell])
         land = bool(flat_mask[cell])
@@ -338,21 +360,39 @@ def render_preview(entry: dict, path: Path, scale: int = 14) -> None:
     image.save(path)
 
 
+def config_shape(config: dict) -> dict:
+    return {
+        "bbox": config["bbox"],
+        "sizes": {
+            k: {"rows": v["rows"], "cols": v["cols"], "land": v["land"]}
+            for k, v in config["sizes"].items()
+        },
+    }
+
+
 def format_ts(config: dict, entries: list[dict]) -> str:
     lines = [
         "// GENERATED FILE — do not edit by hand.",
         "// Source: tools/terrain/prepare.py (Natural Earth 1:50m land + ETOPO 2022 60\").",
         "// Regenerate with: npm run data",
-        "import type { MapConfig, MapEntry } from './types';",
+        "import type { MapConfig, MapEntry, RegionId } from './types';",
         "",
-        "export const MAP_CONFIG: MapConfig = " + json.dumps(config_shape(config), indent=2) + ";",
-        "",
-        "export const MAP_DATA: readonly MapEntry[] = [",
+        "export const MAP_CONFIGS: Record<RegionId, MapConfig> = {",
     ]
+    for region, region_config in config["regions"].items():
+        shape = config_shape(region_config)
+        lines.append(f"  {region}: " + json.dumps(shape, indent=2).replace("\n", "\n  ") + ",")
+    lines.append("};")
+    lines.append("")
+    lines.append("/** The map the game shipped first; the default everywhere a region is not named. */")
+    lines.append("export const MAP_CONFIG = MAP_CONFIGS.eurasia;")
+    lines.append("")
+    lines.append("export const MAP_DATA: readonly MapEntry[] = [")
     for entry in entries:
         rows, cols = entry["rows"], entry["cols"]
         mask = entry["mask"]
         lines.append("  {")
+        lines.append(f"    region: '{entry['region']}',")
         lines.append(f"    size: {entry['size']},")
         lines.append(f"    rows: {rows},")
         lines.append(f"    cols: {cols},")
@@ -373,26 +413,21 @@ def format_ts(config: dict, entries: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def config_shape(config: dict) -> dict:
-    return {
-        "bbox": config["bbox"],
-        "sizes": {k: {"rows": v["rows"], "cols": v["cols"], "land": v["land"]} for k, v in config["sizes"].items()},
-    }
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate game-ready map and terrain data")
     parser.add_argument("--refresh", action="store_true", help="re-download the source datasets")
+    parser.add_argument("--region", default=None, help="generate one region only (eurasia, europe)")
     parser.add_argument("--only", default=None, help="generate one size only (300, 500 or 800)")
     parser.add_argument("--supersample", type=int, default=8, help="rasterisation factor")
     parser.add_argument("--step", type=int, default=8, help="DEM decimation, in 60\" pixels")
     args = parser.parse_args()
 
     config = json.loads((DATA / "maps.config.json").read_text(encoding="utf-8"))
-    sizes = {k: v for k, v in config["sizes"].items() if args.only in (None, k)}
-    if not sizes:
-        print(f"no such size: {args.only}", file=sys.stderr)
+    regions = config["regions"]
+    if args.region is not None and args.region not in regions:
+        print(f"no such region: {args.region}", file=sys.stderr)
         return 2
+    selected = {k: v for k, v in regions.items() if args.region in (None, k)}
 
     print("sources")
     paths = ensure_sources(config, args.refresh)
@@ -401,77 +436,93 @@ def main() -> int:
     )
 
     entries = []
-    report = {"generated_from": paths["manifest"], "maps": {}}
+    report = {"generated_from": paths["manifest"], "regions": {}}
 
-    for size_key, size in sizes.items():
-        size["land"] = int(size["land"])
-        print(f"\n== {size_key} land cells on {size['cols']}x{size['rows']}")
-        coverage = rasterise_land(paths["land_zip"], config, size, args.supersample)
-        mask = select_mask(coverage, size["rows"], size["cols"], size["land"])
+    for region, region_config in selected.items():
+        # The DEM window and the coastline clip are both region-wide, so they are
+        # read once and reused by all three sizes.
+        report["regions"][region] = {"bbox": region_config["bbox"], "maps": {}}
+        print(f"\n### {region}  {region_config['bbox']}")
 
-        # Shape overlap check: how well the cleaned mask still matches the
-        # rasterised coastline at cell resolution.
-        reference = coverage >= 0.5
-        intersection = int(np.logical_and(mask, reference).sum())
-        union = int(np.logical_or(mask, reference).sum())
-        iou = intersection / union if union else 0.0
+        for size_key, size in region_config["sizes"].items():
+            if args.only not in (None, size_key):
+                continue
+            size = dict(size)
+            size["land"] = int(size["land"])
+            print(f"\n== {region} {size_key} land cells on {size['cols']}x{size['rows']}")
+            coverage = rasterise_land(paths["land_zip"], region_config, size, args.supersample)
+            mask = select_mask(coverage, size["rows"], size["cols"], size["land"])
 
-        elevation = sample_elevation(paths["dem"], config, size, mask, args.step)
+            # Shape overlap check: how well the cleaned mask still matches the
+            # rasterised coastline at cell resolution.
+            reference = coverage >= 0.5
+            intersection = int(np.logical_and(mask, reference).sum())
+            union = int(np.logical_or(mask, reference).sum())
+            iou = intersection / union if union else 0.0
 
-        rows, cols = size["rows"], size["cols"]
-        mask_text = "\n".join(
-            "".join("#" if mask[r, c] else "." for c in range(cols)) for r in range(rows)
-        )
-        (DATA / f"mask-{size_key}.txt").write_text(mask_text + "\n", encoding="utf-8")
+            elevation = sample_elevation(paths["dem"], region_config, size, mask, args.step)
 
-        landmarks = check_landmarks(config, size, mask, elevation)
-        land_elev = elevation[mask]
-        entry = {
-            "size": int(size_key),
-            "rows": rows,
-            "cols": cols,
-            "land": int(mask.sum()),
-            "mask": mask_text.replace("\n", ""),
-            "elev": elevation.ravel().tolist(),
-        }
-        entries.append(entry)
+            rows, cols = size["rows"], size["cols"]
+            mask_text = "\n".join(
+                "".join("#" if mask[r, c] else "." for c in range(cols)) for r in range(rows)
+            )
+            (DATA / f"mask-{region}-{size_key}.txt").write_text(mask_text + "\n", encoding="utf-8")
 
-        render_preview(entry, DATA / f"preview-{size_key}.png")
+            landmarks = check_landmarks(region, region_config, size, mask, elevation)
+            land_elev = elevation[mask]
+            entry = {
+                "region": region,
+                "size": int(size_key),
+                "rows": rows,
+                "cols": cols,
+                "land": int(mask.sum()),
+                "mask": mask_text.replace("\n", ""),
+                "elev": elevation.ravel().tolist(),
+            }
+            entries.append(entry)
 
-        report["maps"][size_key] = {
-            "rows": rows,
-            "cols": cols,
-            "land": int(mask.sum()),
-            "land_target": size["land"],
-            "shape_iou": round(iou, 4),
-            "land_elevation_m": {
-                "min": int(land_elev.min()),
-                "p50": int(np.percentile(land_elev, 50)),
-                "p95": int(np.percentile(land_elev, 95)),
-                "max": int(land_elev.max()),
-                "mean": int(land_elev.mean()),
-            },
-            "sea_elevation_m": {
-                "min": int(elevation[~mask].min()) if (~mask).any() else 0,
-                "p50": int(np.percentile(elevation[~mask], 50)) if (~mask).any() else 0,
-            },
-            "landmarks": landmarks,
-        }
+            render_preview(entry, DATA / f"preview-{region}-{size_key}.png")
 
-        print(mask_text)
-        print(f"  land {int(mask.sum())} / target {size['land']}   shape IoU {iou:.3f}")
-        bad = [l for l in landmarks if not l["ok"]]
-        for item in landmarks:
-            mark = "ok " if item["ok"] else "!! "
-            print(f"  {mark}{item['name']:28s} {item['elevation']:6d} m  (want {item['expected']})")
-        if bad:
-            print(f"  {len(bad)} landmark(s) outside the expected band")
+            report["regions"][region]["maps"][size_key] = {
+                "rows": rows,
+                "cols": cols,
+                "land": int(mask.sum()),
+                "land_target": size["land"],
+                "shape_iou": round(iou, 4),
+                "land_elevation_m": {
+                    "min": int(land_elev.min()),
+                    "p50": int(np.percentile(land_elev, 50)),
+                    "p95": int(np.percentile(land_elev, 95)),
+                    "max": int(land_elev.max()),
+                    "mean": int(land_elev.mean()),
+                },
+                "sea_elevation_m": {
+                    "min": int(elevation[~mask].min()) if (~mask).any() else 0,
+                    "p50": int(np.percentile(elevation[~mask], 50)) if (~mask).any() else 0,
+                },
+                "landmarks": landmarks,
+            }
+
+            print(mask_text)
+            print(f"  land {int(mask.sum())} / target {size['land']}   shape IoU {iou:.3f}")
+            for item in landmarks:
+                mark = "ok " if item["ok"] else "!! "
+                print(f"  {mark}{item['name']:28s} {item['elevation']:6d} m  (want {item['expected']})")
+            bad = [l for l in landmarks if not l["ok"]]
+            if bad:
+                print(f"  {len(bad)} landmark(s) outside the expected band")
+
+    (DATA / "report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+    if args.only is not None:
+        # A partial run must not overwrite data.ts: the file has to hold every
+        # region at every size, or the build is broken for whoever regenerates next.
+        print("\n--only given: data.ts left alone (masks and previews updated)")
+        return 0
 
     OUT_TS.write_text(format_ts(config, entries), encoding="utf-8")
-    (DATA / "report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"\nwrote {OUT_TS.relative_to(ROOT)} and data/report.json")
-    return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

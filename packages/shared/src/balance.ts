@@ -107,6 +107,26 @@ export const BalanceSchema = z.object({
       white: z.tuple([z.number().min(-180).max(180), z.number().min(-180).max(180)]),
       black: z.tuple([z.number().min(-180).max(180), z.number().min(-180).max(180)]),
     }),
+    /**
+     * Camps for a region other than the default one. The bands above are the
+     * original map's; a region that names itself here overrides both, because
+     * "East Asia" is outside the frame when the frame is Europe.
+     */
+    camps: z
+      .partialRecord(
+        z.enum(['eurasia', 'europe']),
+        z.object({
+          campLat: z.object({
+            white: z.tuple([z.number().min(-90).max(90), z.number().min(-90).max(90)]),
+            black: z.tuple([z.number().min(-90).max(90), z.number().min(-90).max(90)]),
+          }),
+          campLon: z.object({
+            white: z.tuple([z.number().min(-180).max(180), z.number().min(-180).max(180)]),
+            black: z.tuple([z.number().min(-180).max(180), z.number().min(-180).max(180)]),
+          }),
+        }),
+      )
+      .optional(),
   }),
   flood: z.object({
     enabledByDefault: z.boolean(),
@@ -200,6 +220,14 @@ const RAW = {
     // in the north-east, where it stood before the bands existed.
     campLat: { white: [46, 64], black: [51, 69] },
     campLon: { white: [-10, 40], black: [130, 145] },
+    camps: {
+      // White in the west (Iberia and France), black in the east (Ukraine and
+      // western Russia): the same "two ends of the map" idea, inside Europe.
+      europe: {
+        campLat: { white: [42, 56], black: [46, 62] },
+        campLon: { white: [-10, 2], black: [26, 42] },
+      },
+    },
   },
   flood: {
     enabledByDefault: true,

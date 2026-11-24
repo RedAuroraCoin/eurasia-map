@@ -5,6 +5,7 @@ import {
   type ChessState,
   type Piece,
   type PieceKind,
+  type RegionId,
   type Side,
 } from '@eurasia/shared';
 import type { StorageLike } from './save';
@@ -21,6 +22,13 @@ import type { StorageLike } from './save';
  */
 
 export const CHESS_SAVE_KEY = 'eurasia.chess';
+
+/**
+ * One chess game per region, same rule as the city save: the original map keeps
+ * its key so an existing game is still found, the new one gets its own.
+ */
+export const chessSaveKey = (region: RegionId = 'eurasia'): string =>
+  region === 'eurasia' ? CHESS_SAVE_KEY : `${CHESS_SAVE_KEY}.${region}`;
 
 const KINDS: readonly PieceKind[] = ['king', 'queen', 'rook', 'bishop', 'knight', 'pawn'];
 
@@ -132,10 +140,14 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
   };
 }
 
-export function loadChessGame(storage: StorageLike, ctx: ChessCtx): ChessLoadResult {
+export function loadChessGame(
+  storage: StorageLike,
+  ctx: ChessCtx,
+  region: RegionId = 'eurasia',
+): ChessLoadResult {
   let text: string | null = null;
   try {
-    text = storage.getItem(CHESS_SAVE_KEY);
+    text = storage.getItem(chessSaveKey(region));
   } catch {
     return { ok: false, reason: 'corrupt' };
   }
@@ -163,29 +175,41 @@ export function loadChessGame(storage: StorageLike, ctx: ChessCtx): ChessLoadRes
   return { ok: true, state, savedAt };
 }
 
-export function saveChessGame(storage: StorageLike, state: ChessState, now = Date.now()): void {
+export function saveChessGame(
+  storage: StorageLike,
+  state: ChessState,
+  now = Date.now(),
+  region: RegionId = 'eurasia',
+): void {
   try {
-    storage.setItem(CHESS_SAVE_KEY, JSON.stringify({ v: CHESS_VERSION, savedAt: now, state }));
+    storage.setItem(
+      chessSaveKey(region),
+      JSON.stringify({ v: CHESS_VERSION, savedAt: now, state }),
+    );
   } catch {
     // Private mode or a full quota: the game keeps working, unsaved.
   }
 }
 
 /** Copies a save we refused to load, before a new game overwrites it. */
-export function backupChessGame(storage: StorageLike, now = Date.now()): boolean {
+export function backupChessGame(
+  storage: StorageLike,
+  now = Date.now(),
+  region: RegionId = 'eurasia',
+): boolean {
   try {
-    const raw = storage.getItem(CHESS_SAVE_KEY);
+    const raw = storage.getItem(chessSaveKey(region));
     if (!raw) return false;
-    storage.setItem(`${CHESS_SAVE_KEY}.backup.${now}`, raw);
+    storage.setItem(`${chessSaveKey(region)}.backup.${now}`, raw);
     return true;
   } catch {
     return false;
   }
 }
 
-export function clearChessGame(storage: StorageLike): void {
+export function clearChessGame(storage: StorageLike, region: RegionId = 'eurasia'): void {
   try {
-    storage.removeItem(CHESS_SAVE_KEY);
+    storage.removeItem(chessSaveKey(region));
   } catch {
     // nothing to do
   }

@@ -1,4 +1,10 @@
-import { BALANCE, SAVE_VERSION, type CellState, type GameState } from '@eurasia/shared';
+import {
+  BALANCE,
+  SAVE_VERSION,
+  type CellState,
+  type GameState,
+  type RegionId,
+} from '@eurasia/shared';
 
 /**
  * Saved progress, with an explicit version envelope and a migration chain.
@@ -21,10 +27,16 @@ export interface StorageLike {
 export const SETTINGS_KEY = 'eurasia.settings.v2';
 
 /**
- * One save per map size: switching size is not a destructive act, and a player
- * who tries the 800-cell map should find their 300-cell city still there.
+ * One save per map size *and region*: switching either is not a destructive act,
+ * and a player who tries the 800-cell map should find their 300-cell city still
+ * there.
+ *
+ * The original map keeps its old keys on purpose — a save written before regions
+ * existed must still be found, or every player would lose their city to a feature
+ * they never asked for.
  */
-export const saveKey = (size: number): string => `eurasia.save.${size}`;
+export const saveKey = (size: number, region: RegionId = 'eurasia'): string =>
+  region === 'eurasia' ? `eurasia.save.${size}` : `eurasia.save.${region}.${size}`;
 
 export type LoadResult =
   | { readonly ok: true; readonly state: GameState; readonly savedAt: number }
@@ -142,10 +154,14 @@ export function migrate(raw: unknown): { state: GameState } | { error: 'corrupt'
   return state ? { state } : { error: 'corrupt' };
 }
 
-export function loadSave(storage: StorageLike, size: number): LoadResult {
+export function loadSave(
+  storage: StorageLike,
+  size: number,
+  region: RegionId = 'eurasia',
+): LoadResult {
   let text: string | null = null;
   try {
-    text = storage.getItem(saveKey(size));
+    text = storage.getItem(saveKey(size, region));
   } catch {
     return { ok: false, reason: 'corrupt' };
   }
@@ -170,9 +186,13 @@ export function saveState(
   state: GameState,
   now: number,
   size: number,
+  region: RegionId = 'eurasia',
 ): boolean {
   try {
-    storage.setItem(saveKey(size), JSON.stringify({ v: SAVE_VERSION, savedAt: now, state }));
+    storage.setItem(
+      saveKey(size, region),
+      JSON.stringify({ v: SAVE_VERSION, savedAt: now, state }),
+    );
     return true;
   } catch {
     // Private mode or a full quota: the game keeps working, unsaved.
@@ -188,20 +208,25 @@ export function saveState(
  * looks corrupted — is copied aside before anything overwrites it, and the player
  * can hand it back once the newer build is restored.
  */
-export function backupSave(storage: StorageLike, size: number, now = Date.now()): boolean {
+export function backupSave(
+  storage: StorageLike,
+  size: number,
+  now = Date.now(),
+  region: RegionId = 'eurasia',
+): boolean {
   try {
-    const raw = storage.getItem(saveKey(size));
+    const raw = storage.getItem(saveKey(size, region));
     if (!raw) return false;
-    storage.setItem(`${saveKey(size)}.backup.${now}`, raw);
+    storage.setItem(`${saveKey(size, region)}.backup.${now}`, raw);
     return true;
   } catch {
     return false;
   }
 }
 
-export function clearSave(storage: StorageLike, size: number): void {
+export function clearSave(storage: StorageLike, size: number, region: RegionId = 'eurasia'): void {
   try {
-    storage.removeItem(saveKey(size));
+    storage.removeItem(saveKey(size, region));
   } catch {
     // nothing to do
   }

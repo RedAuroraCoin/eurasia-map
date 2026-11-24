@@ -1,6 +1,16 @@
 export type MapSize = 300 | 500 | 800;
 
+/**
+ * Which part of the world the grid shows. Both regions are built by the same
+ * pipeline from the same two public datasets, at the same land counts, so the
+ * rules never need to know which one is on the board.
+ */
+export type RegionId = 'eurasia' | 'europe';
+
+export const REGIONS: readonly RegionId[] = ['eurasia', 'europe'];
+
 export interface MapEntry {
+  readonly region: RegionId;
   readonly size: MapSize;
   readonly rows: number;
   readonly cols: number;

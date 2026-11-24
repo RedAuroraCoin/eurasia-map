@@ -1,12 +1,12 @@
 import {
   BALANCE,
-  MAP_CONFIG,
   SAVE_VERSION,
   createInitialState,
   dayIndex,
   getMap,
   hash01,
   isKingMove,
+  mapConfigFor,
   nextStormGap,
   planStorm,
   reduce,
@@ -15,6 +15,7 @@ import {
   type GameState,
   type GameEvent,
   type MapSize,
+  type RegionId,
 } from '@eurasia/shared';
 import { t } from './i18n';
 import { lightingAt } from './render/palette';
@@ -49,7 +50,7 @@ const DEMO_SPEED = 86_400;
 
 const storage = browserStorage();
 let settings = loadSettings(storage);
-let map = getMap(settings.size);
+let map = getMap(settings.size, settings.region);
 let state: GameState;
 let demo = false;
 let demoState: GameState | null = null;
@@ -139,6 +140,9 @@ const handlers: AppHandlers = {
     view.setRelief(relief);
     view.setState(active(), Date.now());
     app.setSettings(settings, demo);
+  },
+  onRegion: (region) => {
+    switchRegion(region);
   },
   onGlow: (glow) => {
     settings = { ...settings, glow };
@@ -452,7 +456,7 @@ function saveNow(): void {
   clearTimeout(saveTimer);
   // The board the state belongs to, not the setting: chess swaps the map without
   // touching the preference, and the two must not be written over each other.
-  saveState(storage, state, Date.now(), map.land);
+  saveState(storage, state, Date.now(), map.land, map.region);
 }
 
 /**
@@ -460,17 +464,17 @@ function saveNow(): void {
  * than to the player: chess is 800 cells only, and the player's building map
  * must be waiting when they switch back.
  */
-function switchSize(size: MapSize, remember = true): void {
-  if (remember && size === settings.size) return;
+function switchSize(size: MapSize, remember = true, force = false): void {
+  if (!force && remember && size === settings.size) return;
   saveNow();
 
   if (remember) {
     settings = { ...settings, size };
     saveSettings(storage, settings);
   }
-  map = getMap(size);
+  map = getMap(size, settings.region);
 
-  const loaded = loadSave(storage, size);
+  const loaded = loadSave(storage, size, settings.region);
   state = loaded.ok ? loaded.state : createInitialState(nextSeed(), Date.now());
   selected = firstLand();
 
@@ -480,6 +484,32 @@ function switchSize(size: MapSize, remember = true): void {
   updateStats();
   app.setSettings(settings, demo);
   app.setMessage(loaded.ok ? t.messages.loaded(state.claimed[0]) : t.hud.hint, 'info');
+}
+
+/**
+ * Swaps the region under the player. The board, the save and the chess camps all
+ * follow it: each region has its own city and its own game, so switching is never
+ * destructive.
+ */
+function switchRegion(region: RegionId): void {
+  if (region === settings.region) return;
+
+  saveNow();
+  if (chess) saveChessGame(storage, chess, Date.now(), settings.region);
+
+  settings = { ...settings, region };
+  saveSettings(storage, settings);
+
+  if (settings.mode === 'chess') {
+    // The chess board is 800 cells in every region, so the size does not change —
+    // only the terrain under it does. Force the reload.
+    switchSize(CHESS_SIZE, false, true);
+    startChess();
+  } else {
+    switchSize(settings.size, false, true);
+  }
+
+  app.setSettings(settings, demo);
 }
 
 function buildDemoState(): GameState {
@@ -525,7 +555,7 @@ async function reset(): Promise<void> {
   const confirmed = await app.askReset();
   if (!confirmed) return;
 
-  clearSave(storage, map.land);
+  clearSave(storage, map.land, map.region);
   state = createInitialState(nextSeed(), Date.now());
   demo = false;
   demoState = null;
@@ -568,7 +598,7 @@ function resolveQuality(current: Settings): 'high' | 'low' {
 
 /** Row whose centre sits at this latitude. Row 0 is the northern edge. */
 function rowForLat(lat: number): number {
-  const { lat0, lat1 } = MAP_CONFIG.bbox;
+  const { lat0, lat1 } = mapConfigFor(map.region).bbox;
   const t = (lat1 - lat) / (lat1 - lat0);
   return Math.round(t * (map.rows - 1));
 }
@@ -576,18 +606,24 @@ function rowForLat(lat: number): number {
 /**
  * The bands the armies camp in: white in Europe, black in East Asia. The engine
  * has no geography, so the latitude is resolved to rows here.
+ *
+ * A region may bring its own bands: "East Asia" is off the board when the board is
+ * Europe, and clamping it there would put both armies in the same corner.
  */
+const campBands = () => BALANCE.chess.camps?.[map.region] ?? BALANCE.chess;
+
 function campRows(): readonly (readonly [number, number])[] {
   const band = (pair: readonly [number, number]): readonly [number, number] => [
     rowForLat(pair[1]),
     rowForLat(pair[0]),
   ];
-  return [band(BALANCE.chess.campLat.white), band(BALANCE.chess.campLat.black)];
+  const bands = campBands();
+  return [band(bands.campLat.white), band(bands.campLat.black)];
 }
 
 /** Column whose centre sits at this longitude. Column 0 is the western edge. */
 function colForLon(lon: number): number {
-  const { lon0, lon1 } = MAP_CONFIG.bbox;
+  const { lon0, lon1 } = mapConfigFor(map.region).bbox;
   return Math.round(((lon - lon0) / (lon1 - lon0)) * (map.cols - 1));
 }
 
@@ -596,7 +632,8 @@ function campCols(): readonly (readonly [number, number])[] {
     colForLon(pair[0]),
     colForLon(pair[1]),
   ];
-  return [band(BALANCE.chess.campLon.white), band(BALANCE.chess.campLon.black)];
+  const bands = campBands();
+  return [band(bands.campLon.white), band(bands.campLon.black)];
 }
 
 const chessCtx = () => ({
@@ -734,7 +771,7 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
   refreshRocketGlow();
   refreshHints();
   // Every applied action is a save point: a reload resumes on this position.
-  if (chess.winner === null) saveChessGame(storage, chess);
+  if (chess.winner === null) saveChessGame(storage, chess, Date.now(), settings.region);
   else clearChessGame(storage);
 }
 
@@ -745,7 +782,7 @@ function newChessGame(): void {
   chess = createChessGame(CHESS_SIZE, nextSeed(), chessCtx());
   chessSelected = null;
   chessAction = 'none';
-  saveChessGame(storage, chess);
+  saveChessGame(storage, chess, Date.now(), settings.region);
   app.setChessMode(true);
   app.setAction('none');
   view.setUnits(unitsOf(chess));
@@ -764,7 +801,7 @@ function startChess(): void {
   // there: switch to it without touching the building game's saved preference.
   if (map.land !== CHESS_SIZE) switchSize(CHESS_SIZE, false);
 
-  const saved = loadChessGame(storage, chessCtx());
+  const saved = loadChessGame(storage, chessCtx(), settings.region);
   if (saved.ok) {
     chess = saved.state;
     chessSelected = null;
@@ -777,7 +814,9 @@ function startChess(): void {
     return;
   }
 
-  if (saved.reason === 'corrupt' || saved.reason === 'newer') backupChessGame(storage);
+  if (saved.reason === 'corrupt' || saved.reason === 'newer') {
+    backupChessGame(storage, Date.now(), settings.region);
+  }
   newChessGame();
   if (saved.reason === 'corrupt') app.setMessage(t.chess.saveCorrupt, 'error');
   else if (saved.reason === 'newer') app.setMessage(t.chess.saveNewer, 'error');
@@ -1100,7 +1139,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') settle();
   else {
     saveNow();
-    if (chess) saveChessGame(storage, chess);
+    if (chess) saveChessGame(storage, chess, Date.now(), settings.region);
   }
 });
 window.addEventListener('beforeunload', () => {
@@ -1113,11 +1152,11 @@ window.setInterval(settle, 60_000);
 
 applyTheme();
 
-const loaded = loadSave(storage, settings.size);
+const loaded = loadSave(storage, settings.size, settings.region);
 // A file we cannot read is copied aside before a new city is written over it:
 // rolling the build back is easy, rolling the save back is not.
 if (!loaded.ok && (loaded.reason === 'corrupt' || loaded.reason === 'newer')) {
-  backupSave(storage, settings.size);
+  backupSave(storage, settings.size, Date.now(), settings.region);
 }
 state = loaded.ok ? loaded.state : createInitialState(nextSeed(), Date.now());
 
@@ -1129,7 +1168,7 @@ const landLeft = map.elev.filter(
 const drownedWorld = loaded.ok && landLeft === 0;
 if (drownedWorld) {
   state = createInitialState(nextSeed(), Date.now());
-  clearSave(storage, map.land);
+  clearSave(storage, map.land, map.region);
 }
 selected = firstLand();
 
@@ -1368,6 +1407,7 @@ export const __eurasia: {
   getBlast: () => readonly ZoneCell[];
   getFocus: () => number | null;
   getGlowCells: () => readonly number[];
+  getRegion: () => string;
   getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
@@ -1381,6 +1421,7 @@ export const __eurasia: {
   getBlast: () => blast,
   getFocus: () => focusTarget,
   getGlowCells: () => glowCells,
+  getRegion: () => map.region,
   getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,

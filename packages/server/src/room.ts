@@ -15,6 +15,7 @@ import {
   MS_PER_DAY,
   type StormPlan,
   type MapSize,
+  type RegionId,
 } from '@eurasia/shared';
 
 /**
@@ -40,6 +41,8 @@ interface StoredState {
   schema: number;
   /** Board size; the terrains differ per size, so the room must remember it. */
   size: MapSize;
+  /** Which region the board is: rooms predating this are all on the first map. */
+  region?: RegionId;
   gameState: GameState;
   /** Seat 0 secret hash → seat 1 secret hash. Missing = empty. */
   seats: [SecretHash | null, SecretHash | null];
@@ -311,7 +314,7 @@ export class Room {
     const fullCmd = { ...cmd, slot: seat } as Command;
 
     const stored = await this.getStored();
-    const ctx = this.makeContext(stored.size);
+    const ctx = this.makeContext(stored.size, stored.region);
     const result = reduce(stored.gameState, fullCmd, ctx);
 
     if (!result.ok) {
@@ -374,7 +377,7 @@ export class Room {
           Math.floor(
             hash01(numericSeed) * (BALANCE.hurricane.lifeMaxMs - BALANCE.hurricane.lifeMinMs),
           );
-        const map = getMap(stored.size);
+        const map = getMap(stored.size, stored.region);
         const plan = planStorm({
           seed: numericSeed,
           id: ++stored.stormCounter,
@@ -393,9 +396,9 @@ export class Room {
     for (const [id, plan] of Object.entries(stored.storms) as [string, StormPlan][]) {
       if (plan.damageAt <= now && now < plan.endsAt) {
         // Resolve damage
-        const map = getMap(stored.size);
+        const map = getMap(stored.size, stored.region);
         const cells = stormCells(plan, map);
-        const ctx = this.makeContext(stored.size);
+        const ctx = this.makeContext(stored.size, stored.region);
         const result = reduce(stored.gameState, { k: 'damage', cells }, ctx);
         if (result.ok) {
           stored.gameState = result.state;
@@ -435,9 +438,9 @@ export class Room {
 
     for (const [id, plan] of Object.entries(stored.storms) as [string, StormPlan][]) {
       if (plan.damageAt <= now && now < plan.endsAt) {
-        const map = getMap(stored.size);
+        const map = getMap(stored.size, stored.region);
         const cells = stormCells(plan, map);
-        const ctx = this.makeContext(stored.size);
+        const ctx = this.makeContext(stored.size, stored.region);
         const result = reduce(stored.gameState, { k: 'damage', cells }, ctx);
         if (result.ok) {
           stored.gameState = result.state;
@@ -467,7 +470,11 @@ export class Room {
     // both are keyed on lastDay, so one tick applies every elapsed day at once.
     if (!stored.nextDayAt) stored.nextDayAt = (dayIndex(now) + 1) * MS_PER_DAY;
     if (now >= stored.nextDayAt) {
-      const result = reduce(stored.gameState, { k: 'tick' }, this.makeContext(stored.size));
+      const result = reduce(
+        stored.gameState,
+        { k: 'tick' },
+        this.makeContext(stored.size, stored.region),
+      );
       stored.nextDayAt = (dayIndex(now) + 1) * MS_PER_DAY;
       if (result.state !== stored.gameState) {
         stored.gameState = result.state;
@@ -499,6 +506,7 @@ export class Room {
     const room: StoredState = {
       schema: SCHEMA_VERSION,
       size: 500,
+      region: 'eurasia',
       gameState: initialState,
       seats: [null, null],
       connections: {},
@@ -521,12 +529,14 @@ export class Room {
     }
     // Rooms created before the terrain fix stored no size; 500 is the default.
     if (!stored.size) stored.size = 500;
+    // Rooms created before regions existed were all on the original map.
+    if (!stored.region) stored.region = 'eurasia';
     if (!stored.nextDayAt) stored.nextDayAt = (dayIndex(Date.now()) + 1) * MS_PER_DAY;
     await this.putStored(stored);
   }
 
-  private makeContext(size: MapSize) {
-    const map = getMap(size);
+  private makeContext(size: MapSize, region: RegionId = 'eurasia') {
+    const map = getMap(size, region);
     return {
       nowMs: Date.now(),
       isLand: (cell: number) => cell >= 0 && cell < map.mask.length && map.mask[cell] === '#',

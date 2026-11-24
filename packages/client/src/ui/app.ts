@@ -1,4 +1,4 @@
-import { BALANCE, MAP_SIZES, type MapSize } from '@eurasia/shared';
+import { BALANCE, MAP_SIZES, type MapSize, type RegionId } from '@eurasia/shared';
 import { t } from '../i18n';
 import type { Quality, Settings, Theme } from '../state/settings';
 import type { GameMode } from '../state/settings';
@@ -12,6 +12,7 @@ export interface AppHandlers {
   onSides(both: boolean): void;
   onHurricanes(on: boolean): void;
   onGlow(on: boolean): void;
+  onRegion(region: RegionId): void;
   onFlood(on: boolean): void;
   onSpeed(index: number): void;
   onDemo(): void;
@@ -70,6 +71,7 @@ export class App {
     relief: ReturnType<typeof segmented<string>>;
     hurricanes: ReturnType<typeof segmented<string>>;
     glow: ReturnType<typeof segmented<string>>;
+    region: ReturnType<typeof segmented<string>>;
     flood: ReturnType<typeof segmented<string>>;
     speed: ReturnType<typeof segmented<number>>;
     sides: ReturnType<typeof segmented<string>>;
@@ -249,6 +251,15 @@ export class App {
       (value) => handlers.onFlood(value === 'on'),
       t.settings.flood,
     );
+    const region = segmented<string>(
+      [
+        { value: 'eurasia', label: t.settings.regionEurasia },
+        { value: 'europe', label: t.settings.regionEurope },
+      ],
+      settings.region,
+      (value) => handlers.onRegion(value as RegionId),
+      t.settings.region,
+    );
     const glow = segmented<string>(
       [
         { value: 'on', label: t.settings.glowOn },
@@ -293,6 +304,7 @@ export class App {
       relief,
       hurricanes,
       glow,
+      region,
       flood,
       speed,
       sides,
@@ -369,6 +381,7 @@ export class App {
         }),
       ),
       row(t.settings.mode, mode.root),
+      row(t.settings.region, region.root),
       this.sizeRow,
       row(t.settings.relief, relief.root),
       row(t.settings.sides, sides.root),
@@ -668,6 +681,7 @@ export class App {
     this.segments.relief.set(settings.relief ? 'on' : 'off');
     this.segments.hurricanes.set(settings.hurricanes ? 'on' : 'off');
     this.segments.glow.set(settings.glow ? 'on' : 'off');
+    this.segments.region.set(settings.region);
     this.segments.flood.set(settings.flood ? 'on' : 'off');
     this.segments.speed.set(settings.speed);
     this.demoButton.textContent = demo ? t.settings.demoOff : t.settings.demoOn;

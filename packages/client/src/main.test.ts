@@ -160,6 +160,36 @@ describe('single-player shell', () => {
     expect(mode?.getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('switches the map to Europe and back, keeping the game playable', async () => {
+    const { getChess, getRegion } = await bootFresh();
+    expect(getRegion()).toBe('eurasia');
+    const before = getChess();
+    expect(before?.pieces).toHaveLength(32);
+
+    const click = (label: string): void => {
+      const row = [...document.querySelectorAll('.row')].find((element) =>
+        element.textContent?.includes('Map'),
+      );
+      const button = [...(row?.querySelectorAll('button') ?? [])].find(
+        (candidate) => candidate.textContent === label,
+      ) as HTMLButtonElement | undefined;
+      if (!button) throw new Error(`no ${label} button`);
+      button.click();
+      flushFrames();
+    };
+
+    click('Europe');
+    expect(getRegion()).toBe('europe');
+    // A fresh chess game on the new terrain, still two full armies.
+    const europe = getChess();
+    expect(europe?.pieces).toHaveLength(32);
+    expect(europe?.turn).toBe(0);
+
+    click('Eurasia');
+    expect(getRegion()).toBe('eurasia');
+    expect(getChess()).not.toBeNull();
+  });
+
   it('hands the view the frame clock, not the world clock', async () => {
     await boot();
     const { Flat2D } = await import('./render/flat2d');
@@ -201,8 +231,8 @@ describe('single-player shell', () => {
 
     expect(document.querySelector('h1')?.textContent).toBe('Eurasia Map');
     expect(document.querySelector('canvas')).not.toBeNull();
-    // mode, size, relief, sides, hurricanes, glow, flood, speed, quality, theme
-    expect(document.querySelectorAll('.segmented')).toHaveLength(10);
+    // mode, map, size, relief, sides, hurricanes, glow, flood, speed, quality, theme
+    expect(document.querySelectorAll('.segmented')).toHaveLength(11);
     expect(document.body.textContent).toContain('Glow');
     // The panel is positioned against the stage: inside the app grid it slid
     // under the topbar and ignored that row in its max-height.
@@ -326,7 +356,7 @@ describe('single-player shell', () => {
     );
     // Nine in the building game; chess drops the map size and the time speed.
     // Chess hides the speed row and nothing else.
-    expect(visibleSegments).toHaveLength(8);
+    expect(visibleSegments).toHaveLength(9);
   });
 
   it('opens the menu with the hamburger and deals a new game from it', async () => {

@@ -1,19 +1,31 @@
-import { MAP_CONFIG, MAP_DATA } from './data';
-import type { MapConfig, MapEntry, MapSize } from './types';
+import { MAP_CONFIG, MAP_CONFIGS, MAP_DATA } from './data';
+import { REGIONS, type MapConfig, type MapEntry, type MapSize, type RegionId } from './types';
 
-export { MAP_CONFIG, MAP_DATA };
-export type { MapConfig, MapEntry, MapSize };
+export { MAP_CONFIG, MAP_CONFIGS, MAP_DATA, REGIONS };
+export type { MapConfig, MapEntry, MapSize, RegionId };
+
+/** The default region: the map the game shipped with. */
+export const DEFAULT_REGION: RegionId = 'eurasia';
 
 export const MAP_SIZES: readonly MapSize[] = [300, 500, 800];
 
-const bySize = new Map<number, MapEntry>();
-for (const entry of MAP_DATA) bySize.set(entry.size, entry as MapEntry);
+const byKey = new Map<string, MapEntry>();
+for (const entry of MAP_DATA) byKey.set(`${entry.region}:${entry.size}`, entry as MapEntry);
 
-export function getMap(size: MapSize): MapEntry {
-  const map = bySize.get(size);
-  if (map === undefined) throw new Error(`no map data for size ${size}`);
+/**
+ * The grid for a region and a size. The region defaults to the original map, so a
+ * caller that predates regions keeps working — and `getMap(800)` still means what
+ * it always meant.
+ */
+export function getMap(size: MapSize, region: RegionId = DEFAULT_REGION): MapEntry {
+  const map = byKey.get(`${region}:${size}`);
+  if (map === undefined) throw new Error(`no map data for ${region} at size ${size}`);
   return map;
 }
+
+/** The bounding box a region's grid is squeezed from — latitude and longitude live here. */
+export const mapConfigFor = (region: RegionId): MapConfig =>
+  MAP_CONFIGS[region] ?? MAP_CONFIGS[DEFAULT_REGION];
 
 export const cellCount = (map: MapEntry): number => map.rows * map.cols;
 

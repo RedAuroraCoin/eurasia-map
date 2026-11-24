@@ -1,4 +1,4 @@
-import { BALANCE, MAP_SIZES, type MapSize } from '@eurasia/shared';
+import { BALANCE, MAP_SIZES, REGIONS, type MapSize, type RegionId } from '@eurasia/shared';
 import { SETTINGS_KEY, type StorageLike } from './save';
 
 export type Theme = 'auto' | 'light' | 'dark';
@@ -15,6 +15,12 @@ export interface Settings {
   readonly flood: boolean;
   /** Which game is being played. They share the map and nothing else. */
   readonly mode: GameMode;
+  /**
+   * Which part of the world. Both regions are built by the same pipeline at the
+   * same land counts, so switching one for the other is a display choice plus a
+   * separate save, not a different game.
+   */
+  readonly region: RegionId;
   /** Index into SPEEDS. */
   readonly speed: number;
   readonly size: MapSize;
@@ -38,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // Chess is the game the link opens: it needs no save and shows the board at
   // once. The city game is one click away in the panel, and a room link forces it.
   mode: 'chess',
+  region: 'eurasia',
   theme: 'auto',
   quality: 'auto',
   relief: true,
@@ -67,6 +74,7 @@ export function parseSettings(raw: unknown): Settings {
   // second hard-coded answer that can drift from DEFAULT_SETTINGS.
   const mode: GameMode =
     source.mode === 'chess' || source.mode === 'build' ? source.mode : DEFAULT_SETTINGS.mode;
+  const region = pick<RegionId>(source.region, REGIONS, DEFAULT_SETTINGS.region);
   const speed = Number(source.speed);
 
   return {
@@ -78,6 +86,7 @@ export function parseSettings(raw: unknown): Settings {
     glow: typeof source.glow === 'boolean' ? source.glow : DEFAULT_SETTINGS.glow,
     flood: typeof source.flood === 'boolean' ? source.flood : DEFAULT_SETTINGS.flood,
     mode,
+    region,
     speed: Number.isInteger(speed) && speed >= 0 && speed < SPEEDS.length ? speed : 0,
     size: (MAP_SIZES as readonly number[]).includes(size)
       ? (size as MapSize)
