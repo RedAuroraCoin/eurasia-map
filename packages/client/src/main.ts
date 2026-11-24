@@ -23,7 +23,13 @@ import { createView, type View } from './render/view';
 import { backupSave, browserStorage, clearSave, loadSave, saveState } from './state/save';
 import { backupChessGame, clearChessGame, loadChessGame, saveChessGame } from './state/chess-save';
 import { advance, clockFor } from './state/clock';
-import { loadSettings, saveSettings, speedMultiplier, type Settings } from './state/settings';
+import {
+  loadSettings,
+  saveSettings,
+  speedMultiplier,
+  withRegion,
+  type Settings,
+} from './state/settings';
 import { MultiplayerClient, createInvite, parseRoomFromUrl } from './multiplayer/client';
 import {
   buildSpots,
@@ -118,6 +124,9 @@ void fetch('/api/health', { method: 'GET' })
 // everything they close over (`app`, `view`) exists by the time one is called.
 const handlers: AppHandlers = {
   onSize: (size) => {
+    // Chess is 800 cells by rule; the row is hidden there, and this keeps a stray
+    // click from putting the pieces on a board they were not placed on.
+    if (chess) return;
     if (mp) {
       app.setMessage(t.messages.roomSizeLocked, 'error');
       return;
@@ -497,7 +506,9 @@ function switchRegion(region: RegionId): void {
   saveNow();
   if (chess) saveChessGame(storage, chess, Date.now(), settings.region);
 
-  settings = { ...settings, region };
+  // A region builds the sizes it builds: coming from a 300-cell Eurasia to Europe
+  // must land on 800, not on a board that does not exist.
+  settings = withRegion(settings, region);
   saveSettings(storage, settings);
 
   if (settings.mode === 'chess') {
@@ -1408,6 +1419,7 @@ export const __eurasia: {
   getFocus: () => number | null;
   getGlowCells: () => readonly number[];
   getRegion: () => string;
+  getSize: () => number;
   getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
@@ -1422,6 +1434,7 @@ export const __eurasia: {
   getFocus: () => focusTarget,
   getGlowCells: () => glowCells,
   getRegion: () => map.region,
+  getSize: () => map.land,
   getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,

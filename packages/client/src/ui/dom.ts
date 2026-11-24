@@ -32,6 +32,12 @@ export interface SegmentOption<T extends string | number> {
 export interface Segmented<T extends string | number> {
   readonly root: HTMLElement;
   set(value: T): void;
+  /**
+   * Shows only some of the options. A map has the sizes it builds and no others:
+   * the size row is shared between maps, so the ones this map lacks step aside
+   * instead of offering a board that does not exist.
+   */
+  only(values: readonly T[]): void;
 }
 
 /**
@@ -95,6 +101,15 @@ export function segmented<T extends string | number>(
     set: (value: T) => {
       current = value;
       sync();
+    },
+    only: (values: readonly T[]) => {
+      buttons.forEach((button, index) => {
+        const option = options[index];
+        if (!option) return;
+        const visible = values.includes(option.value);
+        button.hidden = !visible;
+        button.style.display = visible ? '' : 'none';
+      });
     },
   };
 }

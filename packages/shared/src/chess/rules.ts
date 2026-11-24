@@ -1,6 +1,7 @@
 import { BALANCE } from '../balance';
 import { hashString } from '../rng';
 import { buildSpots, legalTargets, neighbours, recruitSpots, rocketCells, spotOf } from './moves';
+import type { MapSize } from '../map/types';
 import type {
   ChessCommand,
   ChessCtx,
@@ -128,12 +129,7 @@ function campCells(camp: Camp): number[] {
  * Builds the opening position. Deterministic, and it reads the mask rather than
  * assuming a rectangle, so a map with a broken coast still starts.
  */
-export function createChessGame(
-  size: 300 | 500 | 800,
-  seed: number,
-  ctx: ChessCtx,
-  nowMs = 0,
-): ChessState {
+export function createChessGame(size: MapSize, seed: number, ctx: ChessCtx, nowMs = 0): ChessState {
   void nowMs;
   const pieces: Piece[] = [];
   const homes: number[][] = [[], []];

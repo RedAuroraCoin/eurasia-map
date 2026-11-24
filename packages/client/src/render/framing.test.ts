@@ -1,4 +1,4 @@
-import { MAP_SIZES, getMap } from '@eurasia/shared';
+import { MAP_SIZES, getMap, type MapSize } from '@eurasia/shared';
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { cellToWorld, elevationToHeight, fitDistance, VIEW_DIRECTION } from './grid';
@@ -24,7 +24,7 @@ interface Frame {
   readonly maxY: number;
 }
 
-function landFrame(size: 300 | 500 | 800, aspect: number): Frame {
+function landFrame(size: MapSize, aspect: number): Frame {
   const map = getMap(size);
   const distance = fitDistance(map, FOV, aspect);
 
@@ -71,7 +71,7 @@ function landFrame(size: 300 | 500 | 800, aspect: number): Frame {
  * the data say.
  */
 function reliefPixels(
-  size: 300 | 500 | 800,
+  size: MapSize,
   aspect: number,
   viewportHeight: number,
 ): { median: number; peak: number } {

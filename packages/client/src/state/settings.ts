@@ -1,4 +1,11 @@
-import { BALANCE, MAP_SIZES, REGIONS, type MapSize, type RegionId } from '@eurasia/shared';
+import {
+  ALL_MAP_SIZES,
+  BALANCE,
+  REGIONS,
+  sizeFor,
+  type MapSize,
+  type RegionId,
+} from '@eurasia/shared';
 import { SETTINGS_KEY, type StorageLike } from './save';
 
 export type Theme = 'auto' | 'light' | 'dark';
@@ -88,9 +95,17 @@ export function parseSettings(raw: unknown): Settings {
     mode,
     region,
     speed: Number.isInteger(speed) && speed >= 0 && speed < SPEEDS.length ? speed : 0,
-    size: (MAP_SIZES as readonly number[]).includes(size)
-      ? (size as MapSize)
-      : DEFAULT_SETTINGS.size,
+    // A size has to exist on the chosen map: Europe has no 300-cell board, so a
+    // preference carried over from Eurasia lands on the nearest one it does have.
+    size:
+      source.size === undefined
+        ? sizeFor(region, DEFAULT_SETTINGS.size)
+        : sizeFor(
+            region,
+            (ALL_MAP_SIZES as readonly number[]).includes(size)
+              ? (size as MapSize)
+              : DEFAULT_SETTINGS.size,
+          ),
     sides: pick<'one' | 'both'>(source.sides, ['one', 'both'], DEFAULT_SETTINGS.sides),
   };
 }
@@ -114,3 +129,10 @@ export function saveSettings(storage: StorageLike, settings: Settings): void {
 }
 
 export const speedMultiplier = (settings: Settings): number => SPEEDS[settings.speed] ?? 1;
+
+/** The settings with the size clamped to one the region actually builds. */
+export const withRegion = (settings: Settings, region: RegionId): Settings => ({
+  ...settings,
+  region,
+  size: sizeFor(region, settings.size),
+});

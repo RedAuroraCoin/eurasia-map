@@ -1,4 +1,4 @@
-import { BALANCE, MAP_SIZES, type MapSize, type RegionId } from '@eurasia/shared';
+import { ALL_MAP_SIZES, BALANCE, sizesFor, type MapSize, type RegionId } from '@eurasia/shared';
 import { t } from '../i18n';
 import type { Quality, Settings, Theme } from '../state/settings';
 import type { GameMode } from '../state/settings';
@@ -210,11 +210,14 @@ export class App {
       t.settings.mode,
     );
     const size = segmented<MapSize>(
-      MAP_SIZES.map((value) => ({ value, label: String(value) })),
+      ALL_MAP_SIZES.map((value) => ({ value, label: String(value) })),
       settings.size,
       handlers.onSize,
       t.settings.size,
     );
+    // Only the boards this map builds are offered; the rest stay in the row but out
+    // of sight, so switching maps does not rebuild the panel.
+    size.only(sizesFor(settings.region));
     const relief = segmented<string>(
       [
         { value: 'on', label: t.settings.reliefOn },
@@ -682,6 +685,7 @@ export class App {
     this.segments.hurricanes.set(settings.hurricanes ? 'on' : 'off');
     this.segments.glow.set(settings.glow ? 'on' : 'off');
     this.segments.region.set(settings.region);
+    this.segments.size.only(sizesFor(settings.region));
     this.segments.flood.set(settings.flood ? 'on' : 'off');
     this.segments.speed.set(settings.speed);
     this.demoButton.textContent = demo ? t.settings.demoOff : t.settings.demoOn;

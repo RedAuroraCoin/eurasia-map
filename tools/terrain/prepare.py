@@ -115,6 +115,32 @@ def ensure_sources(config: dict, refresh: bool) -> dict[str, Path]:
 # ------------------------------------------------------------------- rasterise
 
 
+def apply_excludes(coverage: np.ndarray, config: dict, size: dict) -> np.ndarray:
+    """Zeros land inside the region's "not this" boxes.
+
+    A region is a rectangle, and a rectangle cannot leave out an island that sits
+    inside it. Iceland is the case that forced this: it is west of Ireland but well
+    north of it, and the brief for the Europe board has no Iceland on it.
+    """
+    boxes = config.get("exclude") or []
+    if not boxes:
+        return coverage
+
+    bbox = config["bbox"]
+    rows, cols = size["rows"], size["cols"]
+    dlon = (bbox["lon1"] - bbox["lon0"]) / cols
+    dlat = (bbox["lat1"] - bbox["lat0"]) / rows
+    out = coverage.copy()
+    for box in boxes:
+        # Rows count from the north edge, columns from the west.
+        c0 = max(0, int((box["lon0"] - bbox["lon0"]) / dlon))
+        c1 = min(cols, int((box["lon1"] - bbox["lon0"]) / dlon) + 1)
+        r0 = max(0, int((bbox["lat1"] - box["lat1"]) / dlat))
+        r1 = min(rows, int((bbox["lat1"] - box["lat0"]) / dlat) + 1)
+        out[r0:r1, c0:c1] = 0.0
+    return out
+
+
 def rasterise_land(land_zip: Path, config: dict, size: dict, supersample: int) -> np.ndarray:
     """Coverage fraction of land per grid cell, in [0, 1].
 
@@ -298,7 +324,7 @@ LANDMARKS: dict[str, list[tuple[str, float, float, int, int]]] = {
     ("Carpathians", 24.5, 47.5, 200, 2200),
     ("Scandes", 8.0, 62.0, 100, 2200),
     ("Rila", 23.5, 42.0, 200, 2600),
-    ("Iceland", -18.0, 64.8, -50, 2200),
+    # No Iceland: the Europe board excludes it on purpose (see "exclude" above).
     # The frame now runs south and east far enough to take in Anatolia and the
     # Maghreb, so those get checked too.
     ("Anatolian plateau", 33.0, 39.0, 500, 2500),
@@ -320,6 +346,35 @@ def landmark_cell(config: dict, size: dict, lon: float, lat: float) -> int:
     return row * size["cols"] + col
 
 
+def nearest_land_cell(config: dict, size: dict, mask: np.ndarray, lon: float, lat: float) -> int:
+    """The land cell closest to a point, searching a small box around it.
+
+    A landmark names a place, not a grid index. With the grid phase changing as the
+    cell count grows, the cell a point falls into can be a coastal one that the land
+    selection turned into sea — which says nothing about the terrain. Two cells of
+    slack is enough to find the mountain the check is about.
+    """
+    rows, cols = size["rows"], size["cols"]
+    start = landmark_cell(config, size, lon, lat)
+    row, col = divmod(start, cols)
+
+    best = start
+    best_distance = 4.0
+    for dr in range(-2, 3):
+        for dc in range(-2, 3):
+            r, c = row + dr, col + dc
+            if not (0 <= r < rows and 0 <= c < cols):
+                continue
+            index = r * cols + c
+            if not mask[r, c]:
+                continue
+            distance = dr * dr + dc * dc
+            if distance < best_distance:
+                best_distance = distance
+                best = index
+    return best
+
+
 def check_landmarks(
     region: str, config: dict, size: dict, mask: np.ndarray, elevation: np.ndarray
 ) -> list[dict]:
@@ -327,7 +382,7 @@ def check_landmarks(
     flat_elev = elevation.ravel()
     out = []
     for name, lon, lat, low, high in LANDMARKS.get(region, []):
-        cell = landmark_cell(config, size, lon, lat)
+        cell = nearest_land_cell(config, size, mask, lon, lat)
         value = int(flat_elev[cell])
         land = bool(flat_mask[cell])
         out.append(
@@ -456,6 +511,7 @@ def main() -> int:
             size["land"] = int(size["land"])
             print(f"\n== {region} {size_key} land cells on {size['cols']}x{size['rows']}")
             coverage = rasterise_land(paths["land_zip"], region_config, size, args.supersample)
+            coverage = apply_excludes(coverage, region_config, size)
             mask = select_mask(coverage, size["rows"], size["cols"], size["land"])
 
             # Shape overlap check: how well the cleaned mask still matches the

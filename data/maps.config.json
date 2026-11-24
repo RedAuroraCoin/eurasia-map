@@ -25,10 +25,11 @@
     "europe": {
       "name": "Europe",
       "bbox": { "lon0": -25.0, "lon1": 48.0, "lat0": 29.0, "lat1": 72.0 },
+      "exclude": [{ "lon0": -25.0, "lon1": -12.0, "lat0": 62.0, "lat1": 72.0 }],
       "sizes": {
-        "300": { "rows": 19, "cols": 32, "land": 300 },
-        "500": { "rows": 24, "cols": 41, "land": 500 },
-        "800": { "rows": 30, "cols": 52, "land": 800 }
+        "800": { "rows": 31, "cols": 53, "land": 800 },
+        "1200": { "rows": 38, "cols": 64, "land": 1200 },
+        "1600": { "rows": 44, "cols": 74, "land": 1600 }
       }
     }
   }

@@ -7,7 +7,11 @@ export type { MapConfig, MapEntry, MapSize, RegionId };
 /** The default region: the map the game shipped with. */
 export const DEFAULT_REGION: RegionId = 'eurasia';
 
+/** The original map's sizes, kept for callers that predate regions. */
 export const MAP_SIZES: readonly MapSize[] = [300, 500, 800];
+
+/** Every size any region ships, smallest first. */
+export const ALL_MAP_SIZES: readonly MapSize[] = [300, 500, 800, 1200, 1600];
 
 const byKey = new Map<string, MapEntry>();
 for (const entry of MAP_DATA) byKey.set(`${entry.region}:${entry.size}`, entry as MapEntry);
@@ -22,6 +26,25 @@ export function getMap(size: MapSize, region: RegionId = DEFAULT_REGION): MapEnt
   if (map === undefined) throw new Error(`no map data for ${region} at size ${size}`);
   return map;
 }
+
+/** The sizes a region actually builds. Europe has no 300-cell board; Eurasia no 1600. */
+export const sizesFor = (region: RegionId): readonly MapSize[] =>
+  MAP_DATA.filter((entry) => entry.region === region)
+    .map((entry) => entry.size)
+    .sort((a, b) => a - b);
+
+/**
+ * The closest size a region does build, so a preference carried over from another
+ * map — or from an older build — lands on something that exists instead of throwing.
+ */
+export const sizeFor = (region: RegionId, size: MapSize): MapSize => {
+  const sizes = sizesFor(region);
+  if (sizes.length === 0) return size;
+  if (sizes.includes(size)) return size;
+  return sizes.reduce((best, candidate) =>
+    Math.abs(candidate - size) < Math.abs(best - size) ? candidate : best,
+  );
+};
 
 /** The bounding box a region's grid is squeezed from — latitude and longitude live here. */
 export const mapConfigFor = (region: RegionId): MapConfig =>

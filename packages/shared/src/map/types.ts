@@ -1,4 +1,9 @@
-export type MapSize = 300 | 500 | 800;
+/**
+ * Land counts a board can have. Eurasia ships 300/500/800; Europe is finer and
+ * ships 800/1200/1600, because 800 cells over Europe are the same picture at a
+ * smaller scale than 800 over a continent.
+ */
+export type MapSize = 300 | 500 | 800 | 1200 | 1600;
 
 /**
  * Which part of the world the grid shows. Both regions are built by the same

@@ -190,6 +190,43 @@ describe('single-player shell', () => {
     expect(getChess()).not.toBeNull();
   });
 
+  it('offers each map only the board sizes it builds', async () => {
+    // The building game: in chess the board is 800 cells by rule, and the size row
+    // is hidden there.
+    const { getRegion, getSize } = await boot();
+
+    const rowFor = (label: string): Element | undefined =>
+      [...document.querySelectorAll('.row')].find(
+        (element) => element.querySelector('.row-label')?.textContent === label,
+      );
+
+    const sizeButtons = (): string[] =>
+      [...(rowFor('Size')?.querySelectorAll('button') ?? [])]
+        .filter((button) => button.style.display !== 'none')
+        .map((button) => button.textContent ?? '');
+
+    expect(sizeButtons()).toEqual(['300', '500', '800']);
+
+    const click = (rowLabel: string, label: string): void => {
+      const row = rowFor(rowLabel);
+      const button = [...(row?.querySelectorAll('button') ?? [])].find(
+        (candidate) => candidate.textContent === label,
+      ) as HTMLButtonElement | undefined;
+      if (!button) throw new Error(`no ${label} in ${rowLabel}`);
+      button.click();
+      flushFrames();
+    };
+
+    click('Map', 'Europe');
+    expect(getRegion()).toBe('europe');
+    // No 300-cell Europe exists, so the preference lands on the 800 board.
+    expect(getSize()).toBe(800);
+    expect(sizeButtons()).toEqual(['800', '1200', '1600']);
+
+    click('Size', '1600');
+    expect(getSize()).toBe(1600);
+  });
+
   it('hands the view the frame clock, not the world clock', async () => {
     await boot();
     const { Flat2D } = await import('./render/flat2d');

@@ -1,3 +1,5 @@
+import type { MapSize } from '../map/types';
+
 /**
  * Chess on the map: a separate turn-based mode, hot-seat on one device.
  *
@@ -37,7 +39,7 @@ export interface Piece {
 export interface ChessState {
   readonly v: number;
   readonly seed: number;
-  readonly size: 300 | 500 | 800;
+  readonly size: MapSize;
   readonly pieces: readonly Piece[];
   /** Whose turn it is. */
   readonly turn: Side;

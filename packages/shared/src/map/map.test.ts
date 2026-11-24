@@ -11,6 +11,7 @@ import {
   getMap,
   isLand,
   mapConfigFor,
+  sizesFor,
 } from './index';
 import type { MapEntry, RegionId } from './types';
 
@@ -97,11 +98,25 @@ const EXPECTATIONS: Record<
 
 describe('generated data matches the committed config', () => {
   it('has one entry per region and size', () => {
-    expect(MAP_DATA).toHaveLength(REGIONS.length * MAP_SIZES.length);
     const keys = MAP_DATA.map((m) => `${m.region}:${m.size}`);
     expect(new Set(keys).size).toBe(keys.length);
     for (const region of REGIONS) {
-      expect(MAP_DATA.filter((m) => m.region === region)).toHaveLength(MAP_SIZES.length);
+      expect(MAP_DATA.filter((m) => m.region === region)).toHaveLength(sizesFor(region).length);
+      expect(sizesFor(region).length).toBeGreaterThan(0);
+    }
+    // The original map keeps the sizes the game has always advertised.
+    expect(sizesFor('eurasia')).toEqual([...MAP_SIZES]);
+  });
+
+  it('gives Europe finer boards than Eurasia, at the same kind of cost', () => {
+    // Europe is a third of the area of the frame, so the same cell count would be
+    // a coarser picture: its boards start where Eurasia's end.
+    expect(sizesFor('europe')).toEqual([800, 1200, 1600]);
+    for (const region of REGIONS) {
+      for (const size of sizesFor(region)) {
+        const map = getMap(size, region);
+        expect(map.land).toBe(size);
+      }
     }
   });
 
@@ -123,7 +138,7 @@ describe('generated data matches the committed config', () => {
 
   for (const region of REGIONS) {
     describe(region, () => {
-      for (const size of MAP_SIZES) {
+      for (const size of sizesFor(region)) {
         describe(`size ${size}`, () => {
           const map = getMap(size, region);
           const expected = config.regions[region]?.sizes[String(size)];
