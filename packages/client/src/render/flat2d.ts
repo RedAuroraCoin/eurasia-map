@@ -10,6 +10,7 @@ import { buildBuildings, ownerTint } from './geometry';
 import { SIDE_COLOURS, TOWER_COLOURS, type UnitInstance, type UnitRole } from './pieces';
 import { HINT_COLOURS, ZONE_COLOURS, type MoveHint } from './hints';
 import { blastFrame } from './blast';
+import { flatLayout } from './grid';
 import type { View, ZoneCell } from './scene3d';
 import type { Lighting } from './palette';
 
@@ -158,14 +159,15 @@ export class Flat2D implements View {
     }
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#080e17';
-    ctx.fillRect(0, 0, width, height);
 
     const map = this.map;
-    const cell = Math.max(2, Math.floor(Math.min(width / map.cols, height / map.rows)));
-    const ox = Math.floor((width - cell * map.cols) / 2);
-    const oy = Math.floor((height - cell * map.rows) / 2);
+    const { cell, ox, oy } = flatLayout(map, width, height);
     this.layout = { cell, ox, oy };
+
+    // The margins are ocean, not black: a board that is wider than it is tall sits
+    // in a strip on a phone, and a strip floating in a void reads as a broken page.
+    ctx.fillStyle = cssRgb(seaColor(-3000));
+    ctx.fillRect(0, 0, width, height);
 
     // Land the sea has taken is drawn as sea: the same rule the 3D view uses to
     // stop drawing the plate, so both views lose the same cells.

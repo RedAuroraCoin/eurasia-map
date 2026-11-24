@@ -88,16 +88,88 @@ const cross = (
  * to the camera and therefore projects larger. Projecting the eight corners and
  * solving for the distance has neither problem at any aspect ratio.
  */
+export interface LandBounds {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minZ: number;
+  readonly maxZ: number;
+}
+
+/**
+ * The box the *land* occupies, in world units, or null on a board with no land.
+ *
+ * The grid is a rectangle of water with a continent inside it — Europe's frame, in
+ * particular, is a third empty Atlantic. Fitting the camera to the grid leaves the
+ * land as a strip across the middle of a phone screen; fitting it to the land puts
+ * the map where the player is looking.
+ */
+export function landBounds(map: MapEntry): LandBounds | null {
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minZ = Number.POSITIVE_INFINITY;
+  let maxZ = Number.NEGATIVE_INFINITY;
+
+  for (let index = 0; index < map.mask.length; index++) {
+    if (map.mask[index] !== '#') continue;
+    const { x, z } = cellToWorld(map, index);
+    minX = Math.min(minX, x - CELL / 2);
+    maxX = Math.max(maxX, x + CELL / 2);
+    minZ = Math.min(minZ, z - CELL / 2);
+    maxZ = Math.max(maxZ, z + CELL / 2);
+  }
+
+  return Number.isFinite(minX) ? { minX, maxX, minZ, maxZ } : null;
+}
+
+/**
+ * Where the flat view puts the board. Whole pixels per cell, so the grid stays crisp,
+ * and the land centred in the viewport where the clamp allows it: a phone held upright
+ * is much taller than a board, and centring on the water margin instead of the land
+ * pushes the map up or down for nothing.
+ */
+export function flatLayout(
+  map: MapEntry,
+  width: number,
+  height: number,
+): { cell: number; ox: number; oy: number } {
+  const cell = Math.max(2, Math.floor(Math.min(width / map.cols, height / map.rows)));
+  const boardWidth = cell * map.cols;
+  const boardHeight = cell * map.rows;
+
+  const bounds = landBounds(map);
+  const landX = bounds ? ((bounds.minX + bounds.maxX) / 2 + map.cols / 2) * cell : boardWidth / 2;
+  const landY = bounds ? ((bounds.minZ + bounds.maxZ) / 2 + map.rows / 2) * cell : boardHeight / 2;
+
+  // A board that fits must stay fully on screen; one that does not may be centred
+  // on the land and cropped, but never past its own edges.
+  const clamp = (value: number, size: number, board: number): number =>
+    board <= size
+      ? Math.min(size - board, Math.max(0, Math.round(value)))
+      : Math.min(0, Math.max(size - board, Math.round(value)));
+
+  return {
+    cell,
+    ox: clamp(width / 2 - landX, width, boardWidth),
+    oy: clamp(height / 2 - landY, height, boardHeight),
+  };
+}
+
+/** What the camera should look at: the middle of the land, not the middle of the grid. */
+export function fitTarget(map: MapEntry, height = 0.35): [number, number, number] {
+  const bounds = landBounds(map);
+  if (!bounds) return [0, height, 0];
+  return [(bounds.minX + bounds.maxX) / 2, height, (bounds.minZ + bounds.maxZ) / 2];
+}
+
 export function fitDistance(
   map: MapEntry,
   fovDegrees: number,
   aspect: number,
   margin = 1.06,
-  targetY = 0.35,
+  target: [number, number, number] = fitTarget(map),
 ): number {
   const { width, depth } = boardSize(map);
   const direction = norm(VIEW_DIRECTION);
-  const target: [number, number, number] = [0, targetY, 0];
   const forward: [number, number, number] = [-direction[0], -direction[1], -direction[2]];
   const right = norm(cross(forward, [0, 1, 0]));
   const up = cross(right, forward);
@@ -105,12 +177,18 @@ export function fitDistance(
   const tanV = Math.tan((fovDegrees * Math.PI) / 180 / 2);
   const tanH = tanV * Math.max(0.4, aspect);
 
-  // The board's own corners are open sea, so raising them to the highest peak
-  // would push the camera back for nothing. Fit the waterline, then add the one
-  // point that can actually stick out: the top of the highest land cell.
+  // The land's own corners, not the grid's: the sea around it may run off the edge
+  // of the screen, and on a narrow one it has to, or the map is a stripe. The
+  // waterline is fitted, then the one point that can stick out — the highest cell.
+  const bounds = landBounds(map) ?? {
+    minX: -width / 2,
+    maxX: width / 2,
+    minZ: -depth / 2,
+    maxZ: depth / 2,
+  };
   const corners: [number, number, number][] = [];
-  for (const x of [-width / 2, width / 2]) {
-    for (const z of [-depth / 2, depth / 2]) corners.push([x, 0, z]);
+  for (const x of [bounds.minX, bounds.maxX]) {
+    for (const z of [bounds.minZ, bounds.maxZ]) corners.push([x, 0, z]);
   }
   let highest = -1;
   let highestElevation = Number.NEGATIVE_INFINITY;

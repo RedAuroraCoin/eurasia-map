@@ -31,6 +31,7 @@ import {
   cellToWorld,
   elevationToHeight,
   fitDistance,
+  fitTarget,
   VIEW_DIRECTION,
   worldToCell,
 } from './grid';
@@ -121,9 +122,14 @@ export /** The sea plane is larger than the board so the horizon is water, not a
 const SEA_SCALE = 3.5;
 
 /** A three-quarter view from the south-east, at exactly `distance` from the target. */
-function cameraPositionFor(distance: number): THREE.Vector3 {
+function cameraPositionFor(
+  distance: number,
+  target: readonly [number, number, number],
+): THREE.Vector3 {
   // Same direction the fit solved for — a different one would crop the corners.
-  return new THREE.Vector3(...VIEW_DIRECTION).normalize().multiplyScalar(distance);
+  return new THREE.Vector3(...target).add(
+    new THREE.Vector3(...VIEW_DIRECTION).normalize().multiplyScalar(distance),
+  );
 }
 
 /** One byte per cell: 0 at the shore, 255 in the abyss. Sampled by the water shader. */
@@ -279,7 +285,7 @@ export class Scene3D implements View {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 400);
-    this.camera.position.copy(cameraPositionFor(fitDistance(map, FOV, 1)));
+    this.camera.position.copy(cameraPositionFor(fitDistance(map, FOV, 1), fitTarget(map)));
 
     this.controls = new OrbitControls(this.camera, canvas);
     // The moment the player grabs the view, an automatic glide stops: their hands
@@ -287,7 +293,8 @@ export class Scene3D implements View {
     this.controls.addEventListener('start', () => {
       this.focus = null;
     });
-    this.controls.target.set(0, 0.35, 0);
+    const home = fitTarget(map);
+    this.controls.target.set(home[0], home[1], home[2]);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     // Close enough to read a single cell, far enough that the near plane cannot
@@ -1353,15 +1360,18 @@ export class Scene3D implements View {
     // The camera is built before the canvas has a size, so its fit was computed
     // for the wrong aspect. Re-fit until the player takes over the camera.
     if (!this.userMoved) {
-      this.camera.position.copy(cameraPositionFor(fitDistance(this.map, FOV, this.camera.aspect)));
+      this.camera.position.copy(
+        cameraPositionFor(fitDistance(this.map, FOV, this.camera.aspect), fitTarget(this.map)),
+      );
       this.controls.update();
     }
   }
 
   private resetCamera(): void {
-    const distance = fitDistance(this.map, FOV, this.camera.aspect || 1);
-    this.camera.position.copy(cameraPositionFor(distance));
-    this.controls.target.set(0, 0.35, 0);
+    const target = fitTarget(this.map);
+    const distance = fitDistance(this.map, FOV, this.camera.aspect || 1, 1.06, target);
+    this.camera.position.copy(cameraPositionFor(distance, target));
+    this.controls.target.set(target[0], target[1], target[2]);
     this.userMoved = false;
     this.controls.update();
   }
