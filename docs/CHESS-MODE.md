@@ -59,7 +59,10 @@ ground, back rank behind.
   - *Tower* — 50 coins, on a dry empty cell next to the king. It blocks movement
     for both sides and can be taken by landing on it.
   - *Rocket* — 500 coins, on a dry empty cell next to the king, like a tower. It
-    blocks movement and can be taken. **Instead of a move** it fires for **200
+    blocks movement and can be taken. It is drawn procedurally (`render/rocket.ts`):
+    a concrete pad, a launch table on rails, and one large missile — body, warhead
+    band, nose cone, four fins, a service gantry — painted in the side's own colours
+    and scaled to 3.2 units, the tallest thing on the board. **Instead of a move** it fires for **200
     coins a shot**, hit or miss — the rockets leave the tube either way. Pick a cell
     within **seven** cells of the base, and it shells the **3x3 zone** around it.
     Firing is **two taps**: the first shows the zone and what stands in it, the
