@@ -61,6 +61,8 @@ export interface View {
   playBlast(cells: readonly ZoneCell[]): void;
   /** Glide the camera onto a cell — used to show the side whose turn it is. */
   focusCell(cell: number): void;
+  /** Burning tips on the given rocket bases: the side that is about to fire. */
+  setRocketGlow(cells: readonly number[] | null): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -140,6 +142,8 @@ export class Scene3D implements View {
   private hintMeshes: THREE.Mesh[] = [];
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
+  private rocketGlow: { group: THREE.Group; flames: THREE.Mesh[]; halos: THREE.Mesh[] } | null =
+    null;
   private focus: {
     readonly fromTarget: THREE.Vector3;
     readonly toTarget: THREE.Vector3;
@@ -574,6 +578,90 @@ export class Scene3D implements View {
     const copy = towerFromCastle(model);
     this.towerGeometries[side] = copy;
     return copy;
+  }
+
+  /**
+   * Lights the tips of the given rocket bases: a flame above each one and a halo on
+   * the ground, pulsing. It marks the side that is about to fire, so a player sees
+   * which of their bases the shot will come from.
+   */
+  setRocketGlow(cells: readonly number[] | null): void {
+    this.clearRocketGlow();
+    if (!cells || cells.length === 0) return;
+
+    const group = new THREE.Group();
+    const flames: THREE.Mesh[] = [];
+    const halos: THREE.Mesh[] = [];
+
+    for (const cell of cells) {
+      const { x, z } = cellToWorld(this.map, cell);
+      const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
+
+      const flame = new THREE.Mesh(
+        new THREE.ConeGeometry(CELL * 0.16, CELL * 1.1, 10, 1, true),
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color('#ff7a1f'),
+          transparent: true,
+          opacity: 0.75,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      flame.position.set(x, ground + ROCKET_HEIGHT + CELL * 0.35, z);
+      flame.userData.phase = cell * 0.7;
+      group.add(flame);
+      flames.push(flame);
+
+      const halo = new THREE.Mesh(
+        new THREE.RingGeometry(CELL * 0.42, CELL * 0.58, 24).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({
+          color: new THREE.Color('#ffb066'),
+          transparent: true,
+          opacity: 0.5,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      halo.position.set(x, ground + 0.04, z);
+      halo.userData.phase = cell * 0.7;
+      group.add(halo);
+      halos.push(halo);
+    }
+
+    group.renderOrder = 7;
+    this.scene.add(group);
+    this.rocketGlow = { group, flames, halos };
+  }
+
+  /** Flicker: two different speeds, so the flames do not pulse in lockstep. */
+  private updateRocketGlow(now: number): void {
+    const glow = this.rocketGlow;
+    if (!glow) return;
+
+    for (const flame of glow.flames) {
+      const phase = (flame.userData.phase as number) ?? 0;
+      const pulse = 0.8 + 0.2 * Math.sin(now / 90 + phase);
+      flame.scale.setScalar(pulse);
+      (flame.material as THREE.MeshBasicMaterial).opacity = 0.55 + 0.3 * pulse;
+      flame.rotation.y = now / 700 + phase;
+    }
+    for (const halo of glow.halos) {
+      const phase = (halo.userData.phase as number) ?? 0;
+      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 320 + phase));
+      (halo.material as THREE.MeshBasicMaterial).opacity = 0.25 + 0.45 * pulse;
+      halo.scale.setScalar(0.9 + 0.12 * pulse);
+    }
+  }
+
+  private clearRocketGlow(): void {
+    if (!this.rocketGlow) return;
+    this.scene.remove(this.rocketGlow.group);
+    for (const mesh of [...this.rocketGlow.flames, ...this.rocketGlow.halos]) {
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.rocketGlow = null;
   }
 
   /**
@@ -1203,6 +1291,7 @@ export class Scene3D implements View {
   }
 
   render(now: number): void {
+    this.updateRocketGlow(now);
     this.updateFocus(now);
     this.updateBlast(now);
     this.updateStorms(now);
@@ -1241,6 +1330,7 @@ export class Scene3D implements View {
       this.rocketGeometries[side] = null;
     }
     this.clearBlast();
+    this.clearRocketGlow();
     for (const mesh of this.hintMeshes) {
       this.scene.remove(mesh);
       (mesh.material as THREE.Material).dispose();

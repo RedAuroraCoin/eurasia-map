@@ -45,6 +45,8 @@ export class Flat2D implements View {
   private hints: readonly MoveHint[] = [];
   private zone: readonly ZoneCell[] = [];
   private blast: { readonly cells: readonly ZoneCell[]; start: number } | null = null;
+  /** Rocket bases about to fire: a pulsing ring on those cells. */
+  private glow: number[] = [];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -80,6 +82,10 @@ export class Flat2D implements View {
   /** The flat view fills the canvas, so there is nothing to glide to. */
   focusCell(_cell: number): void {
     // No camera: the whole board is always in frame.
+  }
+
+  setRocketGlow(cells: readonly number[] | null): void {
+    this.glow = cells ? [...cells] : [];
   }
 
   setState(state: GameState): void {
@@ -309,6 +315,29 @@ export class Flat2D implements View {
     }
     outline(this.selected, 'rgba(0,0,0,0.6)', 3);
     outline(this.selected, 'rgba(255,255,255,0.95)', 1.5);
+
+    // The bases that are about to fire: a warm ring that breathes.
+    if (this.glow.length > 0) {
+      const pulse = 0.55 + 0.45 * Math.abs(Math.sin(now / 320));
+      for (const index of this.glow) {
+        const col = index % map.cols;
+        const row = Math.floor(index / map.cols);
+        const cx = ox + col * cell + cell / 2;
+        const cy = oy + row * cell + cell / 2;
+        ctx.globalAlpha = 0.35 + 0.45 * pulse;
+        ctx.strokeStyle = '#ff7a1f';
+        ctx.lineWidth = Math.max(2, cell * 0.14);
+        ctx.beginPath();
+        ctx.arc(cx, cy, cell * (0.4 + 0.1 * pulse), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 0.2 + 0.3 * pulse;
+        ctx.fillStyle = '#ffb066';
+        ctx.beginPath();
+        ctx.arc(cx, cy, cell * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
 
     this.drawBlast(ctx, map, cell, ox, oy, now);
   }

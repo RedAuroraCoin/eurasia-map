@@ -3,10 +3,6 @@
 The game ships with two procedural castles, one per side. Drop a GLB in this folder and
 it replaces them. No rebuild step, no config, no code change: export, copy, refresh.
 
-`rocket.glb` is **not used**: the chess rocket base is built in code
-(`src/render/rocket.ts`) so it can carry a palette per side and stand taller than the
-towers. The file is kept in the repo as the original hand-made model.
-
 | File           | Replaces                            |
 | -------------- | ----------------------------------- |
 | `castle-a.glb` | the amber side (side A)             |

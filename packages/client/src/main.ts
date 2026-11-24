@@ -84,6 +84,8 @@ let zone: ZoneCell[] = [];
 let aimCell: number | null = null;
 /** The last explosion, kept for the tests: the view animates it and forgets it. */
 let blast: ZoneCell[] = [];
+/** The rocket bases currently burning with the "about to fire" glow. */
+let glowCells: number[] = [];
 /** The cell the camera was last sent to; the tests read it, the view animates it. */
 let focusTarget: number | null = null;
 let selected = 0;
@@ -169,6 +171,7 @@ const handlers: AppHandlers = {
       chessAction === 'tower' ? t.chess.building : t.chess.build(BALANCE.chess.towerCost),
       'info',
     );
+    refreshRocketGlow();
     refreshHints();
   },
   onRecruit: () => {
@@ -180,6 +183,7 @@ const handlers: AppHandlers = {
       chessAction === 'pawn' ? t.chess.recruiting : t.chess.recruit(BALANCE.chess.pawnCost),
       'info',
     );
+    refreshRocketGlow();
     refreshHints();
   },
   onRocket: () => {
@@ -191,6 +195,7 @@ const handlers: AppHandlers = {
       chessAction === 'rocket' ? t.chess.building : t.chess.rocket(BALANCE.chess.rocketCost),
       'info',
     );
+    refreshRocketGlow();
     refreshHints();
   },
   onFire: () => {
@@ -205,6 +210,7 @@ const handlers: AppHandlers = {
         : t.chess.fire(BALANCE.chess.rocketShotCost),
       'info',
     );
+    refreshRocketGlow();
     refreshHints();
   },
   onSides: (both) => {
@@ -677,6 +683,7 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
     if (chessAction === 'fire') {
       chessAction = 'none';
       app.setAction('none');
+      refreshRocketGlow();
       refreshHints();
     }
     app.setMessage(describeChessError(result.code, cost), 'error');
@@ -714,8 +721,10 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
   chessAction = 'none';
   app.setAction('none');
   syncChess();
-  // The turn has changed hands: put the new side in frame.
+  // The turn has changed hands: put the new side in frame, and move the fire glow
+  // to whoever holds it now.
   focusOnSide(chess.turn);
+  refreshRocketGlow();
   refreshHints();
   // Every applied action is a save point: a reload resumes on this position.
   if (chess.winner === null) saveChessGame(storage, chess);
@@ -779,6 +788,8 @@ function leaveChess(): void {
   view.setHints([]);
   zone = [];
   view.setZone(null);
+  glowCells = [];
+  view.setRocketGlow(null);
   // Back to whatever map the building game was playing before chess.
   if (map.land !== settings.size) switchSize(settings.size, false);
   view.setState(state, clock());
@@ -905,6 +916,19 @@ function zoneCells(cell: number): ZoneCell[] {
     }
   }
   return cells;
+}
+
+/**
+ * The side that is aiming has its rocket bases lit: a flame at each tip, so a player
+ * can see which base will fire before spending 200 coins.
+ */
+function refreshRocketGlow(): void {
+  const lit =
+    chess && !mp && settings.mode === 'chess' && chessAction === 'fire'
+      ? rocketCells(chess, chess.turn)
+      : [];
+  glowCells = lit;
+  view.setRocketGlow(lit.length > 0 ? lit : null);
 }
 
 /**
@@ -1334,6 +1358,7 @@ export const __eurasia: {
   getZone: () => readonly ZoneCell[];
   getBlast: () => readonly ZoneCell[];
   getFocus: () => number | null;
+  getGlowCells: () => readonly number[];
   getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
@@ -1346,6 +1371,7 @@ export const __eurasia: {
   getZone: () => zone,
   getBlast: () => blast,
   getFocus: () => focusTarget,
+  getGlowCells: () => glowCells,
   getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,

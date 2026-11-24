@@ -578,7 +578,7 @@ describe('single-player shell', () => {
     });
     localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess', size: 800 }));
 
-    const { getChess, getHints, getZone } = await boot();
+    const { getChess, getHints, getZone, getGlowCells } = await boot();
     flushFrames();
 
     const labels = [...document.querySelectorAll('.build-bar .button')].map(
@@ -609,6 +609,10 @@ describe('single-player shell', () => {
 
     fire.click();
     flushFrames();
+
+    // Arming the shot lights the side's own bases: the flame is where the rockets
+    // will come from.
+    expect(getGlowCells()).toEqual([rocketCell]);
 
     const hints = getHints();
     // Every piece in reach is offered, its own side's included: a rocket does not
@@ -644,6 +648,11 @@ describe('single-player shell', () => {
     expect(zone.find((tile) => tile.chance === BALANCE.chess.rocketCentreChance)?.cell).toBe(
       middle,
     );
+
+    // Disarming puts the flames out.
+    fire.click();
+    flushFrames();
+    expect(getGlowCells()).toEqual([]);
   });
 
   it('fires only on the second tap at the same cell', async () => {
