@@ -121,6 +121,13 @@ Tuning knobs, all in `BALANCE.chess`: `fullFloodRound`, `floodExponent`,
 `rocketRange`, `rocketCentreChance`, `rocketRingChance`, and `SLIDE_LIMIT` in
 `chess/moves.ts` for the long vectors.
 
+## The camera
+
+Every applied action hands the turn over, and the view glides to the king of the side
+that now has it — 750 ms, smoothstep, the same viewing direction, so the board never
+spins. A drag on the camera cancels the glide: the player's hands always win. The flat
+view has no camera, so it does nothing there.
+
 ## Saving
 
 The game is saved after every applied action, on tab hide and on unload, under

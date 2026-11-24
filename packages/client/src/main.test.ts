@@ -375,6 +375,34 @@ describe('single-player shell', () => {
     expect(getHints()).toHaveLength(0);
   });
 
+  it('moves the camera to the side whose turn it is', async () => {
+    const { getChess, getFocus } = await boot();
+    const chessButton = [...document.querySelectorAll('.segmented button')].find(
+      (button) => button.textContent === 'Chess',
+    ) as HTMLButtonElement;
+    chessButton.click();
+    flushFrames();
+    expect(getFocus()).toBeNull();
+
+    const map = getMap(800);
+    const game = getChess();
+    if (!game) throw new Error('chess mode did not start');
+    const pawn = game.pieces.find(
+      (piece) => piece.side === 0 && piece.kind === 'pawn' && map.mask[piece.cell + 1] === '#',
+    );
+    const blackKing = game.pieces.find((piece) => piece.side === 1 && piece.kind === 'king');
+    if (!pawn || !blackKing) throw new Error('no pawn or king');
+
+    const from = cellCentre(map.cols, map.rows, pawn.cell);
+    const to = cellCentre(map.cols, map.rows, pawn.cell + 1);
+    clickCell(from.x, from.y);
+    clickCell(to.x, to.y);
+
+    // Black now has the move, so the view is sent to Black's king.
+    expect(getChess()?.turn).toBe(1);
+    expect(getFocus()).toBe(blackKing.cell);
+  });
+
   it('says whose turn it is exactly once', async () => {
     const { getChess } = await boot();
     const chessButton = [...document.querySelectorAll('.segmented button')].find(

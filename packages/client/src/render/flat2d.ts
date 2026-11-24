@@ -77,6 +77,11 @@ export class Flat2D implements View {
     this.blast = cells.length > 0 ? { cells, start: -1 } : null;
   }
 
+  /** The flat view fills the canvas, so there is nothing to glide to. */
+  focusCell(_cell: number): void {
+    // No camera: the whole board is always in frame.
+  }
+
   setState(state: GameState): void {
     this.state = state;
   }

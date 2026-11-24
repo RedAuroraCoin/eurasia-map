@@ -58,6 +58,8 @@ export interface View {
   setZone(cells: readonly ZoneCell[] | null): void;
   /** One explosion over a fired zone: flash, shockwave and fireball, then gone. */
   playBlast(cells: readonly ZoneCell[]): void;
+  /** Glide the camera onto a cell — used to show the side whose turn it is. */
+  focusCell(cell: number): void;
   pick(clientX: number, clientY: number): number;
   resize(): void;
   render(now: number): void;
@@ -81,6 +83,8 @@ export interface ZoneCell {
   readonly cell: number;
   readonly chance: number;
 }
+/** How long the camera takes to glide to the side whose turn it is. */
+const FOCUS_MS = 750;
 /**
  * How long an explosion lives, in milliseconds. The first attempt was 900 ms and
  * players on a phone did not see it at all — a small screen and a thumb still on
@@ -136,6 +140,13 @@ export class Scene3D implements View {
   private hintMeshes: THREE.Mesh[] = [];
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
+  private focus: {
+    readonly fromTarget: THREE.Vector3;
+    readonly toTarget: THREE.Vector3;
+    readonly fromCamera: THREE.Vector3;
+    readonly toCamera: THREE.Vector3;
+    start: number;
+  } | null = null;
   private blast: {
     readonly group: THREE.Group;
     readonly ring: THREE.Mesh;
@@ -242,6 +253,11 @@ export class Scene3D implements View {
     this.camera.position.copy(cameraPositionFor(fitDistance(map, FOV, 1)));
 
     this.controls = new OrbitControls(this.camera, canvas);
+    // The moment the player grabs the view, an automatic glide stops: their hands
+    // always win over the camera's own idea of where to look.
+    this.controls.addEventListener('start', () => {
+      this.focus = null;
+    });
     this.controls.target.set(0, 0.35, 0);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
@@ -566,6 +582,44 @@ export class Scene3D implements View {
   }
 
   /**
+   * Glides the view onto a cell without changing where the camera looks from: the
+   * offset direction is kept, so the board does not spin, and the height is clamped
+   * like any other camera move.
+   */
+  focusCell(cell: number): void {
+    if (!this.map || cell < 0 || cell >= this.map.rows * this.map.cols) return;
+
+    const { x, z } = cellToWorld(this.map, cell);
+    const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
+    const toTarget = new THREE.Vector3(x, ground, z);
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+
+    this.focus = {
+      fromTarget: this.controls.target.clone(),
+      toTarget,
+      fromCamera: this.camera.position.clone(),
+      toCamera: toTarget.clone().add(offset),
+      start: -1,
+    };
+  }
+
+  /** The glide itself: one ease, then the camera belongs to the player again. */
+  private updateFocus(now: number): void {
+    const focus = this.focus;
+    if (!focus) return;
+    if (focus.start < 0) focus.start = now;
+
+    const t = Math.min(1, (now - focus.start) / FOCUS_MS);
+    // Smoothstep: no jolt at either end.
+    const ease = t * t * (3 - 2 * t);
+
+    this.controls.target.lerpVectors(focus.fromTarget, focus.toTarget, ease);
+    this.camera.position.lerpVectors(focus.fromCamera, focus.toCamera, ease);
+
+    if (t >= 1) this.focus = null;
+  }
+
+  /**
    * The explosion: a white flash, a red fireball that rises, and a shockwave ring
    * that runs out to the edge of the zone. Animated in `render`, removed when spent.
    */
@@ -646,6 +700,14 @@ export class Scene3D implements View {
       0.55 * Math.min(1, t * 5) * (t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1);
 
     if (t >= 1) this.clearBlast();
+  }
+
+  /**
+   * A drag on the camera cancels a glide: the player's hands always win over an
+   * automatic move.
+   */
+  cancelFocus(): void {
+    this.focus = null;
   }
 
   private clearBlast(): void {
@@ -1142,6 +1204,7 @@ export class Scene3D implements View {
   }
 
   render(now: number): void {
+    this.updateFocus(now);
     this.updateBlast(now);
     this.updateStorms(now);
     const delta = this.reducedMotion ? 0 : 1 / 60;

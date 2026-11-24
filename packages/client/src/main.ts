@@ -84,6 +84,8 @@ let zone: ZoneCell[] = [];
 let aimCell: number | null = null;
 /** The last explosion, kept for the tests: the view animates it and forgets it. */
 let blast: ZoneCell[] = [];
+/** The cell the camera was last sent to; the tests read it, the view animates it. */
+let focusTarget: number | null = null;
 let selected = 0;
 let saveTimer = 0;
 
@@ -712,6 +714,8 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
   chessAction = 'none';
   app.setAction('none');
   syncChess();
+  // The turn has changed hands: put the new side in frame.
+  focusOnSide(chess.turn);
   refreshHints();
   // Every applied action is a save point: a reload resumes on this position.
   if (chess.winner === null) saveChessGame(storage, chess);
@@ -901,6 +905,21 @@ function zoneCells(cell: number): ZoneCell[] {
     }
   }
   return cells;
+}
+
+/**
+ * Puts the side whose turn it now is in front of the player. The anchor is its
+ * king: after a move the view is usually framed wherever that move happened, and
+ * the other player should not have to hunt for their own pieces.
+ */
+function focusOnSide(side: 0 | 1): void {
+  if (!chess || mp) return;
+  const king = chess.pieces.find((piece) => piece.side === side && piece.kind === 'king');
+  const anchor = king ?? chess.pieces.find((piece) => piece.side === side);
+  if (!anchor) return;
+
+  focusTarget = anchor.cell;
+  view.focusCell(anchor.cell);
 }
 
 /** One click: pick a piece, then a destination — or place a tower when armed. */
@@ -1314,6 +1333,7 @@ export const __eurasia: {
   getHints: () => readonly MoveHint[];
   getZone: () => readonly ZoneCell[];
   getBlast: () => readonly ZoneCell[];
+  getFocus: () => number | null;
   getStormCount: () => number;
   getSeat: () => 0 | 1;
   isMultiplayer: () => boolean;
@@ -1325,6 +1345,7 @@ export const __eurasia: {
   getHints: () => hints,
   getZone: () => zone,
   getBlast: () => blast,
+  getFocus: () => focusTarget,
   getStormCount: () => storms.length,
   getSeat: () => seat,
   isMultiplayer: () => mp !== null,
