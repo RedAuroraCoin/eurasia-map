@@ -71,6 +71,8 @@ export const en = {
     newGame: 'Restart the game',
     resumed: (round: number) => `Game resumed — round ${round}`,
     saveCorrupt: 'The saved game could not be read — a new one starts',
+    inspectedBombardment: (side: string, range: number) =>
+      `${side}'s rocket base: reaches ${range} cells. Hover a cell to see its blast.`,
     saveStale: 'The board grew: the old game was set aside and a new one started.',
     saveNewer: 'The saved game is from a newer version — a new one starts',
   },

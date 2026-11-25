@@ -73,8 +73,14 @@ ground, back rank behind.
     Arming **Fire** sets the firing side's bases alight **at the foot only** — a
     broad ground halo, a flame around the skirt of the missile, a bright core and a
     ring of six tongues, all below three quarters of a cell — so it is clear which
-    base will shoot. Firing is **two taps**:
-    the first shows the zone and what stands in it, the
+    base will shoot.
+
+    **Any** base can be inspected: click one with nothing selected — your own or the
+    enemy's — and the ground it can reach lights up, warm at the base and fading to
+    the edge of its seven cells. Hovering inside that field shows the 3x3 a shot
+    there would hit. Clicking the base again puts it away; a move clears it.
+
+    Firing is **two taps**: the first shows the zone and what stands in it, the
     second on the same cell fires. A shot costs 200 coins and can kill your own
     pieces, so it should not be one stray tap away — on a phone there is no hover to
     preview it with.

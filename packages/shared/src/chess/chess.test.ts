@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BALANCE } from '../balance';
 import { MAP_CONFIG } from '../map';
 import { getMap } from '../map';
-import { buildSpots, legalTargets } from './moves';
+import { buildSpots, legalTargets, rocketReach } from './moves';
 import {
   CAMP_FLOOR,
   PIECES_PER_SIDE,
@@ -379,6 +379,44 @@ describe('movement', () => {
     expect(cells).not.toContain(at(3, 5));
     expect(cells).toContain(at(3, 1));
     expect(cells).not.toContain(at(3, 0));
+  });
+});
+
+describe('rocket reach', () => {
+  const ctx = ctx8();
+
+  it('covers a square of the range around the base, on land', () => {
+    const base = at(4, 4);
+    const cells = rocketReach(base, ctx);
+    const range = BALANCE.chess.rocketRange;
+
+    // Every cell inside the square is reachable, and nothing outside it.
+    for (let dr = -range; dr <= range; dr++) {
+      for (let dc = -range; dc <= range; dc++) {
+        const row = 4 + dr;
+        const col = 4 + dc;
+        if (row < 0 || col < 0 || row > 7 || col > 7) continue;
+        expect(cells.some((entry) => entry.cell === at(row, col))).toBe(true);
+      }
+    }
+    expect(cells.every((entry) => entry.cell >= 0 && entry.cell < 64)).toBe(true);
+  });
+
+  it('is brightest at the base and fades outward', () => {
+    const cells = rocketReach(at(4, 4), ctx);
+    const atBase = cells.find((entry) => entry.cell === at(4, 4));
+    const rim = cells.find((entry) => entry.cell === at(4, 4 + BALANCE.chess.rocketRange));
+    if (!atBase || !rim) throw new Error('reach is short');
+    expect(atBase.strength).toBe(1);
+    expect(rim.strength).toBeLessThan(atBase.strength);
+    expect(cells.every((entry) => entry.strength > 0 && entry.strength <= 1)).toBe(true);
+  });
+
+  it('leaves out water: a blast over open sea hits nothing', () => {
+    const wet = new Set([at(4, 5), at(3, 4)]);
+    const dryCtx: ChessCtx = { ...ctx, isLand: (cell) => !wet.has(cell) };
+    const cells = rocketReach(at(4, 4), dryCtx);
+    for (const cell of wet) expect(cells.some((entry) => entry.cell === cell)).toBe(false);
   });
 });
 

@@ -1,3 +1,4 @@
+import { BALANCE } from '../balance';
 import type { ChessCtx, ChessState, Piece, Side } from './types';
 
 /**
@@ -172,6 +173,41 @@ export function buildSpots(state: ChessState, ctx: ChessCtx): number[] {
       state.towers[String(cell)] === undefined &&
       state.rockets[String(cell)] === undefined,
   );
+}
+
+/** One cell a base can aim at, and how close to the base it is. */
+export interface ReachCell {
+  readonly cell: number;
+  /** 1 at the base, falling to ~0 at the edge of the range. */
+  readonly strength: number;
+}
+
+/**
+ * Every cell a rocket base can put the middle of its 3x3 blast on: Chebyshev
+ * distance up to the range, land only — a blast over open water has nothing to hit.
+ *
+ * This is display data, not a rule: the shot itself is validated by the reducer.
+ */
+export function rocketReach(base: number, ctx: ChessCtx): ReachCell[] {
+  const range = BALANCE.chess.rocketRange;
+  const row = Math.floor(base / ctx.cols);
+  const col = base % ctx.cols;
+  const out: ReachCell[] = [];
+
+  for (let dr = -range; dr <= range; dr++) {
+    const r = row + dr;
+    if (r < 0 || r >= ctx.rows) continue;
+    for (let dc = -range; dc <= range; dc++) {
+      const c = col + dc;
+      if (c < 0 || c >= ctx.cols) continue;
+      const cell = r * ctx.cols + c;
+      if (!ctx.isLand(cell)) continue;
+      const distance = Math.max(Math.abs(dr), Math.abs(dc));
+      out.push({ cell, strength: 1 - distance / (range + 1) });
+    }
+  }
+
+  return out;
 }
 
 /** The side's own rocket bases. */

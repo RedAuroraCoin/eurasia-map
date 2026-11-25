@@ -4,6 +4,7 @@ import {
   seaColor,
   type GameState,
   type MapEntry,
+  type ReachCell,
   type StormPlan,
 } from '@eurasia/shared';
 import { buildBuildings, ownerTint } from './geometry';
@@ -49,6 +50,8 @@ export class Flat2D implements View {
   private blast: { readonly cells: readonly ZoneCell[]; start: number } | null = null;
   /** Rocket bases about to fire: a pulsing ring on those cells. */
   private glow: number[] = [];
+  /** The reach of an inspected base: a warm wash that fades with distance. */
+  private reach: ReachCell[] = [];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -88,6 +91,10 @@ export class Flat2D implements View {
 
   setRocketGlow(cells: readonly number[] | null): void {
     this.glow = cells ? [...cells] : [];
+  }
+
+  setRange(cells: readonly ReachCell[] | null): void {
+    this.reach = cells ? [...cells] : [];
   }
 
   /** There is no HDR buffer here: the flat view paints by hand and needs no glare. */
@@ -323,6 +330,21 @@ export class Flat2D implements View {
     }
     outline(this.selected, 'rgba(0,0,0,0.6)', 3);
     outline(this.selected, 'rgba(255,255,255,0.95)', 1.5);
+
+    // The reach of an inspected base: a warm wash that fades outward, under
+    // everything else so the pieces stay readable.
+    if (this.reach.length > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (const { cell: reachCell, strength } of this.reach) {
+        const col = reachCell % map.cols;
+        const row = Math.floor(reachCell / map.cols);
+        const heat = Math.max(0, Math.min(1, strength));
+        ctx.fillStyle = `rgba(${Math.round(150 + 105 * heat)}, ${Math.round(50 + 90 * heat)}, ${Math.round(20 + 40 * heat)}, ${(0.1 + 0.26 * heat).toFixed(3)})`;
+        ctx.fillRect(ox + col * cell, oy + row * cell, cell, cell);
+      }
+      ctx.restore();
+    }
 
     // The bases that are about to fire: a pool of fire on the ground under each,
     // drawn additively so it reads as light rather than paint.

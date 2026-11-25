@@ -4,7 +4,13 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { stormPointAt, type GameState, type MapEntry, type StormPlan } from '@eurasia/shared';
+import {
+  stormPointAt,
+  type GameState,
+  type MapEntry,
+  type ReachCell,
+  type StormPlan,
+} from '@eurasia/shared';
 import { createCastleGeometry, towerFromCastle } from './castle';
 import { createKingGeometry } from './king';
 import { createStormLook, type StormLook } from './storm-look';
@@ -72,6 +78,8 @@ export interface View {
   focusCell(cell: number): void;
   /** Burning tips on the given rocket bases: the side that is about to fire. */
   setRocketGlow(cells: readonly number[] | null): void;
+  /** Where a selected rocket base can put its blast, whether it is yours or not. */
+  setRange(cells: readonly ReachCell[] | null): void;
   /** Bloom on explosions and fire. Off renders straight to the canvas. */
   setGlow(enabled: boolean): void;
   pick(clientX: number, clientY: number): number;
@@ -171,6 +179,51 @@ export class Scene3D implements View {
   private hintMeshes: THREE.Mesh[] = [];
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
+  /**
+   * The reach of a rocket base, as a warm pool that fades with distance: bright at
+   * the base, embers at the edge of its range. Additive, so it reads as light on the
+   * ground rather than paint, and one instanced mesh, so a 15x15 field is one draw.
+   */
+  setRange(cells: readonly ReachCell[] | null): void {
+    if (this.rangeMesh) {
+      this.scene.remove(this.rangeMesh);
+      this.rangeMesh.geometry.dispose();
+      (this.rangeMesh.material as THREE.Material).dispose();
+      this.rangeMesh = null;
+    }
+    if (!cells || cells.length === 0) return;
+
+    const geometry = new THREE.PlaneGeometry(CELL * 0.94, CELL * 0.94).rotateX(-Math.PI / 2);
+    const material = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0.42,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.InstancedMesh(geometry, material, cells.length);
+    const matrix = new THREE.Matrix4();
+    const near = new THREE.Color('#ffd27a');
+    const far = new THREE.Color('#8f1f10');
+    const colour = new THREE.Color();
+
+    cells.forEach(({ cell, strength }, index) => {
+      const { x, z } = cellToWorld(this.map, cell);
+      const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
+      matrix.makeTranslation(x, ground + 0.02, z);
+      mesh.setMatrixAt(index, matrix);
+      colour.copy(far).lerp(near, Math.max(0, Math.min(1, strength)));
+      mesh.setColorAt(index, colour);
+    });
+
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.renderOrder = 3;
+    this.scene.add(mesh);
+    this.rangeMesh = mesh;
+  }
+
   /** Seamless sea noise, built once and shared by every water material. */
   private readonly noiseTexture = createNoiseTexture();
   /** Post-processing chain: only used while glow is on. */
@@ -179,6 +232,8 @@ export class Scene3D implements View {
   private glowOn = true;
   /** The fire under the bases that are about to shoot; one group, many cones. */
   private rocketGlow: THREE.Group | null = null;
+  /** The reach of an inspected rocket base: one instanced tile per cell. */
+  private rangeMesh: THREE.InstancedMesh | null = null;
   private focus: {
     readonly fromTarget: THREE.Vector3;
     readonly toTarget: THREE.Vector3;
@@ -1453,6 +1508,12 @@ export class Scene3D implements View {
     this.zoneGeometry = null;
     this.controls.dispose();
     this.noiseTexture.dispose();
+    if (this.rangeMesh) {
+      this.scene.remove(this.rangeMesh);
+      this.rangeMesh.geometry.dispose();
+      (this.rangeMesh.material as THREE.Material).dispose();
+      this.rangeMesh = null;
+    }
     this.composer?.dispose();
     this.composer = null;
     this.bloom = null;

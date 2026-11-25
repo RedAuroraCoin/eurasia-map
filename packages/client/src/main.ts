@@ -14,7 +14,9 @@ import {
   type StormPlan,
   type GameState,
   type GameEvent,
+  rocketReach,
   type MapSize,
+  type ReachCell,
   type RegionId,
 } from '@eurasia/shared';
 import { t } from './i18n';
@@ -91,6 +93,10 @@ let zone: ZoneCell[] = [];
 let aimCell: number | null = null;
 /** The last explosion, kept for the tests: the view animates it and forgets it. */
 let blast: ZoneCell[] = [];
+/** The rocket base whose reach is on screen, and the cells it covers. */
+let inspectBase: number | null = null;
+let reach: ReachCell[] = [];
+
 /** The rocket bases currently burning with the "about to fire" glow. */
 let glowCells: number[] = [];
 /** The cell the camera was last sent to; the tests read it, the view animates it. */
@@ -776,6 +782,7 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
   }
   chessAction = 'none';
   app.setAction('none');
+  clearInspect();
   syncChess();
   // The turn has changed hands: put the new side in frame, and move the fire glow
   // to whoever holds it now.
@@ -850,6 +857,7 @@ function leaveChess(): void {
   view.setZone(null);
   glowCells = [];
   view.setRocketGlow(null);
+  clearInspect();
   // Back to whatever map the building game was playing before chess.
   if (map.land !== settings.size) switchSize(settings.size, false);
   view.setState(state, clock());
@@ -945,8 +953,9 @@ function refreshHints(): void {
  * The 3x3 a shot at this cell would hit, with the chance each cell gives. Null
  * clears the preview: it only means anything while a rocket is armed.
  */
-function previewZone(cell: number | null): void {
-  if (!chess || mp || settings.mode !== 'chess' || chessAction !== 'fire' || cell === null) {
+function previewZone(cell: number | null, fromInspect = false): void {
+  const allowed = chessAction === 'fire' || (fromInspect && inspectBase !== null);
+  if (!chess || mp || settings.mode !== 'chess' || !allowed || cell === null) {
     if (zone.length > 0) {
       zone = [];
       view.setZone(null);
@@ -976,6 +985,45 @@ function zoneCells(cell: number): ZoneCell[] {
     }
   }
   return cells;
+}
+
+/**
+ * Shows what a rocket base can reach — its own or the enemy's. No hidden information
+ * is at stake: the board is open, and asking a player to count seven cells by eye
+ * only rewards patience.
+ */
+function inspectRocket(cell: number): void {
+  if (inspectBase === cell) {
+    inspectBase = null;
+    reach = [];
+    view.setRange(null);
+    view.setSelected(selected);
+    return;
+  }
+
+  if (!chess) return;
+  inspectBase = cell;
+  reach = rocketReach(cell, chessCtx());
+  view.setRange(reach);
+
+  const owner = chess.rockets[String(cell)];
+  if (owner !== undefined) {
+    app.setMessage(
+      t.chess.inspectedBombardment(
+        owner === 0 ? t.chess.white : t.chess.black,
+        BALANCE.chess.rocketRange,
+      ),
+      'info',
+    );
+  }
+}
+
+/** Drops the reach, e.g. after a move or on leaving the mode. */
+function clearInspect(): void {
+  if (inspectBase === null && reach.length === 0) return;
+  inspectBase = null;
+  reach = [];
+  view.setRange(null);
 }
 
 /**
@@ -1051,6 +1099,14 @@ function chessClick(cell: number): void {
     return;
   }
 
+  // Nothing selected and there is a base under the pointer: show what it can reach.
+  // With a piece selected a click is a move, so capturing a base still works.
+  if (chessSelected === null && chess.rockets[String(cell)] !== undefined) {
+    inspectRocket(cell);
+    view.setSelected(cell);
+    return;
+  }
+
   const piece = chess.pieces.find((p) => p.cell === cell);
   if (piece && piece.side === chess.turn) {
     // Clicking the selected piece again lets it go.
@@ -1097,7 +1153,10 @@ app.canvas.addEventListener('pointermove', (event) => {
   view.setHovered(cell);
   // The blast area follows the pointer, which is how a player sees the 50/20 split
   // before spending 200 coins on a shot.
-  if (settings.mode === 'chess' && chessAction === 'fire') previewZone(cell < 0 ? null : cell);
+  if (settings.mode === 'chess') {
+    if (chessAction === 'fire') previewZone(cell < 0 ? null : cell);
+    else if (inspectBase !== null) previewZone(cell < 0 ? null : cell, true);
+  }
 });
 
 app.canvas.addEventListener('pointerleave', () => {
@@ -1421,6 +1480,8 @@ export const __eurasia: {
   getBlast: () => readonly ZoneCell[];
   getFocus: () => number | null;
   getGlowCells: () => readonly number[];
+  getReach: () => readonly ReachCell[];
+  getInspect: () => number | null;
   getRegion: () => string;
   getSize: () => number;
   getStormCount: () => number;
@@ -1436,6 +1497,8 @@ export const __eurasia: {
   getBlast: () => blast,
   getFocus: () => focusTarget,
   getGlowCells: () => glowCells,
+  getReach: () => reach,
+  getInspect: () => inspectBase,
   getRegion: () => map.region,
   getSize: () => map.land,
   getStormCount: () => storms.length,

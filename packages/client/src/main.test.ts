@@ -641,6 +641,77 @@ describe('single-player shell', () => {
     expect(hints).toEqual([{ cell: whiteTower, kind: 'recruit' }]);
   });
 
+  it('shows what a rocket base reaches, including the enemy’s', async () => {
+    const map = getMap(1600);
+    const ctx = {
+      isLand: (cell: number) => map.mask[cell] === '#',
+      elev: map.elev,
+      rows: map.rows,
+      cols: map.cols,
+      cellCount: map.mask.length,
+    };
+    const base = createChessGame(1600, 21, ctx);
+    const blackKing = base.pieces.find((piece) => piece.side === 1 && piece.kind === 'king');
+    if (!blackKing) throw new Error('no black king');
+    const taken = new Set(base.pieces.map((piece) => piece.cell));
+
+    // An enemy base, right next to the enemy king: the side to move can look at it.
+    const col = blackKing.cell % map.cols;
+    const row = Math.floor(blackKing.cell / map.cols);
+    let enemyBase = -1;
+    for (const [dr, dc] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const next = (row + dr) * map.cols + (col + dc);
+      if (map.mask[next] === '#' && !taken.has(next)) enemyBase = next;
+      if (enemyBase >= 0) break;
+    }
+    if (enemyBase < 0) throw new Error('the king is boxed in');
+
+    saveChessGame(localStorage, {
+      ...base,
+      rockets: { [String(enemyBase)]: 1 },
+    });
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess' }));
+
+    const { getReach, getInspect, getZone } = await boot();
+    flushFrames();
+    expect(getInspect()).toBeNull();
+
+    const at = cellCentre(map.cols, map.rows, enemyBase);
+    clickCell(at.x, at.y);
+
+    // The base is the enemy's, and it is shown all the same.
+    expect(getInspect()).toBe(enemyBase);
+    const reach = getReach();
+    expect(reach.length).toBeGreaterThan(1);
+    expect(reach.some((entry) => entry.cell === enemyBase)).toBe(true);
+    expect(reach.every((entry) => map.mask[entry.cell] === '#')).toBe(true);
+
+    // Hovering a cell inside the reach shows the 3x3 a shot there would hit.
+    const inside = reach.find((entry) => entry.cell !== enemyBase);
+    if (!inside) throw new Error('reach is too small');
+    const hover = cellCentre(map.cols, map.rows, inside.cell);
+    document.querySelector('canvas')?.dispatchEvent(
+      new PointerEvent('pointermove', {
+        clientX: hover.x,
+        clientY: hover.y,
+        pointerType: 'mouse',
+        bubbles: true,
+      }),
+    );
+    flushFrames();
+    expect(getZone().length).toBeGreaterThan(0);
+
+    // Clicking the base again puts it away.
+    clickCell(at.x, at.y);
+    expect(getInspect()).toBeNull();
+    expect(getReach()).toEqual([]);
+  });
+
   it('offers the rocket base and aims it at enemy pieces in range', async () => {
     const map = getMap(1600);
     const base = createChessGame(1600, 11, {
