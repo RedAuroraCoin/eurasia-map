@@ -12,6 +12,7 @@ import { loadSideModels } from './model';
 import { createRocketGeometry } from './rocket';
 import { FIRE_PARTS, HALO_OUTER, firePartY } from './fire';
 import { blastFrame } from './blast';
+import { focusStep } from './focus';
 import { createNoiseTexture } from './noise';
 import {
   buildBuildings,
@@ -111,8 +112,6 @@ const BLOOM_STRENGTH = 0.85;
 const BLOOM_RADIUS = 0.5;
 const BLOOM_THRESHOLD = 0.82;
 
-/** How long the camera takes to glide to the side whose turn it is. */
-const FOCUS_MS = 750;
 /**
  * How long an explosion lives, in milliseconds. The first attempt was 900 ms and
  * players on a phone did not see it at all — a small screen and a thumb still on
@@ -739,20 +738,19 @@ export class Scene3D implements View {
     };
   }
 
-  /** The glide itself: one ease, then the camera belongs to the player again. */
+  /** The glide itself: a short hold, one ease, then the camera belongs to the player. */
   private updateFocus(now: number): void {
     const focus = this.focus;
     if (!focus) return;
     if (focus.start < 0) focus.start = now;
 
-    const t = Math.min(1, (now - focus.start) / FOCUS_MS);
-    // Smoothstep: no jolt at either end.
-    const ease = t * t * (3 - 2 * t);
+    const step = focusStep(now - focus.start);
+    if (step.waiting) return;
 
-    this.controls.target.lerpVectors(focus.fromTarget, focus.toTarget, ease);
-    this.camera.position.lerpVectors(focus.fromCamera, focus.toCamera, ease);
+    this.controls.target.lerpVectors(focus.fromTarget, focus.toTarget, step.ease);
+    this.camera.position.lerpVectors(focus.fromCamera, focus.toCamera, step.ease);
 
-    if (t >= 1) this.focus = null;
+    if (step.done) this.focus = null;
   }
 
   /**
