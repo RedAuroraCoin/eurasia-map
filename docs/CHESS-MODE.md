@@ -67,7 +67,7 @@ ground, back rank behind.
     blocks movement and can be taken. It is drawn procedurally (`render/rocket.ts`):
     a concrete pad, a launch table on rails, and one large missile — body, warhead
     band, nose cone, four fins, a service gantry — painted in the side's own colours
-    and scaled to 3.2 units, the tallest thing on the board. **Instead of a move** it fires for **200
+    and scaled to 3.2 units, the tallest thing on the board. **Instead of a move** it fires for **250
     coins a shot**, hit or miss — the rockets leave the tube either way. Pick a cell
     within **seven** cells of the base, and it shells the **3x3 zone** around it.
     Arming **Fire** sets the firing side's bases alight **at the foot only** — a
@@ -81,7 +81,7 @@ ground, back rank behind.
     there would hit. Clicking the base again puts it away; a move clears it.
 
     Firing is **two taps**: the first shows the zone and what stands in it, the
-    second on the same cell fires. A shot costs 200 coins and can kill your own
+    second on the same cell fires. A shot costs 250 coins and can kill your own
     pieces, so it should not be one stray tap away — on a phone there is no hover to
     preview it with.
     **Every target in the zone rolls for itself** — pieces, towers and rocket bases,

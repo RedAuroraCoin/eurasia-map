@@ -220,7 +220,7 @@ const RAW = {
      */
     rocketCost: 500,
     /** A shot costs money whether it hits or misses: the rockets are spent. */
-    rocketShotCost: 200,
+    rocketShotCost: 250,
     rocketRange: 7,
     rocketCentreChance: 0.5,
     rocketRingChance: 0.2,
