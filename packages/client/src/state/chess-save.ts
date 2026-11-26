@@ -66,7 +66,7 @@ function parsePiece(raw: unknown, ctx: ChessCtx, used: Set<number>): Piece | nul
 /** Validates a saved game against the live board, or says why it cannot load. */
 export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
   if (!isRecord(raw)) return null;
-  const { seed, pieces, turn, round, towers, rockets, coins, winner, lastMove } = raw;
+  const { seed, pieces, turn, round, towers, rockets, volcanoes, coins, winner, lastMove } = raw;
   if (!isNumber(seed) || !Number.isInteger(seed)) return null;
   if (!isSide(turn)) return null;
   if (!isNumber(round) || !Number.isInteger(round) || round < 0) return null;
@@ -118,6 +118,19 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
     }
   }
 
+  // Volcanoes arrived in 0.1.1, so a file without them is a game played before
+  // they existed, not a broken one.
+  const volcanoMap: Record<string, number> = {};
+  if (volcanoes !== undefined) {
+    if (!isRecord(volcanoes)) return null;
+    for (const [key, value] of Object.entries(volcanoes)) {
+      const cell = Number(key);
+      if (!Number.isInteger(cell) || cell < 0 || cell >= ctx.cellCount) return null;
+      if (!isNumber(value) || !Number.isInteger(value)) return null;
+      volcanoMap[key] = value;
+    }
+  }
+
   let last: ChessState['lastMove'] = null;
   if (isRecord(lastMove)) {
     const { piece, from, to } = lastMove;
@@ -134,6 +147,7 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
     seaLevel: seaLevelForRound(round, ctx),
     towers: towerMap,
     rockets: rocketMap,
+    volcanoes: volcanoMap,
     coins: [Math.floor(coins[0] as number), Math.floor(coins[1] as number)],
     winner: winner === null ? null : (winner as Side),
     lastMove: last,

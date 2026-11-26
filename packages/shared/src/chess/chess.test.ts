@@ -40,6 +40,7 @@ const state = (pieces: Piece[], extra: Partial<ChessState> = {}): ChessState => 
   v: 1,
   seed: 1,
   size: 300,
+  volcanoes: {},
   pieces,
   turn: 0,
   round: 0,
@@ -379,6 +380,176 @@ describe('movement', () => {
     expect(cells).not.toContain(at(3, 5));
     expect(cells).toContain(at(3, 1));
     expect(cells).not.toContain(at(3, 0));
+  });
+});
+
+describe('volcanoes', () => {
+  const ctx = ctx8();
+
+  /** Moves the side to move one legal step with its king: a turn nobody cares about. */
+  const shuffle = (game: ChessState): ChessState => {
+    const king = game.pieces.find((entry) => entry.kind === 'king' && entry.side === game.turn);
+    if (!king) throw new Error('no king');
+    const taken = new Set(game.pieces.map((entry) => entry.cell));
+    const row = Math.floor(king.cell / ctx.cols);
+    const col = king.cell % ctx.cols;
+    for (const [dr, dc] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as const) {
+      const r = row + dr;
+      const c = col + dc;
+      if (r < 0 || c < 0 || r >= ctx.rows || c >= ctx.cols) continue;
+      const cell = r * ctx.cols + c;
+      if (taken.has(cell)) continue;
+      const out = chessReduce(game, { k: 'move', piece: king.id, to: cell }, ctx);
+      if (out.ok) return out.state;
+    }
+    throw new Error('the king is stuck');
+  };
+
+  const withVolcano = (
+    cell: number,
+    spawned: number,
+    extra: Partial<ChessState> = {},
+  ): ChessState =>
+    state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7))], {
+      // The volcanoes are the subject: everything else is scenery.
+      volcanoes: { [String(cell)]: spawned },
+      round: spawned,
+      ...extra,
+    });
+
+  it('counts down: yellow, orange, red, then it opens', () => {
+    const cell = at(3, 3);
+    let game = withVolcano(cell, 0, { turn: 0, round: 0 });
+
+    // Round 0: it is there, and quiet — no event, because nothing has changed yet.
+    expect(game.volcanoes[String(cell)]).toBe(0);
+
+    const stages: number[] = [];
+    for (let move = 0; move < 6; move++) {
+      const king = game.pieces.find((entry) => entry.kind === 'king' && entry.side === game.turn);
+      if (!king) throw new Error('no king');
+      const before = game;
+      game = shuffle(game);
+      // Replay the same command to collect its events: `shuffle` only keeps state.
+      const replay = chessReduce(
+        before,
+        { k: 'move', piece: king.id, to: king.cell % 8 === 0 ? king.cell + 1 : king.cell - 1 },
+        ctx,
+      );
+      if (replay.ok) {
+        for (const event of replay.events) {
+          if (event.t === 'volcano' && event.stage > 0) stages.push(event.stage);
+          if (event.t === 'erupted') stages.push(-1);
+        }
+      }
+    }
+
+    // Two warnings, then the eruption: 1 (orange), 2 (red), -1 (opened).
+    expect(stages.slice(0, 3)).toEqual([1, 2, -1]);
+  });
+
+  it('takes a piece that stayed on the cell', () => {
+    const cell = at(1, 1);
+    const game = state(
+      [piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7)), piece(5, 0, 'rook', cell)],
+      {
+        volcanoes: { [String(cell)]: 0 },
+        round: 3,
+        turn: 1,
+      },
+    );
+
+    const out = chessReduce(game, { k: 'move', piece: 2, to: at(6, 7) }, ctx);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.state.pieces.some((entry) => entry.id === 5)).toBe(false);
+    expect(out.state.volcanoes[String(cell)]).toBeUndefined();
+    const eruption = out.events.find((event) => event.t === 'erupted');
+    expect(eruption).toMatchObject({ cell, pieces: 1 });
+  });
+
+  it('takes a tower too, and reports it', () => {
+    const cell = at(2, 2);
+    const game = state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7))], {
+      volcanoes: { [String(cell)]: 0 },
+      towers: { [String(cell)]: 0 },
+      round: 3,
+      turn: 1,
+    });
+
+    const out = chessReduce(game, { k: 'move', piece: 2, to: at(6, 7) }, ctx);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.state.towers[String(cell)]).toBeUndefined();
+    expect(out.events.find((event) => event.t === 'erupted')).toMatchObject({
+      cell,
+      structures: 1,
+    });
+  });
+
+  it('ends the game when the king is the one standing there', () => {
+    const cell = at(4, 4);
+    // Black's king sits on a volcano that is out of time; white makes an ordinary
+    // move, and the eruption at the end of the turn decides the game.
+    const game = state(
+      [
+        piece(1, 0, 'king', at(0, 0)),
+        piece(2, 1, 'king', cell),
+        // Black has something else to move: the king is not going anywhere.
+        piece(6, 1, 'rook', at(7, 6)),
+      ],
+      {
+        volcanoes: { [String(cell)]: 0 },
+        round: 3,
+        turn: 1,
+      },
+    );
+
+    const out = chessReduce(game, { k: 'move', piece: 6, to: at(7, 5) }, ctx);
+    expect(out.ok).toBe(true);
+    expect(out.state.winner).toBe(0);
+    const won = out.events.find((event) => event.t === 'won');
+    if (won && won.t === 'won') expect(won.how).toBe('volcano');
+  });
+
+  it('is put out by the sea', () => {
+    const cell = at(5, 5);
+    const game = state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7))], {
+      volcanoes: { [String(cell)]: 0 },
+      round: 3,
+      turn: 1,
+      // High enough to cover the cell (600 m there), low enough to leave the kings
+      // on dry ground (780 m in the corner).
+      seaLevel: 700,
+    });
+
+    const out = chessReduce(game, { k: 'move', piece: 2, to: at(6, 7) }, ctx);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.state.volcanoes[String(cell)]).toBeUndefined();
+  });
+
+  it('appears on schedule, on dry land, the same way every time', () => {
+    const run = (): ChessState => {
+      let game = createChessGame(300, 42, ctx);
+      for (let i = 0; i < BALANCE.chess.volcano.firstRound * 2 + 2; i++) game = shuffle(game);
+      return game;
+    };
+
+    const first = run();
+    const second = run();
+    expect(Object.keys(first.volcanoes)).toEqual(Object.keys(second.volcanoes));
+    expect(Object.keys(first.volcanoes).length).toBeGreaterThan(0);
+
+    for (const cell of Object.keys(first.volcanoes)) {
+      expect(ctx.isLand(Number(cell))).toBe(true);
+      expect(Number(cell)).toBeLessThan(ctx.cellCount);
+    }
   });
 });
 

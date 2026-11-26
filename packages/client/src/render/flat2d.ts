@@ -12,7 +12,8 @@ import { SIDE_COLOURS, TOWER_COLOURS, type UnitInstance, type UnitRole } from '.
 import { HINT_COLOURS, ZONE_COLOURS, type MoveHint } from './hints';
 import { blastFrame } from './blast';
 import { flatLayout } from './grid';
-import type { View, ZoneCell } from './scene3d';
+import type { View, VolcanoCell, ZoneCell } from './scene3d';
+import { volcanoColour } from './volcano';
 import type { Lighting } from './palette';
 
 /** One character per piece, so the flat view still says what is standing there. */
@@ -52,6 +53,8 @@ export class Flat2D implements View {
   private glow: number[] = [];
   /** The reach of an inspected base: a warm wash that fades with distance. */
   private reach: ReachCell[] = [];
+  /** Live volcanoes, coloured by stage. */
+  private volcanoes: VolcanoCell[] = [];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -95,6 +98,10 @@ export class Flat2D implements View {
 
   setRange(cells: readonly ReachCell[] | null): void {
     this.reach = cells ? [...cells] : [];
+  }
+
+  setVolcanoes(cells: readonly VolcanoCell[] | null): void {
+    this.volcanoes = cells ? [...cells] : [];
   }
 
   /** There is no HDR buffer here: the flat view paints by hand and needs no glare. */
@@ -330,6 +337,25 @@ export class Flat2D implements View {
     }
     outline(this.selected, 'rgba(0,0,0,0.6)', 3);
     outline(this.selected, 'rgba(255,255,255,0.95)', 1.5);
+
+    // Volcanoes: a dark cone with a bright mouth, the mouth coloured by the stage.
+    for (const { cell: volcanoCell, stage } of this.volcanoes) {
+      const col = volcanoCell % map.cols;
+      const row = Math.floor(volcanoCell / map.cols);
+      const cx = ox + col * cell + cell / 2;
+      const cy = oy + row * cell + cell / 2;
+      ctx.fillStyle = '#4a4038';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - cell * 0.42);
+      ctx.lineTo(cx + cell * 0.4, cy + cell * 0.34);
+      ctx.lineTo(cx - cell * 0.4, cy + cell * 0.34);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = volcanoColour(stage);
+      ctx.beginPath();
+      ctx.arc(cx, cy - cell * 0.2, Math.max(1.5, cell * 0.16), 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // The reach of an inspected base: a warm wash that fades outward, under
     // everything else so the pieces stay readable.

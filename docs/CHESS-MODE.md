@@ -146,6 +146,28 @@ that now has it — 750 ms, smoothstep, the same viewing direction, so the board
 spins. A drag on the camera cancels the glide: the player's hands always win. The flat
 view has no camera, so it does nothing there.
 
+## Volcanoes
+
+From round 3, and every three rounds after that, the board grows a volcano: a random
+cell of dry land, picked by a hash of the seed and the round, so every device and every
+replay agree on where it is. At most three burn at once.
+
+A cone warns before it opens: **yellow** on the round it appears, **orange** the round
+after, **red** on the third — and on the round after red it takes everything standing on
+the cell, piece or structure, and goes out. A king caught by an eruption loses the game.
+The sea puts a volcano out, the same way it drowns a piece: water over the cell and the
+cone is gone.
+
+The warning exists so the mechanic is a decision rather than an accident: three rounds is
+enough to walk a piece away, or to leave it there and hope the opponent does not notice.
+
+| round | what the cell shows |
+| ----- | ------------------- |
+| appeared | yellow |
+| +1 | orange |
+| +2 | red |
+| +3 | the eruption: anything on the cell is destroyed |
+
 ## Saving
 
 The game is saved after every applied action, on tab hide and on unload, under

@@ -56,12 +56,25 @@ export const en = {
     turn: (side: string) => `${side} to move`,
     white: 'White',
     black: 'Black',
-    won: (side: string, how: 'king' | 'drowned' | 'rocket') =>
+    won: (side: string, how: 'king' | 'drowned' | 'rocket' | 'volcano') =>
       how === 'king'
         ? `${side} takes the king and wins`
         : how === 'rocket'
           ? `${side} wins — a rocket hit the other king`
-          : `${side} wins — the other king drowned`,
+          : how === 'volcano'
+            ? `${side} wins — a volcano took the other king`
+            : `${side} wins — the other king drowned`,
+    volcanoYellow: 'A volcano has appeared. It will not stay quiet.',
+    volcanoOrange: 'The volcano is glowing orange. One more round.',
+    volcanoRed: 'The volcano is about to blow — clear the cell!',
+    erupted: (pieces: number, structures: number) => {
+      const parts: string[] = [];
+      if (pieces > 0) parts.push(pieces === 1 ? '1 piece' : `${pieces} pieces`);
+      if (structures > 0) parts.push(structures === 1 ? '1 structure' : `${structures} structures`);
+      return parts.length > 0
+        ? `The volcano erupted: ${parts.join(' and ')} gone`
+        : 'The volcano erupted into empty ground';
+    },
     drowned: (n: number) => (n === 1 ? '1 piece drowned' : `${n} pieces drowned`),
     built: 'Tower built',
     noCoins: (cost: number) => `That costs ${cost} coins`,

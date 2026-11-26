@@ -12,7 +12,11 @@ data: Natural Earth coastlines and ETOPO 2022 elevations.
   because the same cell count over a third of the ground is a coarser picture; each grid is
   sized to hold its target at very nearly the real coastline (IoU 0.98-0.99).
 
-Chess is played on the 1600-cell board of whichever map is chosen.
+Chess is played on the 1600-cell board of whichever map is chosen. Volcanoes open on
+random dry cells from round 3, warning yellow then orange then red before they take
+whatever stands on them.
+
+Version 0.1.1.
 
 The architecture decisions behind this repository are in
 [`docs/STAGE0-ARCHITECTURE.md`](docs/STAGE0-ARCHITECTURE.md).

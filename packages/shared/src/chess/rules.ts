@@ -1,5 +1,5 @@
 import { BALANCE } from '../balance';
-import { hashString } from '../rng';
+import { hash01, hashString } from '../rng';
 import { buildSpots, legalTargets, neighbours, recruitSpots, rocketCells, spotOf } from './moves';
 import type { MapSize } from '../map/types';
 import type {
@@ -208,6 +208,7 @@ export function createChessGame(size: MapSize, seed: number, ctx: ChessCtx, nowM
     seaLevel: BALANCE.flood.startLevel,
     towers: {},
     rockets: {},
+    volcanoes: {},
     coins: [start, start],
     winner: null,
     lastMove: null,
@@ -271,7 +272,7 @@ function endTurn(
   if (turn === 0) seaLevel = seaLevelForRound(round, ctx);
 
   const ground = (cell: number): number => ctx.elev[cell] ?? 0;
-  const pieces = state.pieces.filter((piece) => ground(piece.cell) >= seaLevel);
+  let pieces = state.pieces.filter((piece) => ground(piece.cell) >= seaLevel);
   const towers: Record<string, Side> = {};
   for (const [cell, side] of Object.entries(state.towers)) {
     if (ground(Number(cell)) >= seaLevel) towers[cell] = side;
@@ -279,6 +280,71 @@ function endTurn(
   const rockets: Record<string, Side> = {};
   for (const [cell, side] of Object.entries(state.rockets)) {
     if (ground(Number(cell)) >= seaLevel) rockets[cell] = side;
+  }
+
+  // --- volcanoes -----------------------------------------------------------
+  // A cone appears yellow, turns orange, turns red — and on the round after red it
+  // takes whatever still stands on the cell. The stage is the age, so nothing is
+  // stored but the round it appeared.
+  const volcanoRule = BALANCE.chess.volcano;
+  const volcanoes: Record<string, number> = {};
+  let eruptedKing: Side | null = null;
+  for (const [cell, spawned] of Object.entries(state.volcanoes)) {
+    const index = Number(cell);
+    if (ground(index) < seaLevel) continue; // the sea puts it out
+    // Everything about a volcano happens on the round, not on a half-turn: the
+    // stage is a function of the round number, so acting twice would report the
+    // same warning twice.
+    const age = round - spawned;
+    if (turn !== 0) {
+      volcanoes[cell] = spawned;
+      continue;
+    }
+    if (age < volcanoRule.warnRounds) {
+      volcanoes[cell] = spawned;
+      if (age > 0) events.push({ t: 'volcano', cell: index, stage: age });
+      continue;
+    }
+
+    // It opens. Anything on the cell goes, and so does the cone.
+    const lost = pieces.filter((piece) => piece.cell === index);
+    pieces = pieces.filter((piece) => piece.cell !== index);
+    const king = lost.find((piece) => piece.kind === 'king');
+    if (king) eruptedKing = king.side;
+    const structure = towers[cell] !== undefined || rockets[cell] !== undefined;
+    delete towers[cell];
+    delete rockets[cell];
+    events.push({
+      t: 'erupted',
+      cell: index,
+      pieces: lost.length,
+      structures: structure ? 1 : 0,
+    });
+  }
+
+  // One new cone every few rounds, on a random cell that is still dry ground and
+  // does not already have one. `hash01` keeps it deterministic: the same seed and
+  // round pick the same cell on every device and in every replay.
+  const scheduled =
+    round >= volcanoRule.firstRound &&
+    (round - volcanoRule.firstRound) % volcanoRule.everyRounds === 0;
+  const active = Object.keys(volcanoes).length;
+  if (scheduled && turn === 0 && active < volcanoRule.maxActive) {
+    const taken = new Set(Object.keys(volcanoes).map(Number));
+    const candidates: number[] = [];
+    for (let cell = 0; cell < ctx.cellCount; cell++) {
+      if (!ctx.isLand(cell) || taken.has(cell)) continue;
+      if (ground(cell) < seaLevel) continue;
+      candidates.push(cell);
+    }
+    if (candidates.length > 0) {
+      const pick = Math.floor(
+        hash01((state.seed ^ Math.imul(round, 0x9e3779b1)) >>> 0) * candidates.length,
+      );
+      const cell = candidates[Math.min(candidates.length - 1, pick)] as number;
+      volcanoes[String(cell)] = round;
+      events.push({ t: 'volcano', cell, stage: 0 });
+    }
   }
 
   // Income is paid once a round, and only for the towers that survived the tide:
@@ -304,6 +370,9 @@ function endTurn(
 
   // A king in the water is a lost game, the same as a king taken.
   let decided = winner;
+  if (!decided && eruptedKing !== null) {
+    decided = { side: eruptedKing === 0 ? 1 : 0, how: 'volcano' };
+  }
   if (!decided) {
     for (const side of [0, 1] as const) {
       if (
@@ -324,6 +393,7 @@ function endTurn(
     pieces,
     towers,
     rockets,
+    volcanoes,
     winner: decided ? decided.side : null,
   };
 

@@ -18,6 +18,7 @@ import { loadSideModels } from './model';
 import { createRocketGeometry } from './rocket';
 import { FIRE_PARTS, HALO_OUTER, firePartY } from './fire';
 import { blastFrame } from './blast';
+import { createMouthGeometry, createVolcanoGeometry, volcanoColour } from './volcano';
 import { focusStep } from './focus';
 import { createNoiseTexture } from './noise';
 import {
@@ -80,6 +81,8 @@ export interface View {
   setRocketGlow(cells: readonly number[] | null): void;
   /** Where a selected rocket base can put its blast, whether it is yours or not. */
   setRange(cells: readonly ReachCell[] | null): void;
+  /** Live volcanoes: a cone each, coloured by how close it is to opening. */
+  setVolcanoes(cells: readonly VolcanoCell[] | null): void;
   /** Bloom on explosions and fire. Off renders straight to the canvas. */
   setGlow(enabled: boolean): void;
   pick(clientX: number, clientY: number): number;
@@ -100,6 +103,13 @@ const FOV = 36;
  * it actually occupies.
  */
 const GARRISON_OFFSET = 0.22;
+/** A volcano on the board: which cell, and how far along its warning it is. */
+export interface VolcanoCell {
+  readonly cell: number;
+  /** 0 yellow, 1 orange, 2 red — the round it opens. */
+  readonly stage: number;
+}
+
 /** The rocket base stands well clear of the towers: it is the tallest thing here. */
 const ROCKET_WIDTH = 0.95;
 const ROCKET_HEIGHT = 3.2;
@@ -180,6 +190,50 @@ export class Scene3D implements View {
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
   /**
+   * A cone of rock with a glowing mouth on every volcano. Two instanced meshes, so
+   * any number of them costs two draws; the mouth carries the stage colour.
+   */
+  setVolcanoes(cells: readonly VolcanoCell[] | null): void {
+    for (const mesh of this.volcanoMeshes) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = false;
+    }
+    this.volcanoMeshes = [];
+    if (!cells || cells.length === 0) return;
+
+    const rock = new THREE.InstancedMesh(
+      createVolcanoGeometry(),
+      new THREE.MeshStandardMaterial({ color: '#4a4038', roughness: 0.95, metalness: 0 }),
+      cells.length,
+    );
+    const mouth = new THREE.InstancedMesh(
+      createMouthGeometry(),
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false }),
+      cells.length,
+    );
+
+    const matrix = new THREE.Matrix4();
+    const colour = new THREE.Color();
+    cells.forEach(({ cell, stage }, index) => {
+      const { x, z } = cellToWorld(this.map, cell);
+      const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
+      matrix.makeTranslation(x, ground, z);
+      rock.setMatrixAt(index, matrix);
+      mouth.setMatrixAt(index, matrix);
+      mouth.setColorAt(index, colour.set(volcanoColour(stage)));
+    });
+
+    rock.instanceMatrix.needsUpdate = true;
+    mouth.instanceMatrix.needsUpdate = true;
+    if (mouth.instanceColor) mouth.instanceColor.needsUpdate = true;
+    rock.castShadow = this.quality === 'high';
+    this.scene.add(rock, mouth);
+    this.volcanoMeshes = [rock, mouth];
+  }
+
+  /**
    * The reach of a rocket base, as a warm pool that fades with distance: bright at
    * the base, embers at the edge of its range. Additive, so it reads as light on the
    * ground rather than paint, and one instanced mesh, so a 15x15 field is one draw.
@@ -234,6 +288,8 @@ export class Scene3D implements View {
   private rocketGlow: THREE.Group | null = null;
   /** The reach of an inspected rocket base: one instanced tile per cell. */
   private rangeMesh: THREE.InstancedMesh | null = null;
+  /** Live volcanoes: one rock cone and one glowing mouth per cell. */
+  private volcanoMeshes: THREE.InstancedMesh[] = [];
   private focus: {
     readonly fromTarget: THREE.Vector3;
     readonly toTarget: THREE.Vector3;
@@ -1514,6 +1570,12 @@ export class Scene3D implements View {
       (this.rangeMesh.material as THREE.Material).dispose();
       this.rangeMesh = null;
     }
+    for (const mesh of this.volcanoMeshes) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    }
+    this.volcanoMeshes = [];
     this.composer?.dispose();
     this.composer = null;
     this.bloom = null;

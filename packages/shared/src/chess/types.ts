@@ -16,7 +16,7 @@ import type { MapSize } from '../map/types';
 export type Side = 0 | 1;
 
 /** How a game ended: a king taken, a king drowned, or a king hit by a rocket. */
-export type WinHow = 'king' | 'drowned' | 'rocket';
+export type WinHow = 'king' | 'drowned' | 'rocket' | 'volcano';
 
 export type PieceKind = 'king' | 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn';
 
@@ -50,6 +50,11 @@ export interface ChessState {
   readonly towers: Readonly<Record<string, Side>>;
   /** Rocket bases: cell index -> owner. They block like towers and can be taken. */
   readonly rockets: Readonly<Record<string, Side>>;
+  /**
+   * Live volcanoes: cell index -> the round it appeared. The stage is derived —
+   * `round - spawned` — so a save needs no extra bookkeeping and a replay is exact.
+   */
+  readonly volcanoes: Readonly<Record<string, number>>;
   readonly coins: readonly [number, number];
   /** Set once a king is taken or drowned; the loser is the other side. */
   readonly winner: Side | null;
@@ -129,6 +134,18 @@ export type ChessEvent =
   | { readonly t: 'drowned'; readonly pieces: number; readonly towers: number }
   | { readonly t: 'sea'; readonly level: number }
   | { readonly t: 'turn'; readonly side: Side; readonly round: number }
+  | {
+      readonly t: 'volcano';
+      readonly cell: number;
+      /** 0 yellow, 1 orange, 2 red — the round it opens. */
+      readonly stage: number;
+    }
+  | {
+      readonly t: 'erupted';
+      readonly cell: number;
+      readonly pieces: number;
+      readonly structures: number;
+    }
   | { readonly t: 'won'; readonly side: Side; readonly how: WinHow }
   | { readonly t: 'rejected'; readonly code: ChessErrorCode };
 

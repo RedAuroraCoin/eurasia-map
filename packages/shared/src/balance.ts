@@ -88,6 +88,17 @@ export const BalanceSchema = z.object({
      * opening should not be about drowning.
      */
     floodExponent: z.number().min(0.25).max(6),
+    /** Volcanoes: a cone that warns for three rounds and then takes the ground. */
+    volcano: z.object({
+      /** The round the first cone appears on. */
+      firstRound: z.number().int().min(1).max(200),
+      /** Then one every this many rounds. */
+      everyRounds: z.number().int().min(1).max(50),
+      /** Never more than this many at once. */
+      maxActive: z.number().int().min(1).max(20),
+      /** Rounds of warning: yellow, orange, then red — the round it erupts. */
+      warnRounds: z.number().int().min(1).max(10),
+    }),
     /**
      * Ground at or above this counts as high ground when the camp is chosen: the
      * patch inside the band with the most high cells wins. It is a preference,
@@ -215,6 +226,12 @@ const RAW = {
     rocketRingChance: 0.2,
     fullFloodRound: 200,
     floodExponent: 2,
+    volcano: {
+      firstRound: 3,
+      everyRounds: 3,
+      maxActive: 3,
+      warnRounds: 3,
+    },
     campMinElevation: 250,
     // White in Europe, moved three files north of its first placement; black back
     // in the north-east, where it stood before the bands existed.

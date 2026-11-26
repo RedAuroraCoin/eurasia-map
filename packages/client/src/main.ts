@@ -22,6 +22,7 @@ import {
 import { t } from './i18n';
 import { lightingAt } from './render/palette';
 import { createView, type View } from './render/view';
+import type { VolcanoCell } from './render/scene3d';
 import { backupSave, browserStorage, clearSave, loadSave, saveState } from './state/save';
 import { backupChessGame, clearChessGame, loadChessGame, saveChessGame } from './state/chess-save';
 import { advance, clockFor } from './state/clock';
@@ -693,6 +694,7 @@ function syncChess(): void {
   if (!chess) return;
   view.setState(chessView(), clock());
   view.setUnits(unitsOf(chess));
+  view.setVolcanoes(volcanoesOf(chess));
   // What each side will be paid when this round closes: the base rate plus one
   // share per tower it still holds.
   const game = chess;
@@ -773,6 +775,22 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
       app.setMessage(text, own > 0 ? 'error' : event.hits.length > 0 ? 'good' : 'info');
     }
     if (event.t === 'drowned') app.setMessage(t.chess.drowned(event.pieces), 'error');
+    if (event.t === 'volcano') {
+      app.setMessage(
+        event.stage === 0
+          ? t.chess.volcanoYellow
+          : event.stage === 1
+            ? t.chess.volcanoOrange
+            : t.chess.volcanoRed,
+        event.stage === 2 ? 'error' : 'info',
+      );
+    }
+    if (event.t === 'erupted') {
+      // The cell keeps its scorch, so an eruption is also a small explosion.
+      blast = zoneCells(event.cell);
+      view.playBlast(blast);
+      app.setMessage(t.chess.erupted(event.pieces, event.structures), 'error');
+    }
     if (event.t === 'won') {
       app.setMessage(
         t.chess.won(event.side === 0 ? t.chess.white : t.chess.black, event.how),
@@ -1052,6 +1070,17 @@ function focusOnSide(side: 0 | 1): void {
 
   focusTarget = anchor.cell;
   view.focusCell(anchor.cell);
+}
+
+/** Every live volcano with the stage it has reached: 0 yellow, 1 orange, 2 red. */
+function volcanoesOf(game: ChessState): VolcanoCell[] {
+  const last = BALANCE.chess.volcano.warnRounds - 1;
+  return Object.entries(game.volcanoes)
+    .map(([cell, spawned]) => ({
+      cell: Number(cell),
+      stage: Math.max(0, Math.min(last, game.round - spawned)),
+    }))
+    .sort((a, b) => a.cell - b.cell);
 }
 
 /** One click: pick a piece, then a destination — or place a tower when armed. */
@@ -1481,6 +1510,7 @@ export const __eurasia: {
   getFocus: () => number | null;
   getGlowCells: () => readonly number[];
   getReach: () => readonly ReachCell[];
+  getVolcanoes: () => readonly VolcanoCell[];
   getInspect: () => number | null;
   getRegion: () => string;
   getSize: () => number;
@@ -1498,6 +1528,7 @@ export const __eurasia: {
   getFocus: () => focusTarget,
   getGlowCells: () => glowCells,
   getReach: () => reach,
+  getVolcanoes: () => (chess ? volcanoesOf(chess) : []),
   getInspect: () => inspectBase,
   getRegion: () => map.region,
   getSize: () => map.land,

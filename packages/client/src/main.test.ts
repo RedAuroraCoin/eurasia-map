@@ -641,6 +641,36 @@ describe('single-player shell', () => {
     expect(hints).toEqual([{ cell: whiteTower, kind: 'recruit' }]);
   });
 
+  it('draws a volcano for every one the game has, coloured by its stage', async () => {
+    const map = getMap(1600);
+    const base = createChessGame(1600, 17, {
+      isLand: (cell) => map.mask[cell] === '#',
+      elev: map.elev,
+      rows: map.rows,
+      cols: map.cols,
+      cellCount: map.mask.length,
+    });
+    const land = [...map.mask].findIndex((char) => char === '#');
+    saveChessGame(localStorage, {
+      ...base,
+      round: 6,
+      // One cone that has just appeared, one that has been there for two rounds.
+      volcanoes: { [String(land)]: 6, [String(land + 1)]: 4 },
+    });
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess' }));
+
+    const { getVolcanoes } = await boot();
+    flushFrames();
+
+    const cones = getVolcanoes();
+    expect(cones).toHaveLength(2);
+    expect(cones.map((cone) => cone.cell)).toEqual([land, land + 1]);
+    // The round is 6: the first is brand new (yellow), the second is at its last
+    // warning (red).
+    expect(cones[0]?.stage).toBe(0);
+    expect(cones[1]?.stage).toBe(2);
+  });
+
   it('shows what a rocket base reaches, including the enemy’s', async () => {
     const map = getMap(1600);
     const ctx = {

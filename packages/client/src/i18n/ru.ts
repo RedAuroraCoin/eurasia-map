@@ -57,12 +57,25 @@ export const ru: Dict = {
     turn: (side: string) => `Ходят ${side}`,
     white: 'белые',
     black: 'чёрные',
-    won: (side: string, how: 'king' | 'drowned' | 'rocket') =>
+    won: (side: string, how: 'king' | 'drowned' | 'rocket' | 'volcano') =>
       how === 'king'
         ? `${side} забирают короля и побеждают`
         : how === 'rocket'
           ? `${side} побеждают — чужая ракета накрыла короля`
-          : `${side} побеждают — чужой король утонул`,
+          : how === 'volcano'
+            ? `${side} побеждают — вулкан забрал чужого короля`
+            : `${side} побеждают — чужой король утонул`,
+    volcanoYellow: 'Появился вулкан. Он не будет молчать.',
+    volcanoOrange: 'Вулкан светится оранжевым. Остался один раунд.',
+    volcanoRed: 'Вулкан вот-вот взорвётся — освободите клетку!',
+    erupted: (pieces: number, structures: number) => {
+      const parts: string[] = [];
+      if (pieces > 0) parts.push(pieces === 1 ? '1 фигура' : `${pieces} фигур`);
+      if (structures > 0) parts.push(structures === 1 ? '1 постройка' : `${structures} построек`);
+      return parts.length > 0
+        ? `Вулкан взорвался: ${parts.join(' и ')} уничтожено`
+        : 'Вулкан взорвался впустую';
+    },
     drowned: (n: number) => `Утонуло фигур: ${n}`,
     built: 'Башня построена',
     noCoins: (cost: number) => `Это стоит ${cost} монет`,
