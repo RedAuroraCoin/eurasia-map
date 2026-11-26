@@ -351,10 +351,21 @@ export class Flat2D implements View {
       ctx.lineTo(cx - cell * 0.4, cy + cell * 0.34);
       ctx.closePath();
       ctx.fill();
+      // The mouth is wide, and drawn additively: at a glance the stage has to be
+      // readable on a phone, not just when the cell is under the camera.
+      const mouthY = cy - cell * 0.2;
+      const mouthR = Math.max(2, cell * 0.26);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = volcanoColour(stage);
       ctx.beginPath();
-      ctx.arc(cx, cy - cell * 0.2, Math.max(1.5, cell * 0.16), 0, Math.PI * 2);
+      ctx.arc(cx, mouthY, mouthR, 0, Math.PI * 2);
       ctx.fill();
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.arc(cx, mouthY, mouthR * 1.6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
 
     // The reach of an inspected base: a warm wash that fades outward, under

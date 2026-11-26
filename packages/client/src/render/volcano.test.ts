@@ -1,9 +1,12 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import {
+  VOLCANO_BAND_OUTER,
   VOLCANO_COLOURS,
   VOLCANO_HEIGHT,
+  VOLCANO_MOUTH_RADIUS,
   VOLCANO_RADIUS,
+  createBandGeometry,
   createMouthGeometry,
   createVolcanoGeometry,
   volcanoColour,
@@ -30,10 +33,23 @@ describe('the volcano model', () => {
     expect(VOLCANO_RADIUS * 0.42).toBeLessThan(VOLCANO_RADIUS * 0.6);
   });
 
-  it('has a mouth at the top, inside the rim', () => {
+  it('has a mouth at the top, wider than the cone under it', () => {
     const mouth = bounds(createMouthGeometry());
     expect(mouth.min.y).toBeGreaterThan(VOLCANO_HEIGHT - 0.1);
     expect(mouth.max.y).toBeLessThanOrEqual(VOLCANO_HEIGHT);
+    // Wider than the cone's own top (0.42 * 0.44 = 0.185), so the colour overhangs
+    // the rim and survives a low camera angle.
+    expect(VOLCANO_MOUTH_RADIUS).toBeGreaterThan(VOLCANO_RADIUS * 0.42);
+  });
+
+  it('has a band around the mouth that is wider than the mouth itself', () => {
+    const band = bounds(createBandGeometry());
+    const width = band.max.x - band.min.x;
+    expect(VOLCANO_BAND_OUTER).toBeGreaterThan(VOLCANO_MOUTH_RADIUS);
+    expect(width).toBeCloseTo(VOLCANO_BAND_OUTER * 2, 2);
+    // Still inside the cell: the band may overhang the cone, not the board.
+    expect(width).toBeLessThanOrEqual(1);
+    expect(band.min.y).toBeGreaterThan(VOLCANO_HEIGHT - 0.1);
   });
 
   it('runs yellow, orange, red — and red again for anything later', () => {

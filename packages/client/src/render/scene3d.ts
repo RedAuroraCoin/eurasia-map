@@ -18,7 +18,12 @@ import { loadSideModels } from './model';
 import { createRocketGeometry } from './rocket';
 import { FIRE_PARTS, HALO_OUTER, firePartY } from './fire';
 import { blastFrame } from './blast';
-import { createMouthGeometry, createVolcanoGeometry, volcanoColour } from './volcano';
+import {
+  createBandGeometry,
+  createMouthGeometry,
+  createVolcanoGeometry,
+  volcanoColour,
+} from './volcano';
 import { focusStep } from './focus';
 import { createNoiseTexture } from './noise';
 import {
@@ -190,8 +195,9 @@ export class Scene3D implements View {
   private zoneMeshes: THREE.Mesh[] = [];
   private zoneGeometry: THREE.PlaneGeometry | null = null;
   /**
-   * A cone of rock with a glowing mouth on every volcano. Two instanced meshes, so
-   * any number of them costs two draws; the mouth carries the stage colour.
+   * A cone of rock with a glowing mouth on every volcano. Three instanced meshes —
+   * rock, mouth, band — so any number of them costs three draws; the last two carry
+   * the stage colour, additively, so it reads as light and not as paint.
    */
   setVolcanoes(cells: readonly VolcanoCell[] | null): void {
     for (const mesh of this.volcanoMeshes) {
@@ -210,7 +216,26 @@ export class Scene3D implements View {
     );
     const mouth = new THREE.InstancedMesh(
       createMouthGeometry(),
-      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false }),
+      new THREE.MeshBasicMaterial({
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+      cells.length,
+    );
+    // A wider band spilling over the rim. Without it the stage is a coin on top of a
+    // cone: readable from above, invisible from the camera's real angle.
+    const band = new THREE.InstancedMesh(
+      createBandGeometry(),
+      new THREE.MeshBasicMaterial({
+        side: THREE.DoubleSide,
+        toneMapped: false,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
       cells.length,
     );
 
@@ -222,15 +247,21 @@ export class Scene3D implements View {
       matrix.makeTranslation(x, ground, z);
       rock.setMatrixAt(index, matrix);
       mouth.setMatrixAt(index, matrix);
+      band.setMatrixAt(index, matrix);
       mouth.setColorAt(index, colour.set(volcanoColour(stage)));
+      band.setColorAt(index, colour.set(volcanoColour(stage)));
     });
 
     rock.instanceMatrix.needsUpdate = true;
     mouth.instanceMatrix.needsUpdate = true;
+    band.instanceMatrix.needsUpdate = true;
     if (mouth.instanceColor) mouth.instanceColor.needsUpdate = true;
+    if (band.instanceColor) band.instanceColor.needsUpdate = true;
     rock.castShadow = this.quality === 'high';
-    this.scene.add(rock, mouth);
-    this.volcanoMeshes = [rock, mouth];
+    mouth.renderOrder = 5;
+    band.renderOrder = 4;
+    this.scene.add(rock, mouth, band);
+    this.volcanoMeshes = [rock, mouth, band];
   }
 
   /**

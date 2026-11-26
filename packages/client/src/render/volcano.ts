@@ -14,8 +14,14 @@ export const VOLCANO_COLOURS = ['#ffd21f', '#ff8a1f', '#ff2a1a'] as const;
 
 export const VOLCANO_HEIGHT = 0.85;
 export const VOLCANO_RADIUS = 0.44;
-/** The mouth sits just under the rim, so it reads as a hole rather than a lid. */
-export const VOLCANO_MOUTH_RADIUS = 0.2;
+/**
+ * The mouth sits just under the rim, so it reads as a hole rather than a lid — and it
+ * is wider than the cone's own top (0.185), so the colour overhangs the rim and can be
+ * read from a low camera angle instead of hiding inside the crater.
+ */
+export const VOLCANO_MOUTH_RADIUS = 0.3;
+/** A band around the mouth: the ring is what makes the stage readable at a glance. */
+export const VOLCANO_BAND_OUTER = 0.42;
 
 /** One cone per volcano; the colour comes from the instance, not from this mesh. */
 export function createVolcanoGeometry(): THREE.BufferGeometry {
@@ -33,10 +39,21 @@ export function createVolcanoGeometry(): THREE.BufferGeometry {
 
 /** The bright mouth: a flat disc at the top of the cone. */
 export function createMouthGeometry(): THREE.BufferGeometry {
-  const disc = new THREE.CircleGeometry(VOLCANO_MOUTH_RADIUS, 12);
+  const disc = new THREE.CircleGeometry(VOLCANO_MOUTH_RADIUS, 16);
   disc.rotateX(-Math.PI / 2);
   disc.translate(0, VOLCANO_HEIGHT - 0.02, 0);
   return disc;
+}
+
+/**
+ * The band around the mouth. Additive on top of the disc, so the stage colour reads as
+ * light spilling over the rim rather than as a painted ring.
+ */
+export function createBandGeometry(): THREE.BufferGeometry {
+  const band = new THREE.RingGeometry(VOLCANO_MOUTH_RADIUS * 0.94, VOLCANO_BAND_OUTER, 20);
+  band.rotateX(-Math.PI / 2);
+  band.translate(0, VOLCANO_HEIGHT - 0.01, 0);
+  return band;
 }
 
 /** The colour of a stage, clamped: a stage beyond red still reads as red. */
