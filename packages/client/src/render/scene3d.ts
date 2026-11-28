@@ -18,6 +18,7 @@ import { loadSideModels } from './model';
 import { createRocketGeometry } from './rocket';
 import { FIRE_PARTS, HALO_OUTER, firePartY } from './fire';
 import { blastFrame } from './blast';
+import { createLavaGeometry, LAVA_COLOURS, lavaPulse } from './lava';
 import {
   createBandGeometry,
   createMouthGeometry,
@@ -88,6 +89,8 @@ export interface View {
   setRange(cells: readonly ReachCell[] | null): void;
   /** Live volcanoes: a cone each, coloured by how close it is to opening. */
   setVolcanoes(cells: readonly VolcanoCell[] | null): void;
+  /** Lava flows: impassable cells, drawn as glowing ground. */
+  setLava(cells: readonly number[] | null): void;
   /** Bloom on explosions and fire. Off renders straight to the canvas. */
   setGlow(enabled: boolean): void;
   pick(clientX: number, clientY: number): number;
@@ -265,6 +268,47 @@ export class Scene3D implements View {
   }
 
   /**
+   * Lava flows. One instanced tile per cell, additive and lifted a hair above the
+   * ground: the cell reads as on fire rather than as carrying an object, which is what
+   * the rule says — you cannot enter it, build on it, or slide through it.
+   */
+  setLava(cells: readonly number[] | null): void {
+    if (this.lavaMesh) {
+      this.scene.remove(this.lavaMesh);
+      this.lavaMesh.geometry.dispose();
+      (this.lavaMesh.material as THREE.Material).dispose();
+      this.lavaMesh = null;
+    }
+    if (!cells || cells.length === 0) return;
+
+    const mesh = new THREE.InstancedMesh(
+      createLavaGeometry(),
+      new THREE.MeshBasicMaterial({
+        color: LAVA_COLOURS[0],
+        toneMapped: false,
+        transparent: true,
+        opacity: lavaPulse(0),
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+      cells.length,
+    );
+
+    const matrix = new THREE.Matrix4();
+    cells.forEach((cell, index) => {
+      const { x, z } = cellToWorld(this.map, cell);
+      const ground = elevationToHeight(this.map.elev[cell] ?? 0, this.relief);
+      matrix.makeTranslation(x, ground, z);
+      mesh.setMatrixAt(index, matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.renderOrder = 3;
+    this.scene.add(mesh);
+    this.lavaMesh = mesh;
+  }
+
+  /**
    * The reach of a rocket base, as a warm pool that fades with distance: bright at
    * the base, embers at the edge of its range. Additive, so it reads as light on the
    * ground rather than paint, and one instanced mesh, so a 15x15 field is one draw.
@@ -321,6 +365,8 @@ export class Scene3D implements View {
   private rangeMesh: THREE.InstancedMesh | null = null;
   /** Live volcanoes: one rock cone and one glowing mouth per cell. */
   private volcanoMeshes: THREE.InstancedMesh[] = [];
+  /** Lava flows: one glowing tile per burning cell. */
+  private lavaMesh: THREE.InstancedMesh | null = null;
   private focus: {
     readonly fromTarget: THREE.Vector3;
     readonly toTarget: THREE.Vector3;
@@ -1538,6 +1584,9 @@ export class Scene3D implements View {
     // clock stops when the save is ahead of it, and a stopped clock once left a
     // fireball burning on the board forever.
     this.updateRocketGlow(frameNow);
+    if (this.lavaMesh) {
+      (this.lavaMesh.material as THREE.MeshBasicMaterial).opacity = lavaPulse(frameNow);
+    }
     this.updateFocus(frameNow);
     this.updateBlast(frameNow);
     this.updateStorms(worldNow);
@@ -1607,6 +1656,12 @@ export class Scene3D implements View {
       (mesh.material as THREE.Material).dispose();
     }
     this.volcanoMeshes = [];
+    if (this.lavaMesh) {
+      this.scene.remove(this.lavaMesh);
+      this.lavaMesh.geometry.dispose();
+      (this.lavaMesh.material as THREE.Material).dispose();
+      this.lavaMesh = null;
+    }
     this.composer?.dispose();
     this.composer = null;
     this.bloom = null;

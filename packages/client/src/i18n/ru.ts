@@ -65,6 +65,17 @@ export const ru: Dict = {
           : how === 'volcano'
             ? `${side} побеждают — вулкан забрал чужого короля`
             : `${side} побеждают — чужой король утонул`,
+    lavaFlows: (cells: number) =>
+      cells === 1
+        ? 'Полилась лава: 1 клетка горит и непроходима'
+        : `Полилась лава: ${cells} клеток горят и непроходимы`,
+    lavaBurned: (pieces: number, structures: number) => {
+      const parts: string[] = [];
+      if (pieces > 0) parts.push(pieces === 1 ? '1 фигуру' : `${pieces} фигур`);
+      if (structures > 0) parts.push(structures === 1 ? '1 постройку' : `${structures} построек`);
+      return `Лава сожгла ${parts.join(' и ')}`;
+    },
+    lavaOut: 'Лава остыла. Земля снова проходима.',
     volcanoYellow: 'Появился вулкан. Он не будет молчать.',
     volcanoOrange: 'Вулкан светится оранжевым. Остался один раунд.',
     volcanoRed: 'Вулкан вот-вот взорвётся — освободите клетку!',

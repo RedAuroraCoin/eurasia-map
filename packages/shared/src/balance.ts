@@ -89,6 +89,12 @@ export const BalanceSchema = z.object({
      */
     floodExponent: z.number().min(0.25).max(6),
     /** Volcanoes: a cone that warns for three rounds and then takes the ground. */
+    lava: z.object({
+      /** How many rounds a flow stays on the board after it appears. */
+      rounds: z.number().int().min(1).max(10),
+      /** Chance that a piece or structure standing on a flow is destroyed, per round. */
+      burnChance: z.number().min(0).max(1),
+    }),
     volcano: z.object({
       /** The round the first cone appears on. */
       firstRound: z.number().int().min(1).max(200),
@@ -226,6 +232,13 @@ const RAW = {
     rocketRingChance: 0.2,
     fullFloodRound: 200,
     floodExponent: 2,
+    lava: {
+      // Two rounds on the board: the round it appears and the one after it.
+      rounds: 2,
+      // A coin flip per occupant per round — a flow under a piece is a threat, not a
+      // death sentence, but standing in it for two rounds is a bad idea.
+      burnChance: 0.5,
+    },
     volcano: {
       firstRound: 3,
       everyRounds: 3,

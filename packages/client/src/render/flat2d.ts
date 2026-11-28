@@ -13,6 +13,7 @@ import { HINT_COLOURS, ZONE_COLOURS, type MoveHint } from './hints';
 import { blastFrame } from './blast';
 import { flatLayout } from './grid';
 import type { View, VolcanoCell, ZoneCell } from './scene3d';
+import { LAVA_COLOURS } from './lava';
 import { volcanoColour } from './volcano';
 import type { Lighting } from './palette';
 
@@ -55,6 +56,8 @@ export class Flat2D implements View {
   private reach: ReachCell[] = [];
   /** Live volcanoes, coloured by stage. */
   private volcanoes: VolcanoCell[] = [];
+  /** Cells under a lava flow. */
+  private lava: number[] = [];
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -102,6 +105,10 @@ export class Flat2D implements View {
 
   setVolcanoes(cells: readonly VolcanoCell[] | null): void {
     this.volcanoes = cells ? [...cells] : [];
+  }
+
+  setLava(cells: readonly number[] | null): void {
+    this.lava = cells ? [...cells] : [];
   }
 
   /** There is no HDR buffer here: the flat view paints by hand and needs no glare. */
@@ -337,6 +344,21 @@ export class Flat2D implements View {
     }
     outline(this.selected, 'rgba(0,0,0,0.6)', 3);
     outline(this.selected, 'rgba(255,255,255,0.95)', 1.5);
+
+    // Lava flows: the cell is on fire, so the ground itself is orange — drawn before
+    // the cones and the pieces, because the flow is what the cell *is*.
+    for (const lavaCell of this.lava) {
+      const col = lavaCell % map.cols;
+      const row = Math.floor(lavaCell / map.cols);
+      const x = ox + col * cell;
+      const y = oy + row * cell;
+      ctx.fillStyle = LAVA_COLOURS[0];
+      ctx.fillRect(x + cell * 0.03, y + cell * 0.03, cell * 0.94, cell * 0.94);
+      ctx.fillStyle = LAVA_COLOURS[1];
+      ctx.globalAlpha = 0.45;
+      ctx.fillRect(x + cell * 0.26, y + cell * 0.26, cell * 0.48, cell * 0.48);
+      ctx.globalAlpha = 1;
+    }
 
     // Volcanoes: a dark cone with a bright mouth, the mouth coloured by the stage.
     for (const { cell: volcanoCell, stage } of this.volcanoes) {

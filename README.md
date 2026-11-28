@@ -14,9 +14,11 @@ data: Natural Earth coastlines and ETOPO 2022 elevations.
 
 Chess is played on the 1600-cell board of whichever map is chosen. Volcanoes open on
 random dry cells from round 3, warning yellow then orange then red before they take
-whatever stands on them.
+whatever stands on them. An eruption leaves lava on the eight neighbours: orange cells
+that cannot be crossed or built on for two rounds, and that burn what stands on them on a
+coin flip each round.
 
-Version 0.1.2.1.
+Version 0.1.3.
 
 The architecture decisions behind this repository are in
 [`docs/STAGE0-ARCHITECTURE.md`](docs/STAGE0-ARCHITECTURE.md).

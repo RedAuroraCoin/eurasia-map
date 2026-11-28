@@ -1,6 +1,6 @@
 {
   "name": "eurasia",
-  "version": "0.1.2.1",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "description": "Eurasia Map — a grid-map game that grows into a strategy game",

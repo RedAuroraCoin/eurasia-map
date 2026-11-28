@@ -88,6 +88,8 @@ export function legalTargets(state: ChessState, piece: Piece, ctx: ChessCtx): nu
   /** 0 = cannot enter, 1 = enter and stop (capture), 2 = free. */
   const entry = (cell: number): 0 | 1 | 2 => {
     if (!isDryLand(cell, state, ctx)) return 0;
+    // A flow is impassable: no landing on it, and no sliding through it either.
+    if (state.lava[String(cell)] !== undefined) return 0;
     const other = occupied.get(cell);
     if (other) return other.side === piece.side ? 0 : 1;
     // A tower and a rocket base are both structures: yours blocks, theirs can be
@@ -169,6 +171,7 @@ export function buildSpots(state: ChessState, ctx: ChessCtx): number[] {
   return neighbours(king.cell, ctx).filter(
     (cell) =>
       isDryLand(cell, state, ctx) &&
+      state.lava[String(cell)] === undefined &&
       !taken.has(cell) &&
       state.towers[String(cell)] === undefined &&
       state.rockets[String(cell)] === undefined,
@@ -234,6 +237,7 @@ export function recruitSpots(state: ChessState, ctx: ChessCtx): number[] {
       (cell) =>
         !taken.has(cell) &&
         isDryLand(cell, state, ctx) &&
+        state.lava[String(cell)] === undefined &&
         state.rockets[String(cell)] === undefined,
     )
     .sort((a, b) => a - b);

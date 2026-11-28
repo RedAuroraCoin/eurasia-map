@@ -41,6 +41,7 @@ const state = (pieces: Piece[], extra: Partial<ChessState> = {}): ChessState => 
   seed: 1,
   size: 300,
   volcanoes: {},
+  lava: {},
   pieces,
   turn: 0,
   round: 0,
@@ -550,6 +551,141 @@ describe('volcanoes', () => {
       expect(ctx.isLand(Number(cell))).toBe(true);
       expect(Number(cell)).toBeLessThan(ctx.cellCount);
     }
+  });
+});
+
+describe('lava flows', () => {
+  // High ground: these tests are about fire, and the tide would otherwise drown the
+  // pieces on the low cells of the slope while the flow is being measured.
+  const ctx = ctx8(Object.fromEntries(Array.from({ length: 64 }, (_, cell) => [cell, 5000])));
+
+  const flow = (cells: number[], round = 0, extra: Partial<ChessState> = {}): ChessState =>
+    state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7))], {
+      lava: Object.fromEntries(cells.map((cell) => [String(cell), round])),
+      round,
+      ...extra,
+    });
+
+  it('cannot be entered, slid through or built on', () => {
+    const rook = piece(5, 0, 'rook', at(0, 3));
+    const game = state([piece(1, 0, 'king', at(7, 0)), piece(2, 1, 'king', at(7, 7)), rook], {
+      lava: { [String(at(0, 5))]: 0 },
+    });
+
+    const targets = legalTargets(game, rook, ctx);
+    expect(targets).toContain(at(0, 4));
+    // The flow itself, and everything behind it: a rook cannot shoot over fire.
+    expect(targets).not.toContain(at(0, 5));
+    expect(targets).not.toContain(at(0, 6));
+
+    const king = piece(9, 0, 'king', at(3, 3));
+    const near = state([king, piece(2, 1, 'king', at(7, 7))], {
+      lava: { [String(at(3, 4))]: 0 },
+      turn: 0,
+    });
+    expect(buildSpots(near, ctx)).not.toContain(at(3, 4));
+    expect(buildSpots(near, ctx)).toContain(at(3, 2));
+  });
+
+  it('cools after two rounds', () => {
+    const cell = at(2, 2);
+    let game = flow([cell], 0, { turn: 1 });
+    const seen: boolean[] = [];
+
+    // White shuffles between two cells, black between two others: two quiet moves per
+    // round, which is all the flow cares about.
+    const steps: Record<Side, readonly [number, number]> = {
+      0: [at(0, 0), at(0, 1)],
+      1: [at(7, 7), at(6, 7)],
+    };
+
+    for (let move = 0; move < 4; move++) {
+      const side = game.turn;
+      const id = side === 0 ? 1 : 2;
+      const king = game.pieces.find((entry) => entry.id === id);
+      if (!king) break;
+      const [a, b] = steps[side];
+      const to = king.cell === a ? b : a;
+      const out = chessReduce(game, { k: 'move', piece: id, to }, ctx);
+      if (!out.ok) throw new Error(`rejected: ${out.code}`);
+      game = out.state;
+      seen.push(game.lava[String(cell)] !== undefined);
+    }
+
+    // Two rounds on the board — the round it appears in and the one after — and then
+    // it cools: the third move closes round 2, and the flow is gone.
+    expect(seen).toEqual([true, true, false, false]);
+  });
+
+  it('burns about half of what stands in it, and the same half every time', () => {
+    const cell = at(4, 4);
+    let burned = 0;
+    const trials = 200;
+    const outcomes = new Set<boolean>();
+
+    for (let seed = 1; seed <= trials; seed++) {
+      const game = state(
+        [piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7)), piece(5, 0, 'rook', cell)],
+        { lava: { [String(cell)]: 0 }, round: 0, turn: 1, seed },
+      );
+      const out = chessReduce(game, { k: 'move', piece: 2, to: at(6, 7) }, ctx);
+      expect(out.ok).toBe(true);
+      if (!out.ok) return;
+      const alive = out.state.pieces.some((entry) => entry.id === 5);
+      if (!alive) burned++;
+      if (seed <= 2) outcomes.add(alive);
+    }
+
+    expect(burned / trials).toBeGreaterThan(0.4);
+    expect(burned / trials).toBeLessThan(0.6);
+    // The same seed always burns the same piece: the roll is a hash, not a random.
+    expect(outcomes.size).toBeLessThanOrEqual(2);
+  });
+
+  it('pours into the neighbours of an eruption, never onto the cone itself', () => {
+    const cell = at(3, 3);
+    const game = state([piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', at(7, 7))], {
+      volcanoes: { [String(cell)]: 0 },
+      round: 3,
+      turn: 1,
+    });
+
+    const out = chessReduce(game, { k: 'move', piece: 2, to: at(6, 7) }, ctx);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+
+    const flows = Object.keys(out.state.lava)
+      .map(Number)
+      .sort((a, b) => a - b);
+    expect(flows).toHaveLength(8);
+    expect(flows).not.toContain(cell);
+    expect(out.events.find((event) => event.t === 'lava')).toBeTruthy();
+    // The eruption cell is clear, the ring around it is on fire.
+    for (const neighbour of flows) {
+      expect(Math.abs(Math.floor(neighbour / 8) - 3)).toBeLessThanOrEqual(1);
+      expect(Math.abs((neighbour % 8) - 3)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('puts a king in the ground when the flow takes it', () => {
+    const cell = at(4, 4);
+    // The flow is old enough to have burned nothing so far (it is not there yet);
+    // black's king stands on it at the round boundary.
+    const game = state(
+      [piece(1, 0, 'king', at(0, 0)), piece(2, 1, 'king', cell), piece(6, 1, 'rook', at(7, 6))],
+      { lava: { [String(cell)]: 0 }, round: 0, turn: 1 },
+    );
+
+    // A coin flip decides whether the king survives, so try seeds until one burns.
+    let decided = null as null | { side: Side; how: string };
+    for (let seed = 1; seed <= 40 && !decided; seed++) {
+      const out = chessReduce({ ...game, seed }, { k: 'move', piece: 6, to: at(7, 5) }, ctx);
+      if (!out.ok) continue;
+      const won = out.events.find((event) => event.t === 'won');
+      if (won && won.t === 'won') decided = { side: won.side, how: won.how };
+    }
+
+    expect(decided).toEqual({ side: 0, how: 'volcano' });
   });
 });
 

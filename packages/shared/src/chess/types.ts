@@ -55,6 +55,12 @@ export interface ChessState {
    * `round - spawned` — so a save needs no extra bookkeeping and a replay is exact.
    */
   readonly volcanoes: Readonly<Record<string, number>>;
+  /**
+   * Lava flows: cell index -> the round the flow appeared. A flow lasts
+   * `BALANCE.chess.lava.rounds` rounds and then cools; the age is derived, the same
+   * way a volcano's stage is, so a save stores only the round.
+   */
+  readonly lava: Readonly<Record<string, number>>;
   readonly coins: readonly [number, number];
   /** Set once a king is taken or drowned; the loser is the other side. */
   readonly winner: Side | null;
@@ -146,6 +152,19 @@ export type ChessEvent =
       readonly pieces: number;
       readonly structures: number;
     }
+  | {
+      /** Flows appeared on these cells: impassable, and burning anything left there. */
+      readonly t: 'lava';
+      readonly cells: readonly number[];
+    }
+  | {
+      /** A flow took something: a piece, a structure, or both on one cell. */
+      readonly t: 'lavaBurned';
+      readonly cell: number;
+      readonly pieces: number;
+      readonly structures: number;
+    }
+  | { readonly t: 'lavaOut'; readonly cells: readonly number[] }
   | { readonly t: 'won'; readonly side: Side; readonly how: WinHow }
   | { readonly t: 'rejected'; readonly code: ChessErrorCode };
 

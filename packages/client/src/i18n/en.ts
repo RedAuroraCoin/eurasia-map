@@ -64,6 +64,17 @@ export const en = {
           : how === 'volcano'
             ? `${side} wins — a volcano took the other king`
             : `${side} wins — the other king drowned`,
+    lavaFlows: (cells: number) =>
+      cells === 1
+        ? 'Lava pours out: 1 cell is on fire and impassable'
+        : `Lava pours out: ${cells} cells are on fire and impassable`,
+    lavaBurned: (pieces: number, structures: number) => {
+      const parts: string[] = [];
+      if (pieces > 0) parts.push(pieces === 1 ? '1 piece' : `${pieces} pieces`);
+      if (structures > 0) parts.push(structures === 1 ? '1 structure' : `${structures} structures`);
+      return `The lava burned ${parts.join(' and ')}`;
+    },
+    lavaOut: 'The lava has cooled. The ground is passable again.',
     volcanoYellow: 'A volcano has appeared. It will not stay quiet.',
     volcanoOrange: 'The volcano is glowing orange. One more round.',
     volcanoRed: 'The volcano is about to blow — clear the cell!',

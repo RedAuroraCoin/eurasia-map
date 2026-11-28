@@ -209,6 +209,7 @@ export function createChessGame(size: MapSize, seed: number, ctx: ChessCtx, nowM
     towers: {},
     rockets: {},
     volcanoes: {},
+    lava: {},
     coins: [start, start],
     winner: null,
     lastMove: null,
@@ -288,7 +289,16 @@ function endTurn(
   // stored but the round it appeared.
   const volcanoRule = BALANCE.chess.volcano;
   const volcanoes: Record<string, number> = {};
+  /** Cells that opened this round: their neighbours are about to catch fire. */
+  const eruptions: number[] = [];
   let eruptedKing: Side | null = null;
+
+  // Flows carried over from last round. They last a fixed number of rounds, and the
+  // sea puts them out like it drowns a piece.
+  const lava: Record<string, number> = {};
+  for (const [cell, spawned] of Object.entries(state.lava)) {
+    if (ground(Number(cell)) >= seaLevel) lava[cell] = spawned;
+  }
   for (const [cell, spawned] of Object.entries(state.volcanoes)) {
     const index = Number(cell);
     if (ground(index) < seaLevel) continue; // the sea puts it out
@@ -307,6 +317,7 @@ function endTurn(
     }
 
     // It opens. Anything on the cell goes, and so does the cone.
+    eruptions.push(index);
     const lost = pieces.filter((piece) => piece.cell === index);
     pieces = pieces.filter((piece) => piece.cell !== index);
     const king = lost.find((piece) => piece.kind === 'king');
@@ -330,7 +341,7 @@ function endTurn(
     (round - volcanoRule.firstRound) % volcanoRule.everyRounds === 0;
   const active = Object.keys(volcanoes).length;
   if (scheduled && turn === 0 && active < volcanoRule.maxActive) {
-    const taken = new Set(Object.keys(volcanoes).map(Number));
+    const taken = new Set([...Object.keys(volcanoes), ...Object.keys(lava)].map(Number));
     const candidates: number[] = [];
     for (let cell = 0; cell < ctx.cellCount; cell++) {
       if (!ctx.isLand(cell) || taken.has(cell)) continue;
@@ -344,6 +355,74 @@ function endTurn(
       const cell = candidates[Math.min(candidates.length - 1, pick)] as number;
       volcanoes[String(cell)] = round;
       events.push({ t: 'volcano', cell, stage: 0 });
+    }
+  }
+
+  // --- lava ----------------------------------------------------------------
+  // An eruption pours flows into the eight neighbours: orange cells that cannot be
+  // entered, built on or slid through, and that burn whatever they find. A flow
+  // lasts `lava.rounds` rounds and then cools.
+  const lavaRule = BALANCE.chess.lava;
+  if (turn === 0) {
+    const appearing: number[] = [];
+    const cooling: number[] = [];
+
+    for (const [cell, spawned] of Object.entries(lava)) {
+      if (round - spawned >= lavaRule.rounds) {
+        cooling.push(Number(cell));
+        delete lava[cell];
+      }
+    }
+
+    for (const cell of eruptions) {
+      for (const next of neighbours(cell, ctx)) {
+        if (!ctx.isLand(next) || ground(next) < seaLevel) continue;
+        if (lava[String(next)] !== undefined) continue;
+        lava[String(next)] = round;
+        appearing.push(next);
+      }
+    }
+
+    if (appearing.length > 0) events.push({ t: 'lava', cells: appearing.sort((a, b) => a - b) });
+    if (cooling.length > 0) events.push({ t: 'lavaOut', cells: cooling.sort((a, b) => a - b) });
+
+    // The flows take what they find — one coin flip per occupant per round. The roll
+    // is a hash of the seed, the round, the cell and the occupant, so the same game
+    // always burns the same things, on every device and in every replay.
+    const burn = (cell: number, kind: number, id: number): boolean =>
+      hash01(
+        (state.seed ^
+          Math.imul(round, 0x85ebca6b) ^
+          Math.imul(cell + 1, 0xc2b2ae35) ^
+          Math.imul(kind + 1, 0x27d4eb2f) ^
+          Math.imul(id + 1, 0x165667b1)) >>>
+          0,
+      ) < lavaRule.burnChance;
+
+    const kept: typeof pieces = [];
+    for (const piece of pieces) {
+      if (lava[String(piece.cell)] === undefined) {
+        kept.push(piece);
+        continue;
+      }
+      if (!burn(piece.cell, 0, piece.id)) {
+        kept.push(piece);
+        continue;
+      }
+      if (piece.kind === 'king') eruptedKing = piece.side;
+      events.push({ t: 'lavaBurned', cell: piece.cell, pieces: 1, structures: 0 });
+    }
+    pieces = kept;
+
+    for (const [cell, side] of Object.entries(towers)) {
+      if (lava[cell] === undefined || !burn(Number(cell), 1, side)) continue;
+      delete towers[cell];
+      events.push({ t: 'lavaBurned', cell: Number(cell), pieces: 0, structures: 1 });
+    }
+    for (const [cell, side] of Object.entries(rockets)) {
+      if (lava[cell] === undefined || !burn(Number(cell), 2, side)) continue;
+      delete rockets[cell];
+      events.push({ t: 'lavaBurned', cell: Number(cell), pieces: 0, structures: 1 });
     }
   }
 
@@ -394,6 +473,7 @@ function endTurn(
     towers,
     rockets,
     volcanoes,
+    lava,
     winner: decided ? decided.side : null,
   };
 

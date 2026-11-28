@@ -63,10 +63,28 @@ function parsePiece(raw: unknown, ctx: ChessCtx, used: Set<number>): Piece | nul
   };
 }
 
+/**
+ * A map of cell -> round, as volcanoes and lava both use. Missing is empty: a save
+ * written before the mechanic existed is a game that had none of it.
+ */
+function cellRoundMap(value: unknown, ctx: ChessCtx): Record<string, number> | null {
+  const out: Record<string, number> = {};
+  if (value === undefined) return out;
+  if (!isRecord(value)) return null;
+  for (const [key, round] of Object.entries(value)) {
+    const cell = Number(key);
+    if (!Number.isInteger(cell) || cell < 0 || cell >= ctx.cellCount) return null;
+    if (!isNumber(round) || !Number.isInteger(round) || round < 0) return null;
+    out[key] = round;
+  }
+  return out;
+}
+
 /** Validates a saved game against the live board, or says why it cannot load. */
 export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
   if (!isRecord(raw)) return null;
-  const { seed, pieces, turn, round, towers, rockets, volcanoes, coins, winner, lastMove } = raw;
+  const { seed, pieces, turn, round, towers, rockets, volcanoes, lava, coins, winner, lastMove } =
+    raw;
   if (!isNumber(seed) || !Number.isInteger(seed)) return null;
   if (!isSide(turn)) return null;
   if (!isNumber(round) || !Number.isInteger(round) || round < 0) return null;
@@ -118,18 +136,12 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
     }
   }
 
-  // Volcanoes arrived in 0.1.1, so a file without them is a game played before
-  // they existed, not a broken one.
-  const volcanoMap: Record<string, number> = {};
-  if (volcanoes !== undefined) {
-    if (!isRecord(volcanoes)) return null;
-    for (const [key, value] of Object.entries(volcanoes)) {
-      const cell = Number(key);
-      if (!Number.isInteger(cell) || cell < 0 || cell >= ctx.cellCount) return null;
-      if (!isNumber(value) || !Number.isInteger(value)) return null;
-      volcanoMap[key] = value;
-    }
-  }
+  // Volcanoes arrived in 0.1.1 and lava flows in 0.1.3, so a file without them is a
+  // game played before they existed, not a broken one.
+  const volcanoMap = cellRoundMap(volcanoes, ctx);
+  if (volcanoMap === null) return null;
+  const lavaMap = cellRoundMap(lava, ctx);
+  if (lavaMap === null) return null;
 
   let last: ChessState['lastMove'] = null;
   if (isRecord(lastMove)) {
@@ -148,6 +160,7 @@ export function parseChess(raw: unknown, ctx: ChessCtx): ChessState | null {
     towers: towerMap,
     rockets: rocketMap,
     volcanoes: volcanoMap,
+    lava: lavaMap,
     coins: [Math.floor(coins[0] as number), Math.floor(coins[1] as number)],
     winner: winner === null ? null : (winner as Side),
     lastMove: last,

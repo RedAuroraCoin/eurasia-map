@@ -168,6 +168,27 @@ enough to walk a piece away, or to leave it there and hope the opponent does not
 | +2 | red |
 | +3 | the eruption: anything on the cell is destroyed |
 
+### Lava
+
+An eruption leaves flows on the eight neighbours — orange cells that are **on fire**:
+
+- **impassable** — nothing can land on a flow, and a rook or a bishop cannot slide
+  through one: it stops in front of it, the way it stops in front of a tower.
+- **unbuildable** — the king cannot fortify a cell under a flow, and a rocket base
+  cannot be placed there.
+- **burning** — every piece and every structure standing on a flow rolls a coin flip
+  (50 %) once a round: heads, it is destroyed. Two rounds of standing in it means two
+  flips. A king burned by a flow loses the game the same way an eruption takes one.
+- **temporary** — a flow lasts two rounds — the round it appears in and the one after —
+  and then cools, and the ground is passable again.
+
+The roll is a hash of the seed, the round, the cell and the occupant, so a game burns the
+same things on every device and in every replay; there is no hidden dice roll in the
+network path, and a save needs only the round each flow started on.
+
+Flows never spread: the ring around an eruption is the whole of it, and a volcano never
+appears under a flow that is already there.
+
 ## Saving
 
 The game is saved after every applied action, on tab hide and on unload, under

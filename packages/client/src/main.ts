@@ -695,6 +695,7 @@ function syncChess(): void {
   view.setState(chessView(), clock());
   view.setUnits(unitsOf(chess));
   view.setVolcanoes(volcanoesOf(chess));
+  view.setLava(lavaOf(chess));
   // What each side will be paid when this round closes: the base rate plus one
   // share per tower it still holds.
   const game = chess;
@@ -784,6 +785,15 @@ function applyChess(result: ReturnType<typeof chessReduce>, cost = BALANCE.chess
             : t.chess.volcanoRed,
         event.stage === 2 ? 'error' : 'info',
       );
+    }
+    if (event.t === 'lava') {
+      app.setMessage(t.chess.lavaFlows(event.cells.length), 'error');
+    }
+    if (event.t === 'lavaBurned') {
+      app.setMessage(t.chess.lavaBurned(event.pieces, event.structures), 'error');
+    }
+    if (event.t === 'lavaOut') {
+      app.setMessage(t.chess.lavaOut, 'info');
     }
     if (event.t === 'erupted') {
       // The cell keeps its scorch, so an eruption is also a small explosion.
@@ -1081,6 +1091,13 @@ function volcanoesOf(game: ChessState): VolcanoCell[] {
       stage: Math.max(0, Math.min(last, game.round - spawned)),
     }))
     .sort((a, b) => a.cell - b.cell);
+}
+
+/** Cells under a flow, sorted so the picture does not depend on key order. */
+function lavaOf(game: ChessState): number[] {
+  return Object.keys(game.lava)
+    .map(Number)
+    .sort((a, b) => a - b);
 }
 
 /** One click: pick a piece, then a destination — or place a tower when armed. */
@@ -1511,6 +1528,7 @@ export const __eurasia: {
   getGlowCells: () => readonly number[];
   getReach: () => readonly ReachCell[];
   getVolcanoes: () => readonly VolcanoCell[];
+  getLava: () => readonly number[];
   getInspect: () => number | null;
   getRegion: () => string;
   getSize: () => number;
@@ -1529,6 +1547,7 @@ export const __eurasia: {
   getGlowCells: () => glowCells,
   getReach: () => reach,
   getVolcanoes: () => (chess ? volcanoesOf(chess) : []),
+  getLava: () => (chess ? lavaOf(chess) : []),
   getInspect: () => inspectBase,
   getRegion: () => map.region,
   getSize: () => map.land,

@@ -671,6 +671,29 @@ describe('single-player shell', () => {
     expect(cones[1]?.stage).toBe(2);
   });
 
+  it('paints a burning cell as lava, under the cone that caused it', async () => {
+    const map = getMap(1600);
+    const base = createChessGame(1600, 23, {
+      isLand: (cell) => map.mask[cell] === '#',
+      elev: map.elev,
+      rows: map.rows,
+      cols: map.cols,
+      cellCount: map.mask.length,
+    });
+    const land = [...map.mask].findIndex((char) => char === '#');
+    saveChessGame(localStorage, {
+      ...base,
+      round: 5,
+      lava: { [String(land + 1)]: 4, [String(land + 2)]: 5 },
+    });
+    localStorage.setItem('eurasia.settings.v2', JSON.stringify({ mode: 'chess' }));
+
+    const { getLava } = await boot();
+    flushFrames();
+
+    expect(getLava()).toEqual([land + 1, land + 2]);
+  });
+
   it('shows what a rocket base reaches, including the enemy’s', async () => {
     const map = getMap(1600);
     const ctx = {
